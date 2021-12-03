@@ -6,6 +6,8 @@ extern "C" {
 
 #include <attributes_info.H>
 #include <fmt/format.h>
+#include <libphal.H>
+#include <phal_exception.H>
 
 #include <algorithm>
 #include <cstdlib>
@@ -25,6 +27,7 @@ namespace phal
 {
 
 using namespace phosphor::logging;
+using namespace openpower::phal::exception;
 
 /**
  * Used to pass buffer to pdbg callback api to get required target
@@ -70,6 +73,8 @@ constexpr int requireAttrNotFound = 2;
 int pdbgCallbackToGetTgtReqAttrsVal(struct pdbg_target* target,
                                     void* appPrivData)
 {
+    using namespace openpower::phal::pdbg;
+
     TargetInfo* targetInfo = static_cast<TargetInfo*>(appPrivData);
 
     ATTR_PHYS_BIN_PATH_Type physBinPath;
@@ -100,22 +105,37 @@ int pdbgCallbackToGetTgtReqAttrsVal(struct pdbg_target* target,
         return continueTgtTraversal;
     }
 
-    if (DT_GET_PROP(ATTR_LOCATION_CODE, target, targetInfo->locationCode))
+    // Found Target, now collect the required attributes associated to the
+    // target. Incase of any attribute read failure, initialize the data with
+    // default value.
+
+    try
     {
-        log<level::ERR>("Could not read LOCATION_CODE attribute");
-        return requireAttrNotFound;
+        // Get location code information
+        openpower::phal::pdbg::getLocationCode(target,
+                                               targetInfo->locationCode);
+    }
+    catch (const std::exception& e)
+    {
+        // log message and continue with default data
+        log<level::ERR>(fmt::format("getLocationCode({}): Exception({})",
+                                    pdbg_target_path(target), e.what())
+                            .c_str());
     }
 
     if (DT_GET_PROP(ATTR_PHYS_DEV_PATH, target, targetInfo->physDevPath))
     {
-        log<level::ERR>("Could not read PHYS_DEV_PATH attribute");
-        return requireAttrNotFound;
+        log<level::ERR>(
+            fmt::format("Could not read({}) PHYS_DEV_PATH attribute",
+                        pdbg_target_path(target))
+                .c_str());
     }
 
     if (DT_GET_PROP(ATTR_MRU_ID, target, targetInfo->mruId))
     {
-        log<level::ERR>("Could not read MRU_ID attribute");
-        return requireAttrNotFound;
+        log<level::ERR>(fmt::format("Could not read({}) ATTR_MRU_ID attribute",
+                                    pdbg_target_path(target))
+                            .c_str());
     }
 
     return requireAttrFound;
@@ -327,6 +347,30 @@ void convertFAPItoPELformat(FFDC& ffdc, json& pelJSONFmtCalloutDataList,
 
                 pelJSONFmtCalloutDataList.emplace_back(jsonCalloutData);
             });
+
+        // Adding procedure callout
+        calloutCount = 0;
+        for_each(ffdc.hwp_errorinfo.procedures_callout.begin(),
+                 ffdc.hwp_errorinfo.procedures_callout.end(),
+                 [&ffdcUserData, &calloutCount, &pelJSONFmtCalloutDataList](
+                     const ProcedureCallout& procCallout) -> void {
+                     calloutCount++;
+                     std::stringstream keyPrefix;
+                     keyPrefix << "HWP_PROC_CO_" << std::setfill('0')
+                               << std::setw(2) << calloutCount << "_";
+                     ffdcUserData.emplace_back(
+                         std::string(keyPrefix.str()).append("PRIORITY"),
+                         procCallout.callout_priority);
+                     ffdcUserData.emplace_back(
+                         std::string(keyPrefix.str()).append("MAINT_PROCEDURE"),
+                         procCallout.proc_callout);
+                     json jsonCalloutData;
+                     jsonCalloutData["Procedure"] = procCallout.proc_callout;
+                     std::string pelPriority =
+                         getPelPriority(procCallout.callout_priority);
+                     jsonCalloutData["Priority"] = pelPriority;
+                     pelJSONFmtCalloutDataList.emplace_back(jsonCalloutData);
+                 });
     }
     else if ((ffdc.ffdc_type != FFDC_TYPE_NONE) &&
              (ffdc.ffdc_type != FFDC_TYPE_UNSUPPORTED))
