@@ -259,12 +259,13 @@ void Manager::createEntry(std::string errMsg, Entry::Level errLvl,
     std::map<std::string,
              const std::function<std::string(Entry&, std::string&)>>
         fnMap;
-    fnMap.insert(std::make_pair(
-        std::string(FQPN_PREFIX) + "Resolution",
-        [](Entry& entry, std::string& s) { return entry.resolution(s); }));
+    fnMap.insert(std::make_pair(std::string(FQPN_PREFIX) + "Resolution",
+                                [](Entry& entry, std::string& s) {
+                                    return entry.resolution(s, true);
+                                }));
     fnMap.insert(std::make_pair(
         std::string(FQPN_PREFIX) + "EventId",
-        [](Entry& entry, std::string& s) { return entry.eventId(s); }));
+        [](Entry& entry, std::string& s) { return entry.eventId(s, true); }));
 
     auto foundFQPNs = processMetadata(errMsg, additionalData, fnMap, objects);
 
@@ -275,6 +276,7 @@ void Manager::createEntry(std::string errMsg, Entry::Level errLvl,
                                      std::move(objects), fwVersion, *this);
 
     callFQPNsMethods(foundFQPNs, e, fnMap);
+    e->emit_object_added();
 
     auto path = serialize(*e);
     e->path(path);
