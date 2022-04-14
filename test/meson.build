@@ -27,6 +27,7 @@ tests = [
     'elog_quiesce_test',
     'elog_update_ts_test',
     'extensions_test',
+    'namespace_logging_test',
     'remote_logging_test_address',
     'remote_logging_test_config',
     'remote_logging_test_port',
