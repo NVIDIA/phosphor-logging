@@ -64,8 +64,6 @@ sdeventplus_dep = dependency(
     fallback: ['sdeventplus', 'sdeventplus_dep' ],
 )
 
-nlohmann_json_dep = dependency('nlohmann/json.hpp', required: false)
-
 # Get Cereal dependency.
 cereal_dep = dependency('cereal', required: false)
 has_cereal = cpp.has_header_symbol(
@@ -162,7 +160,6 @@ log_manager_deps = [
     phosphor_logging_dep,
     sdbusplus_dep,
     sdeventplus_dep,
-    nlohmann_json_dep,
 ]
 executable('phosphor-log-manager',
     log_manager_sources,

@@ -103,24 +103,9 @@ void load(Archive& a, Entry& e, const std::uint32_t version)
     e.resolution(resolution, true);
 }
 
-fs::path serialize(const Entry& e)
-{
-    auto path = e.path();
-    if (std::string(path) == "")
-    {
-        path = std::string(ERRLOG_PERSIST_PATH) + std::to_string(e.id());
-    }
-    auto pathStr = std::string(path);
-    std::ofstream os(path.c_str(), std::ios::binary);
-    cereal::BinaryOutputArchive oarchive(os);
-    oarchive(e);
-    return path;
-}
-
 fs::path serialize(const Entry& e, const fs::path& dir)
 {
     auto path = dir / std::to_string(e.id());
-    auto pathStr = std::string(path);
     std::ofstream os(path.c_str(), std::ios::binary);
     cereal::BinaryOutputArchive oarchive(os);
     oarchive(e);

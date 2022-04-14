@@ -25,9 +25,6 @@
 
 #define RSYSLOG_SERVER_CONFIG_FILE "@rsyslog_server_conf@"
 
-#define DEFAULT_BIN_NAME "default"
-#define DEFAULT_BIN_KEY "namespace"
-
 extern const char *ERRLOG_PERSIST_PATH;
 extern const char *EXTENSION_PERSIST_DIR;
 extern const bool IS_UNIT_TEST;

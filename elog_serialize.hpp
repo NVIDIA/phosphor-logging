@@ -21,15 +21,8 @@ namespace fs = std::filesystem;
  *                   be placed.
  *  @return fs::path - pathname of persisted error file
  */
-fs::path serialize(const Entry& e, const fs::path& dir);
-
-/**
- * @brief
- *
- * @param[in] e - const reference to error entry.
- * @return fs::path - path name of the persisted error file
- */
-fs::path serialize(const Entry& e);
+fs::path serialize(const Entry& e,
+                   const fs::path& dir = fs::path(ERRLOG_PERSIST_PATH));
 
 /** @brief Deserialze a persisted error into a d-bus object
  *  @param[in] path - pathname of persisted error file
