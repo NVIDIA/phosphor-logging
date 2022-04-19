@@ -1,5 +1,6 @@
 #pragma once
 
+#include "bin.hpp"
 #include "elog_block.hpp"
 #include "elog_entry.hpp"
 #include "xyz/openbmc_project/Collection/DeleteAll/server.hpp"
@@ -7,7 +8,10 @@
 #include "xyz/openbmc_project/Logging/Entry/server.hpp"
 #include "xyz/openbmc_project/Logging/Internal/Manager/server.hpp"
 
+#include <fstream>
 #include <list>
+#include <nlohmann/json.hpp>
+#include <phosphor-logging/lg2.hpp>
 #include <phosphor-logging/log.hpp>
 #include <sdbusplus/bus.hpp>
 
@@ -59,15 +63,84 @@ class Manager : public details::ServerObject<details::ManagerIface>
     Manager& operator=(const Manager&) = delete;
     Manager(Manager&&) = delete;
     Manager& operator=(Manager&&) = delete;
-    virtual ~Manager() = default;
+    virtual ~Manager(){}
 
     /** @brief Constructor to put object onto bus at a dbus path.
      *  @param[in] bus - Bus to attach to.
      *  @param[in] path - Path to attach at.
      */
-    Manager(sdbusplus::bus::bus& bus, const char* objPath) :
-        details::ServerObject<details::ManagerIface>(bus, objPath), busLog(bus),
-        entryId(0), fwVersion(readFWVersion()){};
+    Manager(sdbusplus::bus::bus& bus, const std::string& objPath);
+
+    /**
+     * @fn parseJson
+     * @brief Method to parse input json config
+     *
+     * @param jsonPath
+     * @return true
+     * @return false
+     */
+    uint32_t parseJson(const std::string& jsonPath)
+    {
+        std::ifstream jsonStream;
+        nlohmann::json data;
+        bool validJsonConfig = false;
+        try
+        {
+            jsonStream.open(jsonPath);
+            if (jsonStream.is_open())
+            {
+                data = nlohmann::json::parse(jsonStream, nullptr, false);
+                validJsonConfig = true;
+                jsonStream.close();
+            }
+            else
+            {
+                lg2::error("Couldn't open argument file passed in. Using only "
+                           "default namespaces.");
+                return 1;
+            }
+        }
+        catch (const std::exception& e)
+        {
+            lg2::error("Failed to open/parse JSON file: {ERROR}", "ERROR",
+                       e.what());
+            return 2;
+        }
+
+        if (validJsonConfig && !data.is_discarded())
+        {
+            for (auto& item : data["Namespaces"].items())
+            {
+                if (item.value()["ID"].is_string())
+                {
+                    auto id =
+                        item.value()["ID"].get_ptr<nlohmann::json::string_t*>();
+
+                    auto errorCap =
+                        item.value()["ErrorCapacity"]
+                            .get_ptr<nlohmann::json::number_unsigned_t*>();
+
+                    auto errorInfoCap =
+                        item.value()["InfoErrorCapacity"]
+                            .get_ptr<nlohmann::json::number_unsigned_t*>();
+
+                    auto bin = phosphor::logging::internal::Bin(
+                        std::string(*id), *errorCap, *errorInfoCap,
+                        std::string(ERRLOG_PERSIST_PATH) + "/" +
+                            std::string(*id));
+
+                    this->addBin(bin);
+                }
+            }
+        }
+        else
+        {
+            lg2::error("Invalid JSON file passed.");
+            return 3;
+        }
+
+        return 0;
+    }
 
     /*
      * @fn commit()
@@ -125,13 +198,13 @@ class Manager : public details::ServerObject<details::ManagerIface>
      *
      *  @return int - count of real errors
      */
-    int getRealErrSize();
+    int getRealErrSize(const std::string& binName = DEFAULT_BIN_NAME);
 
     /** @brief Returns the count of Info errors
      *
      *  @return int - count of info errors
      */
-    int getInfoErrSize();
+    int getInfoErrSize(const std::string& binName = DEFAULT_BIN_NAME);
 
     /** @brief Returns the number of blocking errors
      *
@@ -169,6 +242,19 @@ class Manager : public details::ServerObject<details::ManagerIface>
     uint32_t lastEntryID() const
     {
         return entryId;
+    }
+
+    void addBin(Bin& bin)
+    {
+        // Create a directory to persist errors for default path
+        std::filesystem::create_directories(bin.persistLocation);
+        // Insert into internal DS to keep track
+        binNameMap.insert(std::make_pair(bin.name, bin));
+    }
+
+    auto getBin(const std::string& binName)
+    {
+        return binNameMap[binName];
     }
 
     /** @brief Creates an event log
@@ -235,7 +321,13 @@ class Manager : public details::ServerObject<details::ManagerIface>
     /** @brief Persistent map of Entry dbus objects and their ID */
     std::map<uint32_t, std::unique_ptr<Entry>> entries;
 
+    /** @brief Persistent map of entry id to bin Name */
+    std::map<uint32_t, std::string> binEntryMap;
+
   private:
+    /** @brief Persistent map of namespaces structure and their strings */
+    std::map<std::string, Bin> binNameMap;
+
     /*
      * @fn _commit()
      * @brief commit() helper
@@ -318,17 +410,13 @@ class Manager : public details::ServerObject<details::ManagerIface>
     /** @brief Persistent sdbusplus DBus bus connection. */
     sdbusplus::bus::bus& busLog;
 
-    /** @brief List of error ids for high severity errors */
-    std::list<uint32_t> realErrors;
-
-    /** @brief List of error ids for Info(and below) severity */
-    std::list<uint32_t> infoErrors;
-
     /** @brief Id of last error log entry */
     uint32_t entryId;
 
     /** @brief The BMC firmware version */
     const std::string fwVersion;
+
+    phosphor::logging::internal::Bin defaultBin;
 
     /** @brief Array of blocking errors */
     std::vector<std::unique_ptr<Block>> blockingErrors;

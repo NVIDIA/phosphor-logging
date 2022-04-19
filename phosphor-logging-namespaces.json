@@ -1,0 +1,72 @@
+{
+    "Namespaces": [
+        {
+            "ID": "GPU0",
+            "ErrorCapacity": 5,
+            "InfoErrorCapacity": 10
+        },
+        {
+            "ID": "GPU1",
+            "ErrorCapacity": 5,
+            "InfoErrorCapacity": 10
+        },
+        {
+            "ID": "GPU2",
+            "ErrorCapacity": 20,
+            "InfoErrorCapacity": 10
+        },
+        {
+            "ID": "GPU3",
+            "ErrorCapacity": 5,
+            "InfoErrorCapacity": 10
+        },
+        {
+            "ID": "GPU4",
+            "ErrorCapacity": 20,
+            "InfoErrorCapacity": 10
+        },
+        {
+            "ID": "GPU5",
+            "ErrorCapacity": 5,
+            "InfoErrorCapacity": 10
+        },
+        {
+            "ID": "GPU6",
+            "ErrorCapacity": 20,
+            "InfoErrorCapacity": 10
+        },
+        {
+            "ID": "GPU7",
+            "ErrorCapacity": 5,
+            "InfoErrorCapacity": 10
+        },
+        {
+            "ID": "NVSwitch0",
+            "ErrorCapacity": 20,
+            "InfoErrorCapacity": 10
+        },
+        {
+            "ID": "NVSwitch1",
+            "ErrorCapacity": 20,
+            "InfoErrorCapacity": 10
+        },
+        {
+            "ID": "NVSwitch2",
+            "ErrorCapacity": 20,
+            "InfoErrorCapacity": 10
+        },
+        {
+            "ID": "NVSwitch3",
+            "ErrorCapacity": 20,
+            "InfoErrorCapacity": 10
+        },
+        {
+            "ID": "Baseboard",
+            "ErrorCapacity": 20,
+            "InfoErrorCapacity": 10
+        }
+    ],
+    "GlobalConfig": {
+        "DeletePolicy": "DefaultOnly"
+    }
+}

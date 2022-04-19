@@ -59,14 +59,29 @@ inline auto getLevel(const std::string& errMsg)
     return reqLevel;
 }
 
-int Manager::getRealErrSize()
+/**
+ * @brief Construct a new Manager:: Manager object
+ *
+ * @param bus
+ * @param objPath
+ */
+Manager::Manager(sdbusplus::bus::bus& bus, const std::string& objPath) :
+    details::ServerObject<details::ManagerIface>(bus, objPath.c_str()), busLog(bus),
+    entryId(0), fwVersion(readFWVersion()),
+    defaultBin(DEFAULT_BIN_NAME, ERROR_CAP, ERROR_INFO_CAP,
+               ERRLOG_PERSIST_PATH)
 {
-    return realErrors.size();
+    this->addBin(this->defaultBin);
 }
 
-int Manager::getInfoErrSize()
+int Manager::getRealErrSize(const std::string& binName)
 {
-    return infoErrors.size();
+    return binNameMap[binName].errorEntries.size();
+}
+
+int Manager::getInfoErrSize(const std::string& binName)
+{
+    return binNameMap[binName].infoEntries.size();
 }
 
 uint32_t Manager::commit(uint64_t transactionId, std::string errMsg)
@@ -222,20 +237,46 @@ void Manager::createEntry(std::string errMsg, Entry::Level errLvl,
                           std::vector<std::string> additionalData,
                           const FFDCEntries& ffdc)
 {
+    // For the incoming entry, find the bin associated with the entry
+    // Set entryBinName as default
+    std::string entryBinName = DEFAULT_BIN_NAME;
+    Bin* entryBin = &(binNameMap[entryBinName]);
+
+    constexpr auto separator = '=';
+    for (const auto& entryItem : additionalData)
+    {
+        auto found = entryItem.find(separator);
+        if (std::string::npos != found)
+        {
+            auto key = entryItem.substr(0, found);
+            auto val = entryItem.substr(found + 1, entryItem.size());
+            // If key name matches and the val is a an existing bin
+            if ((key == DEFAULT_BIN_KEY) &&
+                (binNameMap.find(val) != binNameMap.end()))
+            {
+                entryBinName = val;
+                entryBin = &(binNameMap[val]);
+            }
+        }
+    }
+
+    // lg2::info("Bin of Incoming Entry: {BIN_NAME}", "BIN_NAME", entryBinName);
+
+    // Corresponding to the bin found, use capacity limits
     if (!Extensions::disableDefaultLogCaps())
     {
         if (errLvl < Entry::sevLowerLimit)
         {
-            if (realErrors.size() >= ERROR_CAP)
+            if (entryBin->errorEntries.size() >= entryBin->errorCap)
             {
-                erase(realErrors.front());
+                erase(entryBin->errorEntries.front());
             }
         }
         else
         {
-            if (infoErrors.size() >= ERROR_INFO_CAP)
+            if (entryBin->infoEntries.size() >= entryBin->errorInfoCap)
             {
-                erase(infoErrors.front());
+                erase(entryBin->infoEntries.front());
             }
         }
     }
@@ -243,12 +284,16 @@ void Manager::createEntry(std::string errMsg, Entry::Level errLvl,
     entryId++;
     if (errLvl >= Entry::sevLowerLimit)
     {
-        infoErrors.push_back(entryId);
+        entryBin->infoEntries.push_back(entryId);
     }
     else
     {
-        realErrors.push_back(entryId);
+        entryBin->errorEntries.push_back(entryId);
     }
+
+    // Insert Entry into binEntryMap to track which Bin this entry went into
+    binEntryMap.insert(std::make_pair(entryId, entryBinName));
+
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                   std::chrono::system_clock::now().time_since_epoch())
                   .count();
@@ -275,10 +320,23 @@ void Manager::createEntry(std::string errMsg, Entry::Level errLvl,
                                      std::move(additionalData),
                                      std::move(objects), fwVersion, *this);
 
+    if (entryBinName.compare(DEFAULT_BIN_NAME) == 0)
+    {
+        entryBinName = "";
+    }
+    else
+    {
+        entryBinName = "/" + entryBinName;
+    }
     callFQPNsMethods(foundFQPNs, e, fnMap);
     e->emit_object_added();
 
-    auto path = serialize(*e);
+    auto entryPath = std::string(ERRLOG_PERSIST_PATH) + entryBinName;
+
+    // lg2::info("Writing Entry on FS on Path: {ENTRY_PATH}", "ENTRY_PATH",
+    //           entryPath);
+
+    auto path = serialize(*e, fs::path(entryPath));
     e->path(path);
 
     if (isQuiesceOnErrorEnabled() && isCalloutPresent(*e))
@@ -545,8 +603,13 @@ void Manager::checkAndRemoveBlockingError(uint32_t entryId)
 void Manager::erase(uint32_t entryId)
 {
     auto entryFound = entries.find(entryId);
+
     if (entries.end() != entryFound)
     {
+        auto binName = binEntryMap[entryId];
+        auto *entryBin = &(binNameMap[binName]);
+        std::string deletePath = ERRLOG_PERSIST_PATH;
+
         for (auto& func : Extensions::getDeleteProhibitedFunctions())
         {
             try
@@ -555,7 +618,6 @@ void Manager::erase(uint32_t entryId)
                 func(entryId, prohibited);
                 if (prohibited)
                 {
-                    // Future work remains to throw an error here.
                     return;
                 }
             }
@@ -567,8 +629,17 @@ void Manager::erase(uint32_t entryId)
             }
         }
 
+        if (!(binName.compare(DEFAULT_BIN_NAME) == 0))
+        {
+            deletePath = std::string(ERRLOG_PERSIST_PATH) + "/" + binName;
+        }
+
+        lg2::info("Deleting Entry of Bin: {BIN_NAME}", "BIN_NAME", binName);
+        lg2::info("Bin of Incoming Entry: {DELETE_PATH}", "DELETE_PATH",
+                  deletePath);
+
         // Delete the persistent representation of this error.
-        fs::path errorPath(ERRLOG_PERSIST_PATH);
+        fs::path errorPath(deletePath);
         errorPath /= std::to_string(entryId);
         fs::remove(errorPath);
 
@@ -581,13 +652,14 @@ void Manager::erase(uint32_t entryId)
         };
         if (entryFound->second->severity() >= Entry::sevLowerLimit)
         {
-            removeId(infoErrors, entryId);
+            removeId(entryBin->infoEntries, entryId);
         }
         else
         {
-            removeId(realErrors, entryId);
+            removeId(entryBin->errorEntries, entryId);
         }
         entries.erase(entryFound);
+        binEntryMap.erase(entryId);
 
         checkAndRemoveBlockingError(entryId);
 
@@ -611,6 +683,17 @@ void Manager::erase(uint32_t entryId)
     }
 }
 
+void eraseSubStr(std::string& mainStr, const std::string& toErase)
+{
+    // Search for the substring in string
+    size_t pos = mainStr.find(toErase);
+    if (pos != std::string::npos)
+    {
+        // If found then erase it from string
+        mainStr.erase(pos, toErase.length());
+    }
+}
+
 void Manager::restore()
 {
     auto sanity = [](const auto& id, const auto& restoredId) {
@@ -624,12 +707,43 @@ void Manager::restore()
         return;
     }
 
-    for (auto& file : fs::directory_iterator(dir))
+    // using recursive_directory_iterator to get every directory
+    for (const auto& file : std::filesystem::recursive_directory_iterator(dir))
     {
+        if (fs::is_directory(file))
+        {
+            continue;
+        }
+
         auto id = file.path().filename().c_str();
         auto idNum = std::stol(id);
+
+        auto parentPath = std::string(file.path().parent_path());
+        eraseSubStr(parentPath, std::string(ERRLOG_PERSIST_PATH) + "/");
+        std::string restoreBinName = DEFAULT_BIN_NAME;
+
+        if (parentPath.compare(std::string(ERRLOG_PERSIST_PATH)) != 0)
+        {
+            restoreBinName = parentPath;
+            // If restoreBinName isn't present in the binNameMap then skip
+            if (!(binNameMap.find(restoreBinName) != binNameMap.end()))
+            {
+                lg2::error("Found invalid file during restore, skipping.");
+                continue;
+            }
+        }
+
+        lg2::info("Restoring File: {FILE_PATH}", "FILE_PATH", file.path());
+        lg2::info("Restoring File in Bin: {FILE_BIN}", "FILE_BIN",
+                  restoreBinName);
+
+        Bin* restoreBin = &(binNameMap[restoreBinName]);
+
         auto e = std::make_unique<Entry>(
-            busLog, std::string(OBJ_ENTRY) + '/' + id, idNum, *this);
+            busLog,
+            std::string(OBJ_ENTRY) + '/' + std::string(file.path().filename()),
+            idNum, *this);
+
         if (deserialize(file.path(), *e))
         {
             // validate the restored error entry id
@@ -639,14 +753,15 @@ void Manager::restore()
                 e->emit_object_added();
                 if (e->severity() >= Entry::sevLowerLimit)
                 {
-                    infoErrors.push_back(idNum);
+                    restoreBin->infoEntries.push_back(idNum);
                 }
                 else
                 {
-                    realErrors.push_back(idNum);
+                    restoreBin->errorEntries.push_back(idNum);
                 }
 
                 entries.insert(std::make_pair(idNum, std::move(e)));
+                binEntryMap.insert(std::make_pair(idNum, restoreBinName));
                 errorIds.push_back(idNum);
             }
             else

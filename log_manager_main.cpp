@@ -1,5 +1,6 @@
 #include "config.h"
 
+#include "bin.hpp"
 #include "extensions.hpp"
 #include "log_manager.hpp"
 
@@ -11,7 +12,7 @@
 
 #include "config_main.h"
 
-int main(int /*argc*/, char* /*argv*/[])
+int main(int argc, char* argv[])
 {
     PHOSPHOR_LOG2_USING_WITH_FLAGS;
 
@@ -21,15 +22,18 @@ int main(int /*argc*/, char* /*argv*/[])
 
     // Add sdbusplus ObjectManager for the 'root' path of the logging manager.
     sdbusplus::server::manager::manager objManager(bus, OBJ_LOGGING);
-
     phosphor::logging::internal::Manager iMgr(bus, OBJ_INTERNAL);
-
     phosphor::logging::Manager mgr(bus, OBJ_LOGGING, iMgr);
 
-    // Create a directory to persist errors.
-    std::filesystem::create_directories(ERRLOG_PERSIST_PATH);
+    if (argc == 2)
+    {
+        if (iMgr.parseJson(argv[1]))
+        {
+            lg2::info("Unable to parse argument. JSON file ignored.");
+        }
+    }
 
-    // Recreate error d-bus objects from persisted errors.
+    // Restore all errors
     iMgr.restore();
 
     bus.request_name(BUSNAME_LOGGING);
@@ -42,7 +46,8 @@ int main(int /*argc*/, char* /*argv*/[])
         }
         catch (const std::exception& e)
         {
-            error("An extension's startup function threw an exception: {ERROR}",
+            error("An extension's startup function threw an exception: "
+                  "{ERROR}",
                   "ERROR", e);
         }
     }
