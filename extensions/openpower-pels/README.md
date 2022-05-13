@@ -697,7 +697,7 @@ Note: "phal" build-time configure option should be "enabled" to enable this
 
 When an OpenBMC event log is deleted its corresponding PEL is moved to
 an archive folder. These archived PELs will be available in BMC dump.
-The archive path: /var/lib/phosphor-logging/extensions/pels/logs/archive.
+The archive path: /var/lib/logging/logs/extensions/pels/logs/archive.
 
 Highlighted points are:
 - PELs whose corresponding event logs have been deleted will be available
