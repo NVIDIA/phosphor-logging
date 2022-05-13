@@ -269,14 +269,14 @@ void Manager::createEntry(std::string errMsg, Entry::Level errLvl,
         {
             if (entryBin->errorEntries.size() >= entryBin->errorCap)
             {
-                erase(entryBin->errorEntries.front());
+                erase(*(entryBin->errorEntries.begin()));
             }
         }
         else
         {
             if (entryBin->infoEntries.size() >= entryBin->errorInfoCap)
             {
-                erase(entryBin->infoEntries.front());
+                erase(*(entryBin->infoEntries.begin()));
             }
         }
     }
@@ -284,11 +284,11 @@ void Manager::createEntry(std::string errMsg, Entry::Level errLvl,
     entryId++;
     if (errLvl >= Entry::sevLowerLimit)
     {
-        entryBin->infoEntries.push_back(entryId);
+        entryBin->infoEntries.insert(entryId);
     }
     else
     {
-        entryBin->errorEntries.push_back(entryId);
+        entryBin->errorEntries.insert(entryId);
     }
 
     // Insert Entry into binEntryMap to track which Bin this entry went into
@@ -634,16 +634,16 @@ void Manager::erase(uint32_t entryId)
             deletePath = std::string(ERRLOG_PERSIST_PATH) + "/" + binName;
         }
 
-        lg2::info("Deleting Entry of Bin: {BIN_NAME}", "BIN_NAME", binName);
-        lg2::info("Bin of Incoming Entry: {DELETE_PATH}", "DELETE_PATH",
-                  deletePath);
+        // lg2::info("Deleting Entry of Bin: {BIN_NAME}", "BIN_NAME", binName);
+        // lg2::info("Bin of Incoming Entry: {DELETE_PATH}", "DELETE_PATH",
+        //           deletePath);
 
         // Delete the persistent representation of this error.
         fs::path errorPath(deletePath);
         errorPath /= std::to_string(entryId);
         fs::remove(errorPath);
 
-        auto removeId = [](std::list<uint32_t>& ids, uint32_t id) {
+        auto removeId = [](std::set<uint32_t>& ids, uint32_t id) {
             auto it = std::find(ids.begin(), ids.end(), id);
             if (it != ids.end())
             {
@@ -733,9 +733,9 @@ void Manager::restore()
             }
         }
 
-        lg2::info("Restoring File: {FILE_PATH}", "FILE_PATH", file.path());
-        lg2::info("Restoring File in Bin: {FILE_BIN}", "FILE_BIN",
-                  restoreBinName);
+        // lg2::info("Restoring File: {FILE_PATH}", "FILE_PATH", file.path());
+        // lg2::info("Restoring File in Bin: {FILE_BIN}", "FILE_BIN",
+        //           restoreBinName);
 
         Bin* restoreBin = &(binNameMap[restoreBinName]);
 
@@ -753,11 +753,11 @@ void Manager::restore()
                 e->emit_object_added();
                 if (e->severity() >= Entry::sevLowerLimit)
                 {
-                    restoreBin->infoEntries.push_back(idNum);
+                    restoreBin->infoEntries.insert(idNum);
                 }
                 else
                 {
-                    restoreBin->errorEntries.push_back(idNum);
+                    restoreBin->errorEntries.insert(idNum);
                 }
 
                 entries.insert(std::make_pair(idNum, std::move(e)));

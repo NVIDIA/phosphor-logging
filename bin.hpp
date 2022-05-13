@@ -2,7 +2,7 @@
 
 #include "config.h"
 
-#include <list>
+#include <set>
 #include <string>
 
 namespace phosphor::logging::internal
@@ -25,8 +25,8 @@ class Bin
     uint32_t errorCap;
     uint32_t errorInfoCap;
     std::string persistLocation;
-    std::list<uint32_t> errorEntries;
-    std::list<uint32_t> infoEntries;
+    std::set<uint32_t> errorEntries;
+    std::set<uint32_t> infoEntries;
 };
 
 } // namespace phosphor::logging::internal
