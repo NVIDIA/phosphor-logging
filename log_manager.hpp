@@ -63,7 +63,9 @@ class Manager : public details::ServerObject<details::ManagerIface>
     Manager& operator=(const Manager&) = delete;
     Manager(Manager&&) = delete;
     Manager& operator=(Manager&&) = delete;
-    virtual ~Manager(){}
+    virtual ~Manager()
+    {
+    }
 
     /** @brief Constructor to put object onto bus at a dbus path.
      *  @param[in] bus - Bus to attach to.

@@ -66,10 +66,9 @@ inline auto getLevel(const std::string& errMsg)
  * @param objPath
  */
 Manager::Manager(sdbusplus::bus::bus& bus, const std::string& objPath) :
-    details::ServerObject<details::ManagerIface>(bus, objPath.c_str()), busLog(bus),
-    entryId(0), fwVersion(readFWVersion()),
-    defaultBin(DEFAULT_BIN_NAME, ERROR_CAP, ERROR_INFO_CAP,
-               ERRLOG_PERSIST_PATH)
+    details::ServerObject<details::ManagerIface>(bus, objPath.c_str()),
+    busLog(bus), entryId(0), fwVersion(readFWVersion()),
+    defaultBin(DEFAULT_BIN_NAME, ERROR_CAP, ERROR_INFO_CAP, ERRLOG_PERSIST_PATH)
 {
     this->addBin(this->defaultBin);
 }
@@ -607,7 +606,7 @@ void Manager::erase(uint32_t entryId)
     if (entries.end() != entryFound)
     {
         auto binName = binEntryMap[entryId];
-        auto *entryBin = &(binNameMap[binName]);
+        auto* entryBin = &(binNameMap[binName]);
         std::string deletePath = ERRLOG_PERSIST_PATH;
 
         for (auto& func : Extensions::getDeleteProhibitedFunctions())

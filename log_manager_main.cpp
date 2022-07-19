@@ -27,7 +27,25 @@ int main(int argc, char* argv[])
 
     if (argc == 2)
     {
-        if (iMgr.parseJson(argv[1]))
+        int res;
+        try
+        {
+            res = iMgr.parseJson(argv[1]);
+        }
+        catch (const nlohmann::detail::type_error& e)
+        {
+            lg2::info("Unable to parse argument. JSON file ignored.");
+        }
+        catch (const nlohmann::detail::other_error& e)
+        {
+            lg2::info("Unable to parse argument. JSON file ignored.");
+        }
+        catch (const nlohmann::detail::invalid_iterator& e)
+        {
+            lg2::info("Unable to parse argument. JSON file ignored.");
+        }
+
+        if (res)
         {
             lg2::info("Unable to parse argument. JSON file ignored.");
         }
@@ -36,7 +54,16 @@ int main(int argc, char* argv[])
     // Restore all errors
     iMgr.restore();
 
-    bus.request_name(BUSNAME_LOGGING);
+    try
+    {
+        bus.request_name(BUSNAME_LOGGING);
+    }
+    catch (const sdbusplus::exception::SdBusError& e){
+        error("Unable to request bus name: "
+              "{ERROR}",
+              "ERROR", e);
+    }
+    
 
     for (auto& startup : phosphor::logging::Extensions::getStartupFunctions())
     {

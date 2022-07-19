@@ -87,7 +87,8 @@ TEST_F(TestNamespaceLogging, testEraseAll)
     for (size_t i = 0; i < ERROR_CAP + binErrorCapacity; i++)
     {
         manager.create("Test Informational Error Event",
-                       Entry::Level::Informational, {{DEFAULT_BIN_KEY, binName}});
+                       Entry::Level::Informational,
+                       {{DEFAULT_BIN_KEY, binName}});
         manager.create("Test Error Event", Entry::Level::Error,
                        {{DEFAULT_BIN_KEY, binName}});
         manager.create("Test Error Event", Entry::Level::Error, {});
@@ -134,7 +135,8 @@ TEST_F(TestNamespaceLogging, testBinCapacity)
     for (size_t i = 0; i < ERROR_CAP + binErrorCapacity; i++)
     {
         manager.create("Test Informational Error Event",
-                       Entry::Level::Informational, {{DEFAULT_BIN_KEY, binName}});
+                       Entry::Level::Informational,
+                       {{DEFAULT_BIN_KEY, binName}});
         manager.create("Test Error Event", Entry::Level::Error,
                        {{DEFAULT_BIN_KEY, binName}});
         manager.create("Test Error Event", Entry::Level::Error, {});
