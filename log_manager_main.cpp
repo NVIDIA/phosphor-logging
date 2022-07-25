@@ -32,18 +32,12 @@ int main(int argc, char* argv[])
         {
             res = iMgr.parseJson(argv[1]);
         }
-        catch (const nlohmann::detail::type_error& e)
+        catch (const std::exception& e)
         {
-            lg2::info("Unable to parse argument. JSON file ignored.");
+            lg2::info("Unable to parse argument. JSON file ignored: {ERROR}", 
+                      "ERROR", e);
         }
-        catch (const nlohmann::detail::other_error& e)
-        {
-            lg2::info("Unable to parse argument. JSON file ignored.");
-        }
-        catch (const nlohmann::detail::invalid_iterator& e)
-        {
-            lg2::info("Unable to parse argument. JSON file ignored.");
-        }
+        
 
         if (res)
         {
