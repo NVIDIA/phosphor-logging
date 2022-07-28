@@ -27,7 +27,7 @@ int main(int argc, char* argv[])
 
     if (argc == 2)
     {
-        int res;
+        int res = 0;
         try
         {
             res = iMgr.parseJson(argv[1]);
