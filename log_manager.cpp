@@ -41,6 +41,23 @@ extern const std::map<
 constexpr auto FQPN_PREFIX = "xyz.openbmc_project.Logging.Entry.";
 constexpr auto FQPN_DELIM = "=";
 
+static constexpr auto mapperBusName = "xyz.openbmc_project.ObjectMapper";
+static constexpr auto mapperObjPath = "/xyz/openbmc_project/object_mapper";
+static constexpr auto mapperIntf = "xyz.openbmc_project.ObjectMapper";
+constexpr auto dbusProperty = "org.freedesktop.DBus.Properties";
+constexpr auto policyInterface = "xyz.openbmc_project.Logging.Settings";
+constexpr auto policyLinear =
+    "xyz.openbmc_project.Logging.Settings.Policy.Linear";
+constexpr auto policyDefault =
+    "xyz.openbmc_project.Logging.Settings.Policy.Circular";
+
+using DBusInterface = std::string;
+using DBusService = std::string;
+using DBusPath = std::string;
+using DBusInterfaceList = std::vector<DBusInterface>;
+using DBusSubTree =
+    std::map<DBusPath, std::map<DBusService, DBusInterfaceList>>;
+
 namespace phosphor
 {
 namespace logging
@@ -233,6 +250,53 @@ void callFQPNsMethods(
     }
 }
 
+std::string Manager::getSelPolicy()
+{
+    if (IS_UNIT_TEST)
+    {
+        return policyDefault;
+    }
+
+    DBusSubTree subtree;
+
+    auto method = this->busLog.new_method_call(mapperBusName, mapperObjPath,
+                                               mapperIntf, "GetSubTree");
+    method.append(std::string{"/"}, 0,
+                  std::vector<std::string>{policyInterface});
+    auto reply = this->busLog.call(method);
+    reply.read(subtree);
+
+    if (subtree.empty())
+    {
+        lg2::info("Compatible interface not on D-Bus. Continuing with default "
+                  "Circular Policy");
+        return policyDefault;
+    }
+
+    const auto& object = *(subtree.begin());
+    const auto& policyPath = object.first;
+    const auto& policyService = object.second.begin()->first;
+
+    std::variant<std::string> property;
+    method = this->busLog.new_method_call(
+        policyService.c_str(), policyPath.c_str(), dbusProperty, "Get");
+    method.append(policyInterface, "SelPolicy");
+
+    try
+    {
+        auto reply = this->busLog.call(method);
+        reply.read(property);
+    }
+    catch (...)
+    {
+        lg2::error("Error reading SelPolicy  property. Continuing with default "
+                   "Circular Policy");
+        return policyDefault;
+    }
+
+    return std::get<std::string>(property);
+}
+
 void Manager::createEntry(std::string errMsg, Entry::Level errLvl,
                           std::vector<std::string> additionalData,
                           const FFDCEntries& ffdc)
@@ -265,18 +329,44 @@ void Manager::createEntry(std::string errMsg, Entry::Level errLvl,
     // Corresponding to the bin found, use capacity limits
     if (!Extensions::disableDefaultLogCaps())
     {
-        if (errLvl < Entry::sevLowerLimit)
+        std::string currentPolicy = getSelPolicy();
+        if (currentPolicy == policyLinear)
         {
-            if (entryBin->errorEntries.size() >= entryBin->errorCap)
+            if (errLvl < Entry::sevLowerLimit)
             {
-                erase(*(entryBin->errorEntries.begin()));
+                if (entryBin->errorEntries.size() >= entryBin->errorCap)
+                {
+                    lg2::info("Error Capacity limit reached: {BIN_NAME}",
+                              "BIN_NAME", entryBinName);
+                    return;
+                }
+            }
+            else
+            {
+                if (entryBin->infoEntries.size() >= entryBin->errorInfoCap)
+                {
+                    lg2::info(
+                        "Information Error Capacity limit reached: {BIN_NAME}",
+                        "BIN_NAME", entryBinName);
+                    return;
+                }
             }
         }
         else
         {
-            if (entryBin->infoEntries.size() >= entryBin->errorInfoCap)
+            if (errLvl < Entry::sevLowerLimit)
             {
-                erase(*(entryBin->infoEntries.begin()));
+                if (entryBin->errorEntries.size() >= entryBin->errorCap)
+                {
+                    erase(*(entryBin->errorEntries.begin()));
+                }
+            }
+            else
+            {
+                if (entryBin->infoEntries.size() >= entryBin->errorInfoCap)
+                {
+                    erase(*(entryBin->infoEntries.begin()));
+                }
             }
         }
     }
@@ -739,10 +829,11 @@ void Manager::restore()
 
         // If idNum is already in binEntryMap then ignore file
         // This prevents a dbus object creation on same path (crash)
-        if (binEntryMap.find(idNum) != binEntryMap.end()) {
+        if (binEntryMap.find(idNum) != binEntryMap.end())
+        {
             lg2::error("Duplicate file found in bin during restore. "
-                        "Ignoring entry {ID_NUM} in {NSPACE} namespace. ",
-                        "ID_NUM", idNum, "NSPACE", restoreBinName);
+                       "Ignoring entry {ID_NUM} in {NSPACE} namespace. ",
+                       "ID_NUM", idNum, "NSPACE", restoreBinName);
             continue;
         }
 

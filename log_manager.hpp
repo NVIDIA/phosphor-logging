@@ -192,6 +192,11 @@ class Manager : public details::ServerObject<details::ManagerIface>
         return 0;
     }
 
+    /* @fn getSelPolicy()
+     * @brief retrive current sel policy from Settingsd.
+     */
+    virtual std::string getSelPolicy();
+
     /*
      * @fn commit()
      * @brief sd_bus Commit method implementation callback.
