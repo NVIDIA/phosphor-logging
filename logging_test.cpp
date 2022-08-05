@@ -248,7 +248,14 @@ int main(int argc, char* argv[])
         switch (arg)
         {
             case 'c':
-                commitError(optarg);
+                try
+                {
+                    commitError(optarg);
+                }
+                catch (const sdbusplus::exception::SdBusError& e){
+                    std::cout << "Exception caught: " << e.what() << std::endl;
+                    return 1;
+                }
                 return 0;
             case 'h':
             case '?':
@@ -259,3 +266,4 @@ int main(int argc, char* argv[])
 
     return 0;
 }
+
