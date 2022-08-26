@@ -1,72 +1,74 @@
 {
     "Namespaces": [
         {
-            "ID": "GPU0",
-            "ErrorCapacity": 5,
+            "ID": "HGX_GPU_SXM_1",
+            "ErrorCapacity": 200,
             "InfoErrorCapacity": 10
         },
         {
-            "ID": "GPU1",
-            "ErrorCapacity": 5,
+            "ID": "HGX_GPU_SXM_2",
+            "ErrorCapacity": 200,
             "InfoErrorCapacity": 10
         },
         {
-            "ID": "GPU2",
-            "ErrorCapacity": 20,
+            "ID": "HGX_GPU_SXM_3",
+            "ErrorCapacity": 200,
             "InfoErrorCapacity": 10
         },
         {
-            "ID": "GPU3",
-            "ErrorCapacity": 5,
+            "ID": "HGX_GPU_SXM_4",
+            "ErrorCapacity": 200,
             "InfoErrorCapacity": 10
         },
         {
-            "ID": "GPU4",
-            "ErrorCapacity": 20,
+            "ID": "HGX_GPU_SXM_5",
+            "ErrorCapacity": 200,
             "InfoErrorCapacity": 10
         },
         {
-            "ID": "GPU5",
-            "ErrorCapacity": 5,
+            "ID": "HGX_GPU_SXM_6",
+            "ErrorCapacity": 200,
             "InfoErrorCapacity": 10
         },
         {
-            "ID": "GPU6",
-            "ErrorCapacity": 20,
+            "ID": "HGX_GPU_SXM_7",
+            "ErrorCapacity": 200,
             "InfoErrorCapacity": 10
         },
         {
-            "ID": "GPU7",
-            "ErrorCapacity": 5,
+            "ID": "HGX_GPU_SXM_8",
+            "ErrorCapacity": 200,
             "InfoErrorCapacity": 10
         },
         {
-            "ID": "NVSwitch0",
-            "ErrorCapacity": 20,
+            "ID": "HGX_NVSwitch_0",
+            "ErrorCapacity": 200,
             "InfoErrorCapacity": 10
         },
         {
-            "ID": "NVSwitch1",
-            "ErrorCapacity": 20,
+            "ID": "HGX_NVSwitch_1",
+            "ErrorCapacity": 200,
             "InfoErrorCapacity": 10
         },
         {
-            "ID": "NVSwitch2",
-            "ErrorCapacity": 20,
+            "ID": "HGX_NVSwitch_2",
+            "ErrorCapacity": 200,
             "InfoErrorCapacity": 10
         },
         {
-            "ID": "NVSwitch3",
-            "ErrorCapacity": 20,
+            "ID": "HGX_NVSwitch_3",
+            "ErrorCapacity": 200,
             "InfoErrorCapacity": 10
         },
         {
-            "ID": "Baseboard",
-            "ErrorCapacity": 20,
+            "ID": "HGX_Baseboard_0",
+            "ErrorCapacity": 200,
             "InfoErrorCapacity": 10
+        },
+        {
+            "ID": "FWUpdate",
+            "ErrorCapacity": 30,
+            "InfoErrorCapacity": 200
         }
-    ],
-    "GlobalConfig": {
-        "DeletePolicy": "DefaultOnly"
-    }
+    ]
 }
