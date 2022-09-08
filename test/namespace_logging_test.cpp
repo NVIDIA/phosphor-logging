@@ -29,7 +29,6 @@ class TestNamespaceLogging : public testing::Test
 
     ~TestNamespaceLogging()
     {
-        fs::remove_all(fs::path(std::string(ERRLOG_PERSIST_PATH)));
     }
 };
 
@@ -65,7 +64,19 @@ TEST_F(TestNamespaceLogging, testBinCreation)
     // Test 2: Check for the correct info entry size of the bin
     EXPECT_EQ(manager.getBin("tempBin").infoEntries.size(), 1);
 
+    // Test 3: Make sure one new entry was created
+    EXPECT_EQ(countFilesinDirectory(
+                  fs::path(std::string(ERRLOG_PERSIST_PATH) + "/" + binName)),
+              1);
+
+    // Erase all entries
     manager.eraseAll();
+
+    // Test 4: Make sure entries got erased
+    EXPECT_EQ(countFilesinDirectory(
+                  fs::path(std::string(ERRLOG_PERSIST_PATH) + "/" + binName)),
+              0);
+
 }
 
 TEST_F(TestNamespaceLogging, testEraseAll)
@@ -171,11 +182,6 @@ TEST_F(TestNamespaceLogging, testBinCapacity)
     EXPECT_EQ(countFilesinDirectory(
                   fs::path(std::string(ERRLOG_PERSIST_PATH) + "/" + binName)),
               binInfoCapacity + binErrorCapacity);
-
-    // Test 9: Count number of FS entries in default bin (1 for the new
-    // bin created)
-    EXPECT_EQ(countFilesinDirectory(fs::path(std::string(ERRLOG_PERSIST_PATH))),
-              ERROR_CAP + ERROR_INFO_CAP + 1);
 
     manager.eraseAll();
 }
