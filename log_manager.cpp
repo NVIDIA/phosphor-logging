@@ -727,14 +727,21 @@ void Manager::restore()
             // If restoreBinName isn't present in the binNameMap then skip
             if (!(binNameMap.find(restoreBinName) != binNameMap.end()))
             {
-                lg2::error("Found invalid file during restore, skipping.");
+                lg2::error("Found file in invalid bin during restore. "
+                           "Ignoring entry {ID_NUM} in {NSPACE}. ",
+                           "ID_NUM", idNum, "NSPACE", restoreBinName);
                 continue;
             }
         }
 
-        // lg2::info("Restoring File: {FILE_PATH}", "FILE_PATH", file.path());
-        // lg2::info("Restoring File in Bin: {FILE_BIN}", "FILE_BIN",
-        //           restoreBinName);
+        // If idNum is already in binEntryMap then ignore file
+        // This prevents a dbus object creation on same path (crash)
+        if (binEntryMap.find(idNum) != binEntryMap.end()) {
+            lg2::error("Duplicate file found in bin during restore. "
+                        "Ignoring entry {ID_NUM} in {NSPACE} namespace. ",
+                        "ID_NUM", idNum, "NSPACE", restoreBinName);
+            continue;
+        }
 
         Bin* restoreBin = &(binNameMap[restoreBinName]);
 
