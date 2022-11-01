@@ -478,8 +478,7 @@ class Manager : public details::ServerObject<DeleteAllIface, CreateIface, Namesp
      */
     Manager(sdbusplus::bus::bus& bus, const std::string& path,
             internal::Manager& manager) :
-        details::ServerObject<DeleteAllIface, CreateIface, NamespaceIface>(bus, path.c_str(),
-                                                           true),
+        details::ServerObject<DeleteAllIface, CreateIface, NamespaceIface>(bus, path.c_str(), details::ServerObject<DeleteAllIface,CreateIface,NamespaceIface>::action::defer_emit),
         manager(manager){};
 
     /** @brief Delete all d-bus objects.
