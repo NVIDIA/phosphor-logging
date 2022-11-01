@@ -6,10 +6,12 @@
 #include "xyz/openbmc_project/Collection/DeleteAll/server.hpp"
 #include "xyz/openbmc_project/Logging/Create/server.hpp"
 #include "xyz/openbmc_project/Logging/Entry/server.hpp"
+#include "xyz/openbmc_project/Logging/Namespace/server.hpp"
 #include "xyz/openbmc_project/Logging/Internal/Manager/server.hpp"
 
 #include <fstream>
 #include <list>
+#include <vector>
 #include <nlohmann/json.hpp>
 #include <phosphor-logging/lg2.hpp>
 #include <phosphor-logging/log.hpp>
@@ -26,6 +28,8 @@ extern const std::map<std::string, level> g_errLevelMap;
 using CreateIface = sdbusplus::xyz::openbmc_project::Logging::server::Create;
 using DeleteAllIface =
     sdbusplus::xyz::openbmc_project::Collection::server::DeleteAll;
+using NamespaceIface =
+    sdbusplus::xyz::openbmc_project::Logging::server::Namespace;
 
 namespace details
 {
@@ -259,6 +263,23 @@ class Manager : public details::ServerObject<details::ManagerIface>
         return binNameMap[binName];
     }
 
+
+    /** @brief Delete logs per namespace
+     *
+     * Some description
+     *
+     * @param[in] nspace - Namespace String
+     */
+    bool deleteAll(const std::string& nspace, sdbusplus::xyz::openbmc_project::Logging::server::Entry::Level severity);
+
+    /** @brief Get logs per namespace
+     *
+     * Some description
+     *
+     * @param[in] nspace - Namespace String
+     */
+    std::vector<std::string> getAll(const std::string& nspace, sdbusplus::xyz::openbmc_project::Logging::server::Entry::Level severity);
+
     /** @brief Creates an event log
      *
      *  This is an alternative to the _commit() API.  It doesn't use
@@ -434,10 +455,11 @@ class Manager : public details::ServerObject<details::ManagerIface>
  *  @brief Implementation for deleting all error log entries and
  *         creating new logs.
  *  @details A concrete implementation for the
- *           xyz.openbmc_project.Collection.DeleteAll and
- *           xyz.openbmc_project.Logging.Create interfaces.
+ *           xyz.openbmc_project.Collection.DeleteAll,
+ *           xyz.openbmc_project.Logging.Create and
+ *           xyz.openbmc_project.Logging.Namespace interfaces.
  */
-class Manager : public details::ServerObject<DeleteAllIface, CreateIface>
+class Manager : public details::ServerObject<DeleteAllIface, CreateIface, NamespaceIface>
 {
   public:
     Manager() = delete;
@@ -456,10 +478,8 @@ class Manager : public details::ServerObject<DeleteAllIface, CreateIface>
      */
     Manager(sdbusplus::bus::bus& bus, const std::string& path,
             internal::Manager& manager) :
-        details::ServerObject<DeleteAllIface, CreateIface>(
-            bus, path.c_str(),
-            details::ServerObject<DeleteAllIface,
-                                  CreateIface>::action::defer_emit),
+        details::ServerObject<DeleteAllIface, CreateIface, NamespaceIface>(bus, path.c_str(),
+                                                           true),
         manager(manager){};
 
     /** @brief Delete all d-bus objects.
@@ -467,6 +487,22 @@ class Manager : public details::ServerObject<DeleteAllIface, CreateIface>
     void deleteAll() override
     {
         manager.eraseAll();
+    }
+
+    /** @brief getAll method call implementation to get event logs
+     *
+     */
+    std::vector<std::string> getAll(std::string nspace, sdbusplus::xyz::openbmc_project::Logging::server::Entry::Level severity) override
+    {
+        return manager.getAll(nspace, severity);
+    }
+
+    /** @brief deleteAll method call implementation to delete all logs per namespace
+     *
+     */
+    bool deleteAll(std::string nspace, sdbusplus::xyz::openbmc_project::Logging::server::Entry::Level severity) override
+    {
+        return manager.deleteAll(nspace, severity);
     }
 
     /** @brief D-Bus method call implementation to create an event log.

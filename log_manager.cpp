@@ -30,6 +30,7 @@
 #include <string_view>
 #include <vector>
 #include <xyz/openbmc_project/State/Host/server.hpp>
+#include <xyz/openbmc_project/Common/error.hpp>
 
 using namespace std::chrono;
 extern const std::map<
@@ -940,6 +941,80 @@ std::string Manager::readFWVersion()
     }
 
     return version.value_or("");
+}
+
+bool Manager::deleteAll(const std::string& nspace, sdbusplus::xyz::openbmc_project::Logging::server::Entry::Level severity)
+{
+    auto binPresent = false;
+    Bin* thisBin;
+    for (auto& pair : binNameMap)
+    {
+        if (pair.first == nspace)
+        {
+            binPresent = true;
+            thisBin = &(pair.second);
+        }
+    }
+
+    // If bin is not present then return error
+    if (!binPresent) {
+        throw sdbusplus::xyz::openbmc_project::Common::Error::
+            ResourceNotFound();
+    }
+
+    // Info Errors
+    if (severity >= Entry::sevLowerLimit) {
+        while(getInfoErrSize(nspace) != 0)
+        {
+            erase(*(thisBin->infoEntries.begin()));
+        }
+    }
+    // Real Errors
+    else {
+        while(getRealErrSize(nspace) != 0)
+        {
+            erase(*(thisBin->errorEntries.begin()));
+        }
+    }
+
+    return true;
+}
+
+std::vector<std::string> Manager::getAll(const std::string& nspace, sdbusplus::xyz::openbmc_project::Logging::server::Entry::Level severity)
+{
+    std::vector<std::string> ret_vec;
+    auto binPresent = false;
+    Bin* thisBin;
+    for (auto& pair : binNameMap)
+    {
+        if (pair.first == nspace)
+        {
+            binPresent = true;
+            thisBin = &(pair.second);
+        }
+    }
+
+    // If bin is not present then return error
+    if (!binPresent) {
+        throw sdbusplus::xyz::openbmc_project::Common::Error::
+            ResourceNotFound();
+    }
+
+    if (severity >= Entry::sevLowerLimit) {
+        for( auto iter = (thisBin)->infoEntries.begin(); iter != (thisBin)->infoEntries.end(); iter++)
+        {
+            ret_vec.push_back("/xyz/openbmc_project/logging/entry/"+std::to_string(*iter));
+        }
+    }
+    else {
+        for( auto iter = (thisBin)->errorEntries.begin(); iter != (thisBin)->errorEntries.end(); iter++)
+        {
+            ret_vec.push_back("/xyz/openbmc_project/logging/entry/"+std::to_string(*iter));
+        }
+
+    }
+
+    return ret_vec;
 }
 
 void Manager::create(const std::string& message, Entry::Level severity,
