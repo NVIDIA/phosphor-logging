@@ -51,9 +51,16 @@ using FFDCEntry = std::tuple<CreateIface::FFDCFormat, uint8_t, uint8_t,
 
 using FFDCEntries = std::vector<FFDCEntry>;
 
+typedef std::map<std::string, std::variant<bool, size_t, int64_t, std::string, std::vector<uint8_t>, std::vector<std::string>, uint64_t>> propMap;
+
+typedef std::map<std::string, propMap> objMap;
+
+using ManagedObject =
+    std::map<sdbusplus::message::object_path, objMap>;
+
+
 namespace internal
 {
-
 /** @class Manager
  *  @brief OpenBMC logging manager implementation.
  *  @details A concrete implementation for the
@@ -310,7 +317,7 @@ class Manager : public details::ServerObject<details::ManagerIface>
      *
      * @param[in] nspace - Namespace String
      */
-    std::vector<std::string> getAll(const std::string& nspace, sdbusplus::xyz::openbmc_project::Logging::server::Entry::Level severity);
+    ManagedObject getAll(const std::string& nspaces, NamespaceIface::ResolvedFilterType rfilter);
 
     /** @brief Creates an event log
      *
@@ -523,9 +530,9 @@ class Manager : public details::ServerObject<DeleteAllIface, CreateIface, Namesp
     /** @brief getAll method call implementation to get event logs
      *
      */
-    std::vector<std::string> getAll(std::string nspace, sdbusplus::xyz::openbmc_project::Logging::server::Entry::Level severity) override
+    ManagedObject getAll(std::string nspace, NamespaceIface::ResolvedFilterType rfilter) override
     {
-        return manager.getAll(nspace, severity);
+        return manager.getAll(nspace, rfilter);
     }
 
     /** @brief deleteAll method call implementation to delete all logs per namespace

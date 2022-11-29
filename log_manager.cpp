@@ -989,6 +989,7 @@ bool Manager::deleteAll(const std::string& nspace, sdbusplus::xyz::openbmc_proje
         {
             binPresent = true;
             thisBin = &(pair.second);
+            break;
         }
     }
 
@@ -1016,41 +1017,144 @@ bool Manager::deleteAll(const std::string& nspace, sdbusplus::xyz::openbmc_proje
     return true;
 }
 
-std::vector<std::string> Manager::getAll(const std::string& nspace, sdbusplus::xyz::openbmc_project::Logging::server::Entry::Level severity)
+// using ManagedObject = std::map<std::string, std::map<std::string,
+// std::map<std::string, std::variant<std::vector<std::string>,
+// bool, std::string, std::vector<uint8_t>, int64_t, uint32_t>>>>;
+
+phosphor::logging::ManagedObject Manager::getAll(const std::string& nspace, NamespaceIface::ResolvedFilterType rfilter)
 {
-    std::vector<std::string> ret_vec;
-    auto binPresent = false;
-    Bin* thisBin;
+    std::string entryBinName = DEFAULT_BIN_NAME;
+    Bin* thisBin = &(binNameMap[entryBinName]);
+
     for (auto& pair : binNameMap)
     {
         if (pair.first == nspace)
         {
-            binPresent = true;
             thisBin = &(pair.second);
+            break;
         }
     }
 
-    // If bin is not present then return error
-    if (!binPresent) {
-        throw sdbusplus::xyz::openbmc_project::Common::Error::
-            ResourceNotFound();
-    }
+    phosphor::logging::ManagedObject ret_obj;
 
-    if (severity >= Entry::sevLowerLimit) {
-        for( auto iter = (thisBin)->infoEntries.begin(); iter != (thisBin)->infoEntries.end(); iter++)
+    // Go over errorEntries
+    for (auto iter = (thisBin)->errorEntries.begin();
+         iter != (thisBin)->errorEntries.end(); iter++)
+    {
+        auto entryFound = entries.find(*iter);
+
+        // If looking for Resolved, but entry is not resolved then skip entry
+        if (rfilter == NamespaceIface::ResolvedFilterType::Resolved
+            && !(entryFound->second->resolved()))
+            {
+                continue;
+            }
+
+        // If looking for Unresolved, but entry is resolved then skip entry
+        if (rfilter == NamespaceIface::ResolvedFilterType::Unresolved
+            && (entryFound->second->resolved()))
+            {
+                continue;
+            }
+
+        if (entries.end() != entryFound)
         {
-            ret_vec.push_back("/xyz/openbmc_project/logging/entry/"+std::to_string(*iter));
+            propMap prop;
+            objMap obj;
+
+            // Id
+            prop.insert(std::make_pair("Id", entryFound->second->id()));
+
+            // Timestamp
+            prop.insert(std::make_pair("Timestamp", entryFound->second->timestamp()));
+
+            // Severity
+            prop.insert(std::make_pair("Severity", Entry::convertLevelToString(entryFound->second->severity())));
+
+            // Message
+            prop.insert(std::make_pair("Message", entryFound->second->message()));
+
+            // AdditionalData
+            prop.insert(std::make_pair("AdditionalData", entryFound->second->additionalData()));
+
+            // Resolution
+            prop.insert(std::make_pair("Resolution", entryFound->second->resolution()));
+
+            // Resolved
+            prop.insert(std::make_pair("Resolved", entryFound->second->resolved()));
+
+            // ServiceProviderNotify
+            prop.insert(std::make_pair("ServiceProviderNotify", entryFound->second->serviceProviderNotify()));
+
+            // UpdateTimeStamp
+            prop.insert(std::make_pair("UpdateTimeStamp", entryFound->second->updateTimestamp()));
+
+            obj.insert(std::make_pair("xyz.openbmc_project.Logging.Entry", prop));
+            ret_obj[sdbusplus::message::object_path(std::string(OBJ_ENTRY) + '/' + std::to_string(entryFound->second->id()))] = obj;
         }
+
     }
-    else {
-        for( auto iter = (thisBin)->errorEntries.begin(); iter != (thisBin)->errorEntries.end(); iter++)
+
+    // Go over infoEntries
+    for (auto iter = (thisBin)->infoEntries.begin();
+         iter != (thisBin)->infoEntries.end(); iter++)
+    {
+        auto entryFound = entries.find(*iter);
+
+        // If looking for Resolved, but entry is not resolved then skip entry
+        if (rfilter == NamespaceIface::ResolvedFilterType::Resolved
+            && !(entryFound->second->resolved()))
+            {
+                continue;
+            }
+
+        // If looking for Unresolved, but entry is resolved then skip entry
+        if (rfilter == NamespaceIface::ResolvedFilterType::Unresolved
+            && (entryFound->second->resolved()))
+            {
+                continue;
+            }
+
+        if (entries.end() != entryFound)
         {
-            ret_vec.push_back("/xyz/openbmc_project/logging/entry/"+std::to_string(*iter));
+            propMap prop;
+            objMap obj;
+
+            // Id
+            prop.insert(std::make_pair("Id", entryFound->second->id()));
+
+            // Timestamp
+            prop.insert(std::make_pair("Timestamp", entryFound->second->timestamp()));
+
+            // Severity
+            prop.insert(std::make_pair("Severity", Entry::convertLevelToString(entryFound->second->severity())));
+
+            // Message
+            prop.insert(std::make_pair("Message", entryFound->second->message()));
+
+            // AdditionalData
+            prop.insert(std::make_pair("AdditionalData", entryFound->second->additionalData()));
+
+            // Resolution
+            prop.insert(std::make_pair("Resolution", entryFound->second->resolution()));
+
+            // Resolved
+            prop.insert(std::make_pair("Resolved", entryFound->second->resolved()));
+
+            // ServiceProviderNotify
+            prop.insert(std::make_pair("ServiceProviderNotify", entryFound->second->serviceProviderNotify()));
+
+            // UpdateTimeStamp
+            prop.insert(std::make_pair("UpdateTimeStamp", entryFound->second->updateTimestamp()));
+
+            obj.insert(std::make_pair("xyz.openbmc_project.Logging.Entry", prop));
+            ret_obj[sdbusplus::message::object_path(std::string(OBJ_ENTRY) + '/' + std::to_string(entryFound->second->id()))] = obj;
         }
 
     }
 
-    return ret_vec;
+
+    return ret_obj;
 }
 
 void Manager::create(const std::string& message, Entry::Level severity,
