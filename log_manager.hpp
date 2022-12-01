@@ -113,6 +113,8 @@ class Manager : public details::ServerObject<details::ManagerIface>
             return 2;
         }
 
+        std::vector<std::string> dirsToPreserve{};
+
         if (validJsonConfig && !data.is_discarded())
         {
             for (auto& item : data["Namespaces"].items())
@@ -121,6 +123,8 @@ class Manager : public details::ServerObject<details::ManagerIface>
                 {
                     auto id =
                         item.value()["ID"].get_ptr<nlohmann::json::string_t*>();
+
+                    dirsToPreserve.push_back(item.value()["ID"]);
 
                     auto errorCap =
                         item.value()["ErrorCapacity"]
@@ -143,6 +147,34 @@ class Manager : public details::ServerObject<details::ManagerIface>
         {
             lg2::error("Invalid JSON file passed.");
             return 3;
+        }
+
+        std::filesystem::path logDir(std::string{ERRLOG_PERSIST_PATH});
+
+        // clear errlog path, skip configured dirnames, skip non-dirs
+        for (const auto& p : std::filesystem::directory_iterator(logDir))
+        {
+            auto dirName = p.path().filename().string();
+
+            if (std::find(dirsToPreserve.begin(), dirsToPreserve.end(),
+                          dirName) != dirsToPreserve.end())
+            {
+                continue;
+            }
+
+            std::error_code ec{};
+            if (!std::filesystem::is_directory(p.path(), ec))
+            {
+                continue;
+            }
+
+            ec.clear();
+            std::filesystem::remove_all(p.path(), ec);
+            if (ec.value() != 0)
+            {
+                lg2::error("Failed to delete directory: {PATH}", "PATH",
+                           p.path().string());
+            }
         }
 
         return 0;
