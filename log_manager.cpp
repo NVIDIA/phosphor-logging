@@ -781,6 +781,42 @@ void Manager::restore()
         }
     }
 
+    // Prune all namespaces to capacity
+    for (auto& pair : binNameMap)
+    {
+        lg2::info("Pruning Namespace: {NAMESPACE_NAME}", "NAMESPACE_NAME",
+                  pair.first);
+
+        Bin* restoreBin = &(pair.second);
+        uint32_t eraseId;
+        auto removeEntries = [](std::vector<uint32_t>& ids, uint32_t id) {
+            auto it = std::find(ids.begin(), ids.end(), id);
+            if (it != ids.end())
+            {
+                ids.erase(it);
+            }
+        };
+
+        while (restoreBin->errorEntries.size() > restoreBin->errorCap)
+        {
+            eraseId = *(restoreBin->errorEntries.begin());
+            erase(eraseId);
+            lg2::info("Pruning Error EntryId {ENTRY_ID} in {NAMESPACE_NAME}",
+                      "ENTRY_ID", eraseId, "NAMESPACE_NAME", pair.first);
+            removeEntries(errorIds, eraseId);
+        }
+
+        while (restoreBin->infoEntries.size() > restoreBin->errorInfoCap)
+        {
+            eraseId = *(restoreBin->infoEntries.begin());
+            erase(eraseId);
+            lg2::info(
+                "Pruning InfoError EntryId {ENTRY_ID} in {NAMESPACE_NAME}",
+                "ENTRY_ID", eraseId, "NAMESPACE_NAME", pair.first);
+            removeEntries(errorIds, eraseId);
+        }
+    }
+
     if (!errorIds.empty())
     {
         entryId = *(std::max_element(errorIds.begin(), errorIds.end()));
