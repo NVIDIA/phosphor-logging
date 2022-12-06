@@ -230,6 +230,7 @@ class Manager : public details::ServerObject<details::ManagerIface>
             erase(e);
         }
         entryId = 0;
+        lastCreatedTimeStamp = 0;
     }
 
     /** @brief Returns the count of high severity errors
@@ -282,6 +283,16 @@ class Manager : public details::ServerObject<details::ManagerIface>
         return entryId;
     }
 
+    /**
+     * @brief Returns the timestamp of the last created entry
+     *
+     * @return uint64_t - The Timestamp
+     */
+    uint64_t lastEntryTimestamp() const
+    {
+        return lastCreatedTimeStamp;
+    }
+
     void addBin(Bin& bin)
     {
         // Create a directory to persist errors for default path
@@ -311,6 +322,15 @@ class Manager : public details::ServerObject<details::ManagerIface>
      * @param[in] nspace - Namespace String
      */
     std::vector<std::string> getAll(const std::string& nspace, sdbusplus::xyz::openbmc_project::Logging::server::Entry::Level severity);
+
+    /** @brief Get logs per namespace
+     *
+     * Gets Stats about Phosphor Logging Entries
+     *
+     * Currently returns lastEntryId, lastCreatedEntryTimeStamp
+     *
+     */
+    std::tuple<uint32_t, uint64_t> getStats(const std::string& nspace);
 
     /** @brief Creates an event log
      *
@@ -468,6 +488,9 @@ class Manager : public details::ServerObject<details::ManagerIface>
     /** @brief Id of last error log entry */
     uint32_t entryId;
 
+    /** @brief Timestamp of the last created log entry */
+    uint64_t lastCreatedTimeStamp;
+
     /** @brief The BMC firmware version */
     const std::string fwVersion;
 
@@ -526,6 +549,14 @@ class Manager : public details::ServerObject<DeleteAllIface, CreateIface, Namesp
     std::vector<std::string> getAll(std::string nspace, sdbusplus::xyz::openbmc_project::Logging::server::Entry::Level severity) override
     {
         return manager.getAll(nspace, severity);
+    }
+
+    /** @brief getStats method call implementation to get Phosphor Logging Stats
+     *
+     */
+    std::tuple<uint32_t, uint64_t> getStats(std::string nspace) override
+    {
+        return manager.getStats(nspace);
     }
 
     /** @brief deleteAll method call implementation to delete all logs per namespace

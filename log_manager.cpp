@@ -68,7 +68,7 @@ inline auto getLevel(const std::string& errMsg)
  */
 Manager::Manager(sdbusplus::bus::bus& bus, const std::string& objPath) :
     details::ServerObject<details::ManagerIface>(bus, objPath.c_str()),
-    busLog(bus), entryId(0), fwVersion(readFWVersion()),
+    busLog(bus), entryId(0), lastCreatedTimeStamp(0), fwVersion(readFWVersion()),
     defaultBin(DEFAULT_BIN_NAME, ERROR_CAP, ERROR_INFO_CAP, ERRLOG_PERSIST_PATH)
 {
     this->addBin(this->defaultBin);
@@ -319,6 +319,8 @@ void Manager::createEntry(std::string errMsg, Entry::Level errLvl,
                                      errLvl, std::move(errMsg),
                                      std::move(additionalData),
                                      std::move(objects), fwVersion, *this);
+
+    lastCreatedTimeStamp = ms;
 
     if (entryBinName.compare(DEFAULT_BIN_NAME) == 0)
     {
@@ -820,6 +822,7 @@ void Manager::restore()
     if (!errorIds.empty())
     {
         entryId = *(std::max_element(errorIds.begin(), errorIds.end()));
+        lastCreatedTimeStamp = entries.find(entryId)->second->timestamp();
     }
 }
 
@@ -1051,6 +1054,43 @@ std::vector<std::string> Manager::getAll(const std::string& nspace, sdbusplus::x
     }
 
     return ret_vec;
+}
+
+std::tuple<uint32_t, uint64_t> Manager::getStats(const std::string& nspace)
+{
+    if (nspace == "all"){
+        return (std::make_tuple(Manager::lastEntryID(),
+                        Manager::lastEntryTimestamp()));
+    }
+
+    if (binNameMap.find(nspace) == binNameMap.end()) {
+        throw sdbusplus::xyz::openbmc_project::Common::Error::
+            ResourceNotFound();
+    } else {
+        Bin* thisBin = &(binNameMap[nspace]);
+
+        uint32_t maxErr = 0;
+        uint32_t maxInfo = 0;
+
+        if (!thisBin->errorEntries.empty())
+        {
+            maxErr = *(std::max_element(thisBin->errorEntries.begin(), thisBin->errorEntries.end()));
+        }
+
+        if (!thisBin->infoEntries.empty())
+        {
+            maxInfo = *(std::max_element(thisBin->infoEntries.begin(), thisBin->infoEntries.end()));
+        }
+
+        uint32_t maxEntry = maxErr > maxInfo ? maxErr : maxInfo;
+
+        if (maxEntry == 0)
+        {
+            return (std::make_tuple(0,0));
+        }
+
+        return (std::make_tuple(maxEntry, entries.find(maxEntry)->second->timestamp()));
+    }
 }
 
 void Manager::create(const std::string& message, Entry::Level severity,
