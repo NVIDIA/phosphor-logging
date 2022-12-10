@@ -1062,38 +1062,52 @@ phosphor::logging::ManagedObject Manager::getAll(const std::string& nspace, Name
 
         if (entries.end() != entryFound)
         {
+            varType v;
             propMap prop;
             objMap obj;
 
             // Id
-            prop.insert(std::make_pair("Id", entryFound->second->id()));
+            v = entryFound->second->id();
+            prop["Id"] = v;
 
             // Timestamp
-            prop.insert(std::make_pair("Timestamp", entryFound->second->timestamp()));
+            v = entryFound->second->timestamp();
+            prop["Timestamp"] = v;
 
             // Severity
-            prop.insert(std::make_pair("Severity", Entry::convertLevelToString(entryFound->second->severity())));
+            v = Entry::convertLevelToString(entryFound->second->severity());
+            prop["Severity"] = v;
 
             // Message
-            prop.insert(std::make_pair("Message", entryFound->second->message()));
+            v = entryFound->second->message();
+            prop["Message"] = v;
 
             // AdditionalData
-            prop.insert(std::make_pair("AdditionalData", entryFound->second->additionalData()));
+            v = entryFound->second->additionalData();
+            prop["AdditionalData"] = v;
 
             // Resolution
-            prop.insert(std::make_pair("Resolution", entryFound->second->resolution()));
+            v = entryFound->second->resolution();
+            prop["Resolution"] = v;
 
             // Resolved
-            prop.insert(std::make_pair("Resolved", entryFound->second->resolved()));
+            v = entryFound->second->resolved();
+            prop["Resolved"] = v;
 
             // ServiceProviderNotify
-            prop.insert(std::make_pair("ServiceProviderNotify", entryFound->second->serviceProviderNotify()));
+            v = entryFound->second->serviceProviderNotify();
+            prop["ServiceProviderNotify"] = v;
 
             // UpdateTimeStamp
-            prop.insert(std::make_pair("UpdateTimeStamp", entryFound->second->updateTimestamp()));
+            v = entryFound->second->updateTimestamp();
+            prop["UpdateTimeStamp"] = v;
+                obj.insert(
+                    obj.begin(),
+                    std::make_pair("xyz.openbmc_project.Logging.Entry", prop));
 
-            obj.insert(std::make_pair("xyz.openbmc_project.Logging.Entry", prop));
-            ret_obj[sdbusplus::message::object_path(std::string(OBJ_ENTRY) + '/' + std::to_string(entryFound->second->id()))] = obj;
+                ret_obj[sdbusplus::message::object_path(
+                    std::string(OBJ_ENTRY) + '/' +
+                    std::to_string(entryFound->second->id()))] = obj;
         }
 
     }
@@ -1120,38 +1134,50 @@ phosphor::logging::ManagedObject Manager::getAll(const std::string& nspace, Name
 
         if (entries.end() != entryFound)
         {
+            varType v;
             propMap prop;
             objMap obj;
 
             // Id
-            prop.insert(std::make_pair("Id", entryFound->second->id()));
+            v = entryFound->second->id();
+            prop["Id"] = v;
 
             // Timestamp
-            prop.insert(std::make_pair("Timestamp", entryFound->second->timestamp()));
+            v = entryFound->second->timestamp();
+            prop["Timestamp"] = v;
 
             // Severity
-            prop.insert(std::make_pair("Severity", Entry::convertLevelToString(entryFound->second->severity())));
+            v = Entry::convertLevelToString(entryFound->second->severity());
+            prop["Severity"] = v;
 
             // Message
-            prop.insert(std::make_pair("Message", entryFound->second->message()));
+            v = entryFound->second->message();
+            prop["Message"] = v;
 
             // AdditionalData
-            prop.insert(std::make_pair("AdditionalData", entryFound->second->additionalData()));
+            v = entryFound->second->additionalData();
+            prop["AdditionalData"] = v;
 
             // Resolution
-            prop.insert(std::make_pair("Resolution", entryFound->second->resolution()));
+            v = entryFound->second->resolution();
+            prop["Resolution"] = v;
 
             // Resolved
-            prop.insert(std::make_pair("Resolved", entryFound->second->resolved()));
+            v = entryFound->second->resolved();
+            prop["Resolved"] = v;
 
             // ServiceProviderNotify
-            prop.insert(std::make_pair("ServiceProviderNotify", entryFound->second->serviceProviderNotify()));
+            v = entryFound->second->serviceProviderNotify();
+            prop["ServiceProviderNotify"] = v;
 
             // UpdateTimeStamp
-            prop.insert(std::make_pair("UpdateTimeStamp", entryFound->second->updateTimestamp()));
+            v = entryFound->second->updateTimestamp();
+            prop["UpdateTimeStamp"] = v;
 
-            obj.insert(std::make_pair("xyz.openbmc_project.Logging.Entry", prop));
+            obj.insert(obj.begin(), std::make_pair("xyz.openbmc_project.Logging.Entry", prop));
+
             ret_obj[sdbusplus::message::object_path(std::string(OBJ_ENTRY) + '/' + std::to_string(entryFound->second->id()))] = obj;
+
         }
 
     }

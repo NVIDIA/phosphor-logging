@@ -51,7 +51,12 @@ using FFDCEntry = std::tuple<CreateIface::FFDCFormat, uint8_t, uint8_t,
 
 using FFDCEntries = std::vector<FFDCEntry>;
 
-typedef std::map<std::string, std::variant<bool, size_t, int64_t, std::string, std::vector<uint8_t>, std::vector<std::string>, uint64_t>> propMap;
+typedef std::variant<bool, uint32_t, int64_t, std::string,
+                                 std::vector<uint8_t>, std::vector<std::string>,
+                                 uint64_t>
+                varType;
+
+typedef std::map<std::string, varType> propMap;
 
 typedef std::map<std::string, propMap> objMap;
 
