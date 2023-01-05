@@ -85,8 +85,10 @@ inline auto getLevel(const std::string& errMsg)
  */
 Manager::Manager(sdbusplus::bus::bus& bus, const std::string& objPath) :
     details::ServerObject<details::ManagerIface>(bus, objPath.c_str()),
-    busLog(bus), entryId(0), lastCreatedTimeStamp(0), fwVersion(readFWVersion()),
-    defaultBin(DEFAULT_BIN_NAME, ERROR_CAP, ERROR_INFO_CAP, ERRLOG_PERSIST_PATH)
+    busLog(bus), entryId(0), lastCreatedTimeStamp(0),
+    fwVersion(readFWVersion()),
+    defaultBin(DEFAULT_BIN_NAME, ERROR_CAP, ERROR_INFO_CAP, ERRLOG_PERSIST_PATH,
+               true)
 {
     this->addBin(this->defaultBin);
 }
@@ -428,8 +430,11 @@ void Manager::createEntry(std::string errMsg, Entry::Level errLvl,
     // lg2::info("Writing Entry on FS on Path: {ENTRY_PATH}", "ENTRY_PATH",
     //           entryPath);
 
-    auto path = serialize(*e, fs::path(entryPath));
-    e->path(path);
+    if (errLvl < Entry::sevLowerLimit || entryBin->persistInfoLog)
+    {
+        auto path = serialize(*e, fs::path(entryPath));
+        e->path(path);
+    }
 
     if (isQuiesceOnErrorEnabled() && isCalloutPresent(*e))
     {

@@ -55,7 +55,7 @@ TEST_F(TestPolicy, testLinearPolicy)
     auto totalCapacity = 500;
     auto bin = phosphor::logging::internal::Bin(
         binName, binErrorCapacity, binInfoCapacity,
-        std::string(ERRLOG_PERSIST_PATH) + "/" + binName);
+        std::string(ERRLOG_PERSIST_PATH) + "/" + binName, true);
 
     // Add Bin to the Manager
     manager.addBin(bin);

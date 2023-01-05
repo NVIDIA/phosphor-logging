@@ -46,7 +46,7 @@ TEST_F(TestNamespaceLogging, testBinCreation)
     auto binInfoCapacity = 20;
     auto bin = phosphor::logging::internal::Bin(
         binName, binErrorCapacity, binInfoCapacity,
-        std::string(ERRLOG_PERSIST_PATH) + "/" + binName);
+        std::string(ERRLOG_PERSIST_PATH) + "/" + binName, true);
 
     // Add Bin to the Manager
     manager.addBin(bin);
@@ -87,7 +87,7 @@ TEST_F(TestNamespaceLogging, testEraseAll)
     auto binInfoCapacity = 20;
     auto bin = phosphor::logging::internal::Bin(
         binName, binErrorCapacity, binInfoCapacity,
-        std::string(ERRLOG_PERSIST_PATH) + "/" + binName);
+        std::string(ERRLOG_PERSIST_PATH) + "/" + binName, true);
 
     // Add Bin to the Manager
     manager.addBin(bin);
@@ -133,7 +133,7 @@ TEST_F(TestNamespaceLogging, testBinCapacity)
     auto binInfoCapacity = 20;
     auto bin = phosphor::logging::internal::Bin(
         binName, binErrorCapacity, binInfoCapacity,
-        std::string(ERRLOG_PERSIST_PATH) + "/" + binName);
+        std::string(ERRLOG_PERSIST_PATH) + "/" + binName, true);
 
     // Add Bin to the Manager
     manager.addBin(bin);
@@ -184,6 +184,52 @@ TEST_F(TestNamespaceLogging, testBinCapacity)
               binInfoCapacity + binErrorCapacity);
 
     manager.eraseAll();
+}
+
+TEST_F(TestNamespaceLogging, testLogPersistency)
+{
+    // Create the Bin
+    std::string binName = "tempBin";
+    auto binErrorCapacity = 10;
+    auto binInfoCapacity = 20;
+    auto bin = phosphor::logging::internal::Bin(
+        binName, binErrorCapacity, binInfoCapacity,
+        std::string(ERRLOG_PERSIST_PATH) + "/" + binName, false);
+
+    // Add Bin to the Manager
+    manager.addBin(bin);
+
+    // Test 0: Check if EntryID is reset
+    EXPECT_EQ(manager.lastEntryID(), 0);
+
+    // Create Informational log in Bin 'binName'
+    manager.create("Test Error", Entry::Level::Informational,
+                   {{DEFAULT_BIN_KEY, binName}});
+
+    // Test 1: Check if the error falls in the correct Bin
+    EXPECT_EQ(manager.binEntryMap[manager.lastEntryID()], binName);
+
+    // Test 2: Check for the correct info entry size of the bin
+    EXPECT_EQ(manager.getBin("tempBin").infoEntries.size(), 1);
+
+    // Test 3: Since log is informational it should not be present in directory
+    EXPECT_EQ(countFilesinDirectory(
+                  fs::path(std::string(ERRLOG_PERSIST_PATH) + "/" + binName)),
+              0);
+    manager.eraseAll();
+    // Create Error log in Bin 'binName'
+    manager.create("Test Error", Entry::Level::Error,
+                   {{DEFAULT_BIN_KEY, binName}});
+    // Test 4: Check if the error falls in the correct Bin
+    EXPECT_EQ(manager.binEntryMap[manager.lastEntryID()], binName);
+
+    // Test 5: Check for the correct info entry size of the bin
+    EXPECT_EQ(manager.getBin("tempBin").errorEntries.size(), 1);
+
+    // Test 6: Since log is error it should be present in directory
+    EXPECT_EQ(countFilesinDirectory(
+                  fs::path(std::string(ERRLOG_PERSIST_PATH) + "/" + binName)),
+              1);
 }
 
 } // namespace test

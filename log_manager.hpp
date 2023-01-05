@@ -146,10 +146,17 @@ class Manager : public details::ServerObject<details::ManagerIface>
                         item.value()["InfoErrorCapacity"]
                             .get_ptr<nlohmann::json::number_unsigned_t*>();
 
+                    bool persistInfoLog =
+                        true; // by default persist all info logs
+                    if (item.value().contains("PersistInfoLog"))
+                    {
+                        persistInfoLog = item.value()["PersistInfoLog"];
+                    }
                     auto bin = phosphor::logging::internal::Bin(
                         std::string(*id), *errorCap, *errorInfoCap,
                         std::string(ERRLOG_PERSIST_PATH) + "/" +
-                            std::string(*id));
+                            std::string(*id),
+                        persistInfoLog);
 
                     this->addBin(bin);
                 }
