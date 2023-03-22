@@ -17,6 +17,9 @@
 
 #include <phosphor-logging/log.hpp>
 
+#include <algorithm>
+#include <map>
+
 namespace openpower
 {
 namespace pels

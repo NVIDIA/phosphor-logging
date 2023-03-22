@@ -4,11 +4,12 @@
 #include "log_manager.hpp"
 #include "xyz/openbmc_project/Common/error.hpp"
 
-#include <filesystem>
 #include <phosphor-logging/elog-errors.hpp>
 #include <phosphor-logging/elog.hpp>
 #include <phosphor-logging/log.hpp>
 #include <sdbusplus/bus.hpp>
+
+#include <filesystem>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -37,11 +38,11 @@ class journalInterface
 class journalImpl : public journalInterface
 {
   public:
-    void journalSync();
-    int sd_journal_open(sd_journal** j, int k);
+    void journalSync() override;
+    int sd_journal_open(sd_journal** j, int k) override;
     int sd_journal_get_data(sd_journal* j, const char* transactionIdVar,
-                            const void** data, size_t length);
-    void sd_journal_close(sd_journal* j);
+                            const void** data, size_t length) override;
+    void sd_journal_close(sd_journal* j) override;
 };
 
 int journalImpl::sd_journal_open(sd_journal**, int)
@@ -68,7 +69,7 @@ void journalImpl::sd_journal_close(sd_journal*)
 class MockJournal : public Manager
 {
   public:
-    MockJournal(sdbusplus::bus::bus& bus, const char* objPath) :
+    MockJournal(sdbusplus::bus_t& bus, const char* objPath) :
         Manager(bus, objPath){};
     MOCK_METHOD0(journalSync, void());
     MOCK_METHOD2(sd_journal_open, int(sd_journal**, int));
@@ -80,7 +81,7 @@ class MockJournal : public Manager
 class TestLogManager : public testing::Test
 {
   public:
-    sdbusplus::bus::bus bus;
+    sdbusplus::bus_t bus;
     MockJournal manager;
     TestLogManager() :
         bus(sdbusplus::bus::new_default()),

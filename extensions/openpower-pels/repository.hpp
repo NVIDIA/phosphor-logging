@@ -45,8 +45,7 @@ class Repository
             sizeOnDisk(size), creator(creator), subsystem(subsystem),
             severity(sev), actionFlags(flags), hostState(hostState),
             hmcState(hmcState)
-        {
-        }
+        {}
     };
 
     /**
@@ -61,33 +60,23 @@ class Repository
         struct Pel
         {
             uint32_t id;
-            explicit Pel(uint32_t i) : id(i)
-            {
-            }
+            explicit Pel(uint32_t i) : id(i) {}
         };
         struct Obmc
         {
             uint32_t id;
-            explicit Obmc(uint32_t i) : id(i)
-            {
-            }
+            explicit Obmc(uint32_t i) : id(i) {}
         };
 
         Pel pelID;
 
         Obmc obmcID;
 
-        LogID(Pel pel, Obmc obmc) : pelID(pel), obmcID(obmc)
-        {
-        }
+        LogID(Pel pel, Obmc obmc) : pelID(pel), obmcID(obmc) {}
 
-        explicit LogID(Pel id) : pelID(id), obmcID(0)
-        {
-        }
+        explicit LogID(Pel id) : pelID(id), obmcID(0) {}
 
-        explicit LogID(Obmc id) : pelID(0), obmcID(id)
-        {
-        }
+        explicit LogID(Obmc id) : pelID(0), obmcID(id) {}
 
         LogID() = delete;
 
@@ -135,8 +124,7 @@ class Repository
         SizeStats() :
             total(0), bmc(0), nonBMC(0), bmcServiceable(0), bmcInfo(0),
             nonBMCServiceable(0), nonBMCInfo(0)
-        {
-        }
+        {}
     };
 
     Repository() = delete;
@@ -151,10 +139,9 @@ class Repository
      *
      * @param[in] basePath - the base filesystem path for the repository
      */
-    Repository(const std::filesystem::path& basePath) :
+    explicit Repository(const std::filesystem::path& basePath) :
         Repository(basePath, getPELRepoSize(), getMaxNumPELs())
-    {
-    }
+    {}
 
     /**
      * @brief Constructor that takes the repository size
@@ -267,10 +254,7 @@ class Repository
      */
     void subscribeToAdds(const std::string& name, AddCallback func)
     {
-        if (_addSubscriptions.find(name) == _addSubscriptions.end())
-        {
-            _addSubscriptions.emplace(name, func);
-        }
+        _addSubscriptions.emplace(name, func);
     }
 
     /**
@@ -298,10 +282,7 @@ class Repository
      */
     void subscribeToDeletes(const std::string& name, DeleteCallback func)
     {
-        if (_deleteSubscriptions.find(name) == _deleteSubscriptions.end())
-        {
-            _deleteSubscriptions.emplace(name, func);
-        }
+        _deleteSubscriptions.emplace(name, func);
     }
 
     /**
@@ -402,10 +383,12 @@ class Repository
      *   Pass 3: only delete PHYP sent PELs
      *   Pass 4: delete all PELs
      *
+     * @param[in] ids - The OpenBMC event log Ids with hardware isolation entry.
+     *
      * @return std::vector<uint32_t> - The OpenBMC event log IDs of
      *                                 the PELs that were deleted.
      */
-    std::vector<uint32_t> prune();
+    std::vector<uint32_t> prune(const std::vector<uint32_t>& idsWithHwIsoEntry);
 
     /**
      * @brief Returns the path to the directory where the PEL
@@ -558,11 +541,15 @@ class Repository
      *                           removed.
      * @param[in] isPELType - The bool(const PELAttributes&) function
      *                         used to select the PELs to operate on.
+     * @param[in] ids - The OpenBMC event log Ids with hardware isolation
+     *                   entry.
      *
      * @param[out] removedBMCLogIDs - The OpenBMC event log IDs of the
      *                                removed PELs.
      */
-    void removePELs(IsOverLimitFunc& isOverLimit, IsPELTypeFunc& isPELType,
+    void removePELs(const IsOverLimitFunc& isOverLimit,
+                    const IsPELTypeFunc& isPELType,
+                    const std::vector<uint32_t>& idsWithHwIsoEntry,
                     std::vector<uint32_t>& removedBMCLogIDs);
     /**
      * @brief The filesystem path to the PEL logs.

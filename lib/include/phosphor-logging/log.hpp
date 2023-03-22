@@ -20,6 +20,7 @@
 
 #include <phosphor-logging/sdjournal.hpp>
 #include <sdbusplus/server/transaction.hpp>
+
 #include <tuple>
 #include <type_traits>
 
@@ -92,27 +93,25 @@ void log(T&& e)
 } // namespace details
 
 template <class T>
-struct is_char_ptr_argtype
-    : std::integral_constant<
-          bool,
-          (std::is_pointer<typename std::decay<T>::type>::value &&
-           std::is_same<typename std::remove_cv<typename std::remove_pointer<
-                            typename std::decay<T>::type>::type>::type,
-                        char>::value)>
-{
-};
+struct is_char_ptr_argtype :
+    std::integral_constant<
+        bool,
+        (std::is_pointer<typename std::decay<T>::type>::value &&
+         std::is_same<typename std::remove_cv<typename std::remove_pointer<
+                          typename std::decay<T>::type>::type>::type,
+                      char>::value)>
+{};
 
 template <class T>
-struct is_printf_argtype
-    : std::integral_constant<
-          bool,
-          (std::is_integral<typename std::remove_reference<T>::type>::value ||
-           std::is_enum<typename std::remove_reference<T>::type>::value ||
-           std::is_floating_point<
-               typename std::remove_reference<T>::type>::value ||
-           std::is_pointer<typename std::decay<T>::type>::value)>
-{
-};
+struct is_printf_argtype :
+    std::integral_constant<
+        bool,
+        (std::is_integral<typename std::remove_reference<T>::type>::value ||
+         std::is_enum<typename std::remove_reference<T>::type>::value ||
+         std::is_floating_point<
+             typename std::remove_reference<T>::type>::value ||
+         std::is_pointer<typename std::decay<T>::type>::value)>
+{};
 
 template <bool...>
 struct bool_pack;
@@ -163,7 +162,7 @@ void log(Msg msg, Entry... e)
     constexpr const char* msg_str = "MESSAGE=%s";
     const auto msg_tuple = std::make_tuple(msg_str, std::forward<Msg>(msg));
 
-    constexpr auto transactionStr = "TRANSACTION_ID=%lld";
+    constexpr auto transactionStr = "TRANSACTION_ID=%llu";
     auto transactionId = sdbusplus::server::transaction::get_id();
 
     auto log_tuple = std::tuple_cat(details::prio<L>(), msg_tuple,

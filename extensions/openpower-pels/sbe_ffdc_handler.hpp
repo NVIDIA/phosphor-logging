@@ -56,6 +56,8 @@ typedef struct
     uint32_t fapiRc;
 } __attribute__((packed)) fapiFfdcBufType;
 
+using LogSeverity = phosphor::logging::Entry::Level;
+
 /** @class SbeFFDC
  *
  * @brief This class provides higher level interface to process SBE ffdc
@@ -96,7 +98,6 @@ class SbeFFDC
      */
     ~SbeFFDC()
     {
-
         try
         {
             for (auto path : paths)
@@ -127,6 +128,14 @@ class SbeFFDC
     {
         return ffdcFiles;
     }
+
+    /**
+     * @brief Helper function to get severity type
+     *
+     * @return severity type as informational for spare clock
+     *         failure type ffdc. Otherwise null string.
+     */
+    std::optional<LogSeverity> getSeverity();
 
   private:
     /**
@@ -174,6 +183,11 @@ class SbeFFDC
      * @brief Processor position associated to SBE FFDC
      */
     uint32_t procPos;
+
+    /**
+     * @brief Used to get type of ffdc
+     */
+    FFDC_TYPE ffdcType;
 };
 
 } // namespace sbe

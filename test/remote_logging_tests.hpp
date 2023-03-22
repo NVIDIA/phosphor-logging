@@ -2,8 +2,9 @@
 
 #include "phosphor-rsyslog-config/server-conf.hpp"
 
-#include <filesystem>
 #include <sdbusplus/bus.hpp>
+
+#include <filesystem>
 
 #include "gmock/gmock.h"
 #include <gtest/gtest.h>
@@ -24,11 +25,10 @@ fs::path dir(fs::path(mkdtemp(tmplt)));
 class MockServer : public phosphor::rsyslog_config::Server
 {
   public:
-    MockServer(sdbusplus::bus::bus& bus, const std::string& path,
+    MockServer(sdbusplus::bus_t& bus, const std::string& path,
                const char* filePath) :
         phosphor::rsyslog_config::Server(bus, path, filePath)
-    {
-    }
+    {}
 
     MOCK_METHOD0(restart, void());
 };

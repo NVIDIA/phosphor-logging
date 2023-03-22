@@ -100,8 +100,7 @@ class SRC : public Section
     SRC(const message::Entry& regEntry, const AdditionalData& additionalData,
         const DataInterfaceBase& dataIface) :
         SRC(regEntry, additionalData, nlohmann::json{}, dataIface)
-    {
-    }
+    {}
 
     /**
      * @brief Constructor
@@ -299,6 +298,16 @@ class SRC : public Section
      */
     std::vector<uint8_t> getSrcStruct();
 
+    /**
+     * @brief Extracts the first 8 characters of the ASCII String field
+     *        from the raw progress SRC and converts it to a uint32_t.
+     *
+     * @param[in] rawProgressSRC - The progress SRC bytes
+     *
+     * @return uint32_t - The code, like 0xCC0099EE from "CC0099EE"
+     */
+    static uint32_t getProgressCode(std::vector<uint8_t>& rawProgressSRC);
+
   private:
     /**
      * @brief Fills in the user defined hex words from the
@@ -366,6 +375,13 @@ class SRC : public Section
      * @param[in] dataIface - The DataInterface object
      */
     void setMotherboardCCIN(const DataInterfaceBase& dataIface);
+
+    /**
+     * @brief Sets the progress code hex word field
+     *
+     * @param[in] dataIface - The DataInterface object
+     */
+    void setProgressCode(const DataInterfaceBase& dataIface);
 
     /**
      * @brief Sets an error status bit in the SRC.

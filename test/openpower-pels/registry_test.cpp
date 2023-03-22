@@ -15,9 +15,10 @@
  */
 #include "extensions/openpower-pels/registry.hpp"
 
+#include <nlohmann/json.hpp>
+
 #include <filesystem>
 #include <fstream>
-#include <nlohmann/json.hpp>
 
 #include <gtest/gtest.h>
 
@@ -71,7 +72,6 @@ const auto registryData = R"(
                 "ReasonCode": "0x2333",
                 "Type": "BD",
                 "SymptomIDFields": ["SRCWord5", "SRCWord6", "SRCWord7"],
-                "PowerFault": true,
                 "Words6To9":
                 {
                     "6":
@@ -99,6 +99,56 @@ const auto registryData = R"(
                 "Notes": [
                     "In the UserData section there is a JSON",
                     "dump that provides debug information."
+                ]
+            },
+
+            "JournalCapture":
+            {
+                "NumLines": 7
+            }
+        },
+
+        {
+            "Name": "xyz.openbmc_project.Common.Error.Timeout",
+            "PossibleSubsystems": ["processor", "memory"],
+
+            "SRC":
+            {
+                "ReasonCode": "0x2030"
+            },
+            "Documentation":
+            {
+                "Description": "A PGOOD Fault",
+                "Message": "PS had a PGOOD Fault"
+            }
+        },
+
+        {
+            "Name": "xyz.openbmc_project.Journal.Capture",
+            "Subsystem": "power_supply",
+
+            "SRC":
+            {
+                "ReasonCode": "0x2030"
+            },
+
+            "Documentation":
+            {
+                "Description": "journal capture test",
+                "Message": "journal capture test"
+            },
+
+            "JournalCapture":
+            {
+                "Sections": [
+                    {
+                        "NumLines": 5,
+                        "SyslogID": "test1"
+                    },
+                    {
+                        "NumLines": 6,
+                        "SyslogID": "test2"
+                    }
                 ]
             }
         }
@@ -172,7 +222,6 @@ TEST_F(RegistryTest, TestFindEntry)
 
     EXPECT_EQ(entry->src.type, 0xBD);
     EXPECT_EQ(entry->src.reasonCode, 0x2333);
-    EXPECT_EQ(*(entry->src.powerFault), true);
 
     auto& hexwords = entry->src.hexwordADFields;
     EXPECT_TRUE(hexwords);
@@ -200,6 +249,11 @@ TEST_F(RegistryTest, TestFindEntry)
     EXPECT_EQ((*hexwordSource).size(), 1);
     EXPECT_EQ((*hexwordSource).front(), "SRCWord6");
 
+    const auto& jc = entry->journalCapture;
+    ASSERT_TRUE(jc);
+    ASSERT_TRUE(std::holds_alternative<size_t>(*jc));
+    EXPECT_EQ(std::get<size_t>(*jc), 7);
+
     entry = registry.lookup("0x2333", LookupType::reasonCode);
     ASSERT_TRUE(entry);
     EXPECT_EQ(entry->name, "xyz.openbmc_project.Power.OverVoltage");
@@ -211,8 +265,8 @@ TEST_F(RegistryTest, TestFindEntryMinimal)
     auto path = RegistryTest::writeData(registryData);
     Registry registry{path};
 
-    auto entry =
-        registry.lookup("xyz.openbmc_project.Power.Fault", LookupType::name);
+    auto entry = registry.lookup("xyz.openbmc_project.Power.Fault",
+                                 LookupType::name);
     ASSERT_TRUE(entry);
     EXPECT_EQ(entry->name, "xyz.openbmc_project.Power.Fault");
     EXPECT_EQ(entry->subsystem, 0x61);
@@ -226,7 +280,6 @@ TEST_F(RegistryTest, TestFindEntryMinimal)
 
     EXPECT_EQ(entry->src.reasonCode, 0x2030);
     EXPECT_EQ(entry->src.type, 0xBD);
-    EXPECT_FALSE(entry->src.powerFault);
     EXPECT_FALSE(entry->src.hexwordADFields);
     EXPECT_FALSE(entry->src.symptomID);
 }
@@ -348,8 +401,8 @@ TEST_F(RegistryTest, TestGetComponentID)
     using namespace openpower::pels::message::helper;
 
     // Get it from the JSON
-    auto id =
-        getComponentID(0xBD, 0x4200, R"({"ComponentID":"0x4200"})"_json, "foo");
+    auto id = getComponentID(0xBD, 0x4200, R"({"ComponentID":"0x4200"})"_json,
+                             "foo");
     EXPECT_EQ(id, 0x4200);
 
     // Get it from the reason code on a 0xBD SRC
@@ -650,4 +703,86 @@ TEST_F(RegistryTest, TestGetCallouts)
             EXPECT_TRUE(callouts.empty());
         }
     }
+
+    {
+        // Callouts with a 'CalloutsWhenNoADMatch' section that will
+        // be used when the AdditionalData value doesn't match.
+        auto json = R"(
+        {
+            "ADName": "PROC_NUM",
+            "CalloutsWithTheirADValues":
+            [
+                {
+                    "ADValue": "0",
+                    "Callouts":
+                    [
+                        {
+                            "CalloutList":
+                            [
+                                {
+                                    "Priority": "high",
+                                    "LocCode": "P0-C0"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ],
+            "CalloutsWhenNoADMatch": [
+                {
+                    "CalloutList": [
+                        {
+                            "Priority": "medium",
+                            "LocCode": "P1-C1"
+                        }
+                    ]
+                }
+            ]
+        })"_json;
+
+        // There isn't an entry in the JSON for a PROC_NUM of 8
+        // so it should choose the P1-C1 callout.
+        std::vector<std::string> adData{"PROC_NUM=8"};
+        AdditionalData ad{adData};
+        names.clear();
+
+        auto callouts = Registry::getCallouts(json, names, ad);
+        EXPECT_EQ(callouts.size(), 1);
+        EXPECT_EQ(callouts[0].priority, "medium");
+        EXPECT_EQ(callouts[0].locCode, "P1-C1");
+    }
+}
+
+TEST_F(RegistryTest, TestNoSubsystem)
+{
+    auto path = RegistryTest::writeData(registryData);
+    Registry registry{path};
+
+    auto entry = registry.lookup("xyz.openbmc_project.Common.Error.Timeout",
+                                 LookupType::name);
+    ASSERT_TRUE(entry);
+    EXPECT_FALSE(entry->subsystem);
+}
+
+TEST_F(RegistryTest, TestJournalSectionCapture)
+{
+    auto path = RegistryTest::writeData(registryData);
+    Registry registry{path};
+
+    auto entry = registry.lookup("xyz.openbmc_project.Journal.Capture",
+                                 LookupType::name);
+    ASSERT_TRUE(entry);
+
+    const auto& jc = entry->journalCapture;
+    ASSERT_TRUE(jc);
+    ASSERT_TRUE(std::holds_alternative<AppCaptureList>(*jc));
+    const auto& acl = std::get<AppCaptureList>(*jc);
+
+    ASSERT_EQ(acl.size(), 2);
+
+    EXPECT_EQ(acl[0].syslogID, "test1");
+    EXPECT_EQ(acl[0].numLines, 5);
+
+    EXPECT_EQ(acl[1].syslogID, "test2");
+    EXPECT_EQ(acl[1].numLines, 6);
 }

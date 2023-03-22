@@ -11,7 +11,6 @@ using PropertiesVariant = PELEntryIface::PropertiesVariant;
 
 class PELEntry : public PELEntryIface
 {
-
   public:
     PELEntry() = delete;
     PELEntry(const PELEntry&) = delete;
@@ -30,13 +29,12 @@ class PELEntry : public PELEntryIface
      * attributes.
      */
 
-    PELEntry(sdbusplus::bus::bus& bus, const std::string& path,
+    PELEntry(sdbusplus::bus_t& bus, const std::string& path,
              const std::map<std::string, PropertiesVariant>& prop, uint32_t id,
              Repository* repo) :
-        PELEntryIface(bus, path.c_str(), prop),
+        PELEntryIface(bus, path.c_str(), prop, true),
         _obmcId(id), _repo(repo)
-    {
-    }
+    {}
 
     /** @brief Update managementSystemAck flag.
      *  @param[in] value - A true value says HMC acknowledged the PEL.

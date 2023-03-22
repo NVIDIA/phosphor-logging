@@ -1,16 +1,17 @@
 #include "config.h"
 
 #include "bin.hpp"
+#include "config_main.h"
+
 #include "extensions.hpp"
 #include "log_manager.hpp"
 
-#include <filesystem>
 #include <phosphor-logging/lg2.hpp>
 #include <sdbusplus/bus.hpp>
 #include <sdbusplus/server/manager.hpp>
 #include <sdeventplus/event.hpp>
 
-#include "config_main.h"
+#include <filesystem>
 
 int main(int argc, char* argv[])
 {
@@ -21,7 +22,8 @@ int main(int argc, char* argv[])
     bus.attach_event(event.get(), SD_EVENT_PRIORITY_NORMAL);
 
     // Add sdbusplus ObjectManager for the 'root' path of the logging manager.
-    sdbusplus::server::manager::manager objManager(bus, OBJ_LOGGING);
+    sdbusplus::server::manager_t objManager(bus, OBJ_LOGGING);
+
     phosphor::logging::internal::Manager iMgr(bus, OBJ_INTERNAL);
     phosphor::logging::Manager mgr(bus, OBJ_LOGGING, iMgr);
 
@@ -48,17 +50,6 @@ int main(int argc, char* argv[])
     // Restore all errors
     iMgr.restore();
 
-    try
-    {
-        bus.request_name(BUSNAME_LOGGING);
-    }
-    catch (const sdbusplus::exception::SdBusError& e){
-        error("Unable to request bus name: "
-              "{ERROR}",
-              "ERROR", e);
-    }
-    
-
     for (auto& startup : phosphor::logging::Extensions::getStartupFunctions())
     {
         try
@@ -71,6 +62,16 @@ int main(int argc, char* argv[])
                   "{ERROR}",
                   "ERROR", e);
         }
+    }
+
+    try
+    {
+        bus.request_name(BUSNAME_LOGGING);
+    }
+    catch (const sdbusplus::exception::SdBusError& e){
+        error("Unable to request bus name: "
+              "{ERROR}",
+              "ERROR", e);
     }
 
     return event.loop();

@@ -10,28 +10,20 @@ project('phosphor-logging', 'cpp',
     ],
     version: '1.0.0',
 )
+cpp = meson.get_compiler('cpp')
 
 python_prog = find_program('python3', native: true)
 systemd_dep = dependency('systemd')
 
-sdbusplus_dep = dependency('sdbusplus', required: false)
-sdbusplus_proj = dependency('', required: false)
-if not sdbusplus_dep.found() or sdbusplus_dep.type_name() == 'internal'
-    sdbusplus_proj = subproject('sdbusplus')
-endif
-if not sdbusplus_dep.found()
-    sdbusplus_dep = sdbusplus_proj.get_variable('sdbusplus_dep')
+sdbusplus_dep = dependency('sdbusplus')
+sdbusplusplus_prog = find_program('sdbus++', native: true)
+sdbuspp_gen_meson_prog = find_program('sdbus++-gen-meson', native: true)
+sdbusplusplus_depfiles = files()
+if sdbusplus_dep.type_name() == 'internal'
+    sdbusplusplus_depfiles = subproject('sdbusplus').get_variable('sdbusplusplus_depfiles')
 endif
 
-pdi_vars = []
-if not get_option('openpower-pel-extension').disabled()
-    pdi_vars += ['data_org_open_power=true']
-endif
-pdi_dep = dependency(
-    'phosphor-dbus-interfaces',
-    fallback: ['phosphor-dbus-interfaces', 'phosphor_dbus_interfaces_dep'],
-    default_options: pdi_vars,
-)
+pdi_dep = dependency('phosphor-dbus-interfaces')
 
 # Find the installed YAML directory, either from a configure option or
 # by pulling it from the PDI dependency.
@@ -48,21 +40,7 @@ if get_option('libonly')
   subdir_done()
 endif
 
-cpp = meson.get_compiler('cpp')
-
-if sdbusplus_proj.found()
-    sdbusplusplus_prog = sdbusplus_proj.get_variable('sdbusplusplus_prog')
-    sdbuspp_gen_meson_prog = sdbusplus_proj.get_variable(
-        'sdbuspp_gen_meson_prog')
-else
-    sdbusplusplus_prog = find_program('sdbus++', native: true)
-    sdbuspp_gen_meson_prog = find_program('sdbus++-gen-meson', native: true)
-endif
-
-sdeventplus_dep = dependency(
-    'sdeventplus',
-    fallback: ['sdeventplus', 'sdeventplus_dep' ],
-)
+sdeventplus_dep = dependency('sdeventplus')
 
 nlohmann_json_dep = dependency('nlohmann/json.hpp', required: false)
 

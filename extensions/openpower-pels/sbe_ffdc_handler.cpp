@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-extern "C" {
+extern "C"
+{
 #include <libpdbg.h>
 }
 
@@ -27,8 +28,9 @@ extern "C" {
 #include <fmt/format.h>
 #include <libekb.H>
 
-#include <new>
 #include <phosphor-logging/log.hpp>
+
+#include <new>
 
 namespace openpower
 {
@@ -39,7 +41,8 @@ namespace sbe
 
 using namespace phosphor::logging;
 
-SbeFFDC::SbeFFDC(const AdditionalData& aData, const PelFFDC& files)
+SbeFFDC::SbeFFDC(const AdditionalData& aData, const PelFFDC& files) :
+    ffdcType(FFDC_TYPE_NONE)
 {
     log<level::INFO>("SBE FFDC processing requested");
 
@@ -54,7 +57,7 @@ SbeFFDC::SbeFFDC(const AdditionalData& aData, const PelFFDC& files)
     }
     try
     {
-        procPos = std::stoi((src6.value()).substr(0, 4));
+        procPos = (std::stoi(src6.value()) & 0xFFFF0000) >> 16;
     }
     catch (const std::exception& err)
     {
@@ -192,6 +195,10 @@ void SbeFFDC::process(const sbeFfdcPacketType& ffdcPkt)
         return;
     }
 
+    // update FFDC type class membeir for hwp specific packet
+    // Assumption SBE FFDC contains only one hwp FFDC packet.
+    ffdcType = ffdc.ffdc_type;
+
     // To store callouts details in json format as per pel expectation.
     json pelJSONFmtCalloutDataList;
     pelJSONFmtCalloutDataList = json::array();
@@ -229,9 +236,21 @@ void SbeFFDC::process(const sbeFfdcPacketType& ffdcPkt)
     pdf.format = openpower::pels::UserDataFormat::text;
     pdf.version = 0x01;
     pdf.fd = pelDataFile.getFd();
+    pdf.subType = 0;
     ffdcFiles.push_back(pdf);
 
     paths.push_back(pelDataFile.getPath());
+}
+
+std::optional<LogSeverity> SbeFFDC::getSeverity()
+{
+    if (ffdcType == FFDC_TYPE_SPARE_CLOCK_INFO)
+    {
+        log<level::INFO>(
+            "Found spare clock error, changing severity to informational");
+        return LogSeverity::Informational;
+    }
+    return std::nullopt;
 }
 
 } // namespace sbe

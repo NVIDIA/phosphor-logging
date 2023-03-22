@@ -20,15 +20,18 @@
 #include "pel.hpp"
 #include "pel_entry.hpp"
 #include "service_indicators.hpp"
+#include "severity.hpp"
 
 #include <fmt/format.h>
 #include <sys/inotify.h>
 #include <unistd.h>
 
-#include <filesystem>
-#include <fstream>
 #include <xyz/openbmc_project/Common/error.hpp>
 #include <xyz/openbmc_project/Logging/Create/server.hpp>
+
+#include <filesystem>
+#include <fstream>
+#include <locale>
 
 namespace openpower
 {
@@ -156,6 +159,9 @@ void Manager::addPEL(std::vector<uint8_t>& pelData, uint32_t obmcLogID)
                         .c_str());
 
                 _repo.archivePEL(*pel);
+
+                // No need to keep around the openBMC event log entry
+                scheduleObmcLogDelete(obmcLogID);
                 return;
             }
         }
@@ -191,11 +197,12 @@ void Manager::addPEL(std::vector<uint8_t>& pelData, uint32_t obmcLogID)
                             entry("PEL_ID=0x%X", pel->id()));
         }
 
+        updateEventId(pel);
+        updateResolution(*pel);
+        createPELEntry(obmcLogID);
+
         // Check if firmware should quiesce system due to error
         checkPelAndQuiesce(pel);
-        updateEventId(pel);
-        updateResolution(pel);
-        createPELEntry(obmcLogID);
     }
     else
     {
@@ -225,6 +232,9 @@ void Manager::addPEL(std::vector<uint8_t>& pelData, uint32_t obmcLogID)
         std::ofstream pelFile{getPELRepoPath() / "badPEL"};
         pelFile.write(reinterpret_cast<const char*>(pelData.data()),
                       pelData.size());
+
+        // No need to keep around the openBMC event log entry
+        scheduleObmcLogDelete(obmcLogID);
     }
 }
 
@@ -366,7 +376,8 @@ void Manager::createPEL(const std::string& message, uint32_t obmcLogID,
     }
 
     auto pel = std::make_unique<openpower::pels::PEL>(
-        *entry, obmcLogID, timestamp, severity, ad, pelFFDC, *_dataIface);
+        *entry, obmcLogID, timestamp, severity, ad, pelFFDC, *_dataIface,
+        *_journal);
 
     _repo.add(pel);
 
@@ -378,14 +389,14 @@ void Manager::createPEL(const std::string& message, uint32_t obmcLogID,
     auto src = pel->primarySRC();
     if (src)
     {
-        auto msg =
-            fmt::format("Created PEL {:#x} (BMC ID {}) with SRC {}", pel->id(),
-                        pel->obmcLogID(), (*src)->asciiString());
-        while (msg.back() == ' ')
+        auto m = fmt::format("Created PEL {:#x} (BMC ID {}) with SRC {}",
+                             pel->id(), pel->obmcLogID(),
+                             (*src)->asciiString());
+        while (m.back() == ' ')
         {
-            msg.pop_back();
+            m.pop_back();
         }
-        log<level::INFO>(msg.c_str());
+        log<level::INFO>(m.c_str());
     }
 
     // Check for severity 0x51 and update boot progress SRC
@@ -395,11 +406,13 @@ void Manager::createPEL(const std::string& message, uint32_t obmcLogID,
     auto policy = service_indicators::getPolicy(*_dataIface);
     policy->activate(*pel);
 
+    updateDBusSeverity(*pel);
+    updateEventId(pel);
+    updateResolution(*pel);
+    createPELEntry(obmcLogID);
+
     // Check if firmware should quiesce system due to error
     checkPelAndQuiesce(pel);
-    updateEventId(pel);
-    updateResolution(pel);
-    createPELEntry(obmcLogID);
 }
 
 sdbusplus::message::unix_fd Manager::getPEL(uint32_t pelID)
@@ -520,7 +533,9 @@ void Manager::scheduleRepoPrune()
 
 void Manager::pruneRepo(sdeventplus::source::EventBase& /*source*/)
 {
-    auto idsToDelete = _repo.prune();
+    auto idsWithHwIsoEntry = _dataIface->getLogIDWithHwIsolation();
+
+    auto idsToDelete = _repo.prune(idsWithHwIsoEntry);
 
     // Remove the OpenBMC event logs for the PELs that were just removed.
     std::for_each(idsToDelete.begin(), idsToDelete.end(),
@@ -535,8 +550,8 @@ void Manager::setupPELDeleteWatch()
     if (-1 == _pelFileDeleteFD)
     {
         auto e = errno;
-        std::string msg =
-            "inotify_init1 failed with errno " + std::to_string(e);
+        std::string msg = "inotify_init1 failed with errno " +
+                          std::to_string(e);
         log<level::ERR>(msg.c_str());
         abort();
     }
@@ -546,8 +561,8 @@ void Manager::setupPELDeleteWatch()
     if (-1 == _pelFileDeleteWatchFD)
     {
         auto e = errno;
-        std::string msg =
-            "inotify_add_watch failed with error " + std::to_string(e);
+        std::string msg = "inotify_add_watch failed with error " +
+                          std::to_string(e);
         log<level::ERR>(msg.c_str());
         abort();
     }
@@ -633,6 +648,38 @@ std::tuple<uint32_t, uint32_t> Manager::createPELWithFFDCFiles(
     return {_logManager.lastEntryID(), _repo.lastPelID()};
 }
 
+std::string Manager::getPELJSON(uint32_t obmcLogID)
+{
+    // Throws InvalidArgument if not found
+    auto pelID = getPELIdFromBMCLogId(obmcLogID);
+
+    auto cmd = fmt::format("/usr/bin/peltool -i {:#x}", pelID);
+
+    FILE* pipe = popen(cmd.c_str(), "r");
+    if (!pipe)
+    {
+        log<level::ERR>(fmt::format("Error running {}", cmd).c_str());
+        throw common_error::InternalFailure();
+    }
+
+    std::string output;
+    std::array<char, 1024> buffer;
+    while (fgets(buffer.data(), buffer.size(), pipe) != nullptr)
+    {
+        output.append(buffer.data());
+    }
+
+    int rc = pclose(pipe);
+    if (WEXITSTATUS(rc) != 0)
+    {
+        log<level::ERR>(
+            fmt::format("Error running {}, rc = {}", cmd, rc).c_str());
+        throw common_error::InternalFailure();
+    }
+
+    return output;
+}
+
 void Manager::checkPelAndQuiesce(std::unique_ptr<openpower::pels::PEL>& pel)
 {
     if ((pel->userHeader().severity() ==
@@ -650,8 +697,18 @@ void Manager::checkPelAndQuiesce(std::unique_ptr<openpower::pels::PEL>& pel)
         return;
     }
 
+    CreatorID creatorID{pel->privateHeader().creatorID()};
+
+    if ((creatorID != CreatorID::openBMC) &&
+        (creatorID != CreatorID::hostboot) &&
+        (creatorID != CreatorID::ioDrawer) && (creatorID != CreatorID::occ) &&
+        (creatorID != CreatorID::phyp))
+    {
+        return;
+    }
+
     // Now check if it has any type of callout
-    if (pel->isCalloutPresent())
+    if (pel->isHwCalloutPresent())
     {
         log<level::INFO>(
             "QuiesceOnHwError enabled, PEL severity not nonError or recovered, "
@@ -683,7 +740,7 @@ std::string Manager::getEventId(const openpower::pels::PEL& pel) const
             str += getNumberString("%08X", value);
         }
     }
-    return str;
+    return sanitizeFieldForDBus(str);
 }
 
 void Manager::updateEventId(std::unique_ptr<openpower::pels::PEL>& pel)
@@ -695,6 +752,17 @@ void Manager::updateEventId(std::unique_ptr<openpower::pels::PEL>& pel)
     {
         entryN->second->eventId(eventIdStr);
     }
+}
+
+std::string Manager::sanitizeFieldForDBus(std::string field)
+{
+    std::for_each(field.begin(), field.end(), [](char& ch) {
+        if (((ch < ' ') || (ch > '~')) && (ch != '\n') && (ch != '\t'))
+        {
+            ch = ' ';
+        }
+    });
+    return field;
 }
 
 std::string Manager::getResolution(const openpower::pels::PEL& pel) const
@@ -718,8 +786,8 @@ std::string Manager::getResolution(const openpower::pels::PEL& pel) const
                 resolution += std::to_string(index) + ". ";
                 // Adding Location code to resolution
                 if (!entry->locationCode().empty())
-                    resolution +=
-                        "Location Code: " + entry->locationCode() + ", ";
+                    resolution += "Location Code: " + entry->locationCode() +
+                                  ", ";
                 if (entry->fruIdentity())
                 {
                     // Get priority and set the resolution string
@@ -760,16 +828,52 @@ std::string Manager::getResolution(const openpower::pels::PEL& pel) const
             }
         }
     }
-    return resolution;
+    return sanitizeFieldForDBus(resolution);
 }
 
-void Manager::updateResolution(std::unique_ptr<openpower::pels::PEL>& pel)
+bool Manager::updateResolution(const openpower::pels::PEL& pel)
 {
-    std::string callouts = getResolution(*pel);
-    auto entryN = _logManager.entries.find(pel->obmcLogID());
+    std::string callouts = getResolution(pel);
+    auto entryN = _logManager.entries.find(pel.obmcLogID());
     if (entryN != _logManager.entries.end())
     {
-        entryN->second->resolution(callouts);
+        entryN->second->resolution(callouts, true);
+    }
+
+    return false;
+}
+
+void Manager::updateDBusSeverity(const openpower::pels::PEL& pel)
+{
+    // The final severity of the PEL may not agree with the
+    // original severity of the D-Bus event log.  Update the
+    // D-Bus property to match in some cases.  This is to
+    // ensure there isn't a Critical or Warning Redfish event
+    // log for an informational or recovered PEL (or vice versa).
+    // This doesn't make an explicit call to serialize the new
+    // event log property value because updateEventId() is called
+    // right after this and will do it.
+    auto sevType =
+        static_cast<SeverityType>(pel.userHeader().severity() & 0xF0);
+
+    auto entryN = _logManager.entries.find(pel.obmcLogID());
+    if (entryN != _logManager.entries.end())
+    {
+        auto newSeverity = fixupLogSeverity(entryN->second->severity(),
+                                            sevType);
+        if (newSeverity)
+        {
+            log<level::INFO>(
+                fmt::format(
+                    "Changing event log {} severity from {} "
+                    "to {} to match PEL",
+                    entryN->second->id(),
+                    Entry::convertLevelToString(entryN->second->severity()),
+                    Entry::convertLevelToString(*newSeverity))
+                    .c_str());
+
+            entryN->second->severity(*newSeverity, true);
+        }
     }
 }
 
@@ -782,7 +886,7 @@ void Manager::setEntryPath(uint32_t obmcLogID)
         auto entry = _logManager.entries.find(obmcLogID);
         if (entry != _logManager.entries.end())
         {
-            entry->second->path(attr.path);
+            entry->second->path(attr.path, true);
         }
     }
 }
@@ -796,13 +900,19 @@ void Manager::setServiceProviderNotifyFlag(uint32_t obmcLogID)
         auto entry = _logManager.entries.find(obmcLogID);
         if (entry != _logManager.entries.end())
         {
-            entry->second->serviceProviderNotify(
-                attr.actionFlags.test(callHomeFlagBit));
+            if (attr.actionFlags.test(callHomeFlagBit))
+            {
+                entry->second->serviceProviderNotify(Entry::Notify::Notify);
+            }
+            else
+            {
+                entry->second->serviceProviderNotify(Entry::Notify::Inhibit);
+            }
         }
     }
 }
 
-void Manager::createPELEntry(uint32_t obmcLogID)
+void Manager::createPELEntry(uint32_t obmcLogID, bool skipIaSignal)
 {
     std::map<std::string, PropertiesVariant> varData;
     Repository::LogID id{Repository::LogID::Obmc(obmcLogID)};
@@ -836,7 +946,10 @@ void Manager::createPELEntry(uint32_t obmcLogID)
         // Create Interface for PELEntry and set properties
         auto pelEntry = std::make_unique<PELEntry>(_logManager.getBus(), path,
                                                    varData, obmcLogID, &_repo);
-        pelEntry->emit_added();
+        if (!skipIaSignal)
+        {
+            pelEntry->emit_added();
+        }
         _pelEntries.emplace(std::move(path), std::move(pelEntry));
     }
 }
@@ -883,8 +996,8 @@ void Manager::updateProgressSRC(
             // Read bytes from offset [40-47] e.g. BD8D1001
             for (int i = 0; i < 8; i++)
             {
-                srcRefCode |=
-                    (static_cast<uint64_t>(asciiSRC[40 + i]) << (8 * i));
+                srcRefCode |= (static_cast<uint64_t>(asciiSRC[40 + i])
+                               << (8 * i));
             }
 
             try
@@ -897,6 +1010,21 @@ void Manager::updateProgressSRC(
             }
         }
     }
+}
+
+void Manager::scheduleObmcLogDelete(uint32_t obmcLogID)
+{
+    _obmcLogDeleteEventSource = std::make_unique<sdeventplus::source::Defer>(
+        _event, std::bind(std::mem_fn(&Manager::deleteObmcLog), this,
+                          std::placeholders::_1, obmcLogID));
+}
+
+void Manager::deleteObmcLog(sdeventplus::source::EventBase&, uint32_t obmcLogID)
+{
+    log<level::INFO>(
+        fmt::format("Removing event log with no PEL: {}", obmcLogID).c_str());
+    _logManager.erase(obmcLogID);
+    _obmcLogDeleteEventSource.reset();
 }
 
 } // namespace pels

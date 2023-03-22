@@ -17,8 +17,9 @@
 
 #include <fmt/format.h>
 
-#include <bitset>
 #include <phosphor-logging/log.hpp>
+
+#include <bitset>
 
 namespace openpower::pels::service_indicators
 {
@@ -197,15 +198,20 @@ std::vector<std::string> LightPath::getInventoryPaths(
     const std::vector<std::string>& locationCodes) const
 {
     std::vector<std::string> paths;
-    std::string inventoryPath;
 
     for (const auto& locCode : locationCodes)
     {
         try
         {
-            auto inventoryPath =
-                _dataIface.getInventoryFromLocCode(locCode, 0, true);
-            paths.push_back(std::move(inventoryPath));
+            auto inventoryPaths = _dataIface.getInventoryFromLocCode(locCode, 0,
+                                                                     true);
+            for (const auto& path : inventoryPaths)
+            {
+                if (std::find(paths.begin(), paths.end(), path) == paths.end())
+                {
+                    paths.push_back(path);
+                }
+            }
         }
         catch (const std::exception& e)
         {

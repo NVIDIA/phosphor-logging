@@ -4,10 +4,11 @@
 #include "pel.hpp"
 #include "repository.hpp"
 
-#include <deque>
 #include <sdeventplus/clock.hpp>
 #include <sdeventplus/source/event.hpp>
 #include <sdeventplus/utility/timer.hpp>
+
+#include <deque>
 
 namespace openpower::pels
 {
@@ -257,6 +258,14 @@ class HostNotifier
     void hostFullTimerExpired();
 
     /**
+     * @brief The function called when the host up retry timer
+     *        expires.
+     *
+     * It kicks off sending the new log commands.
+     */
+    void hostUpTimerExpired();
+
+    /**
      * @brief Stops an in progress command
      *
      * In progress meaning after the send but before the response.
@@ -318,6 +327,12 @@ class HostNotifier
      *        said it is full.
      */
     sdeventplus::utility::Timer<sdeventplus::ClockId::Monotonic> _hostFullTimer;
+
+    /**
+     * @brief The host up timer, used to kick off sending commands to the
+     *        host after a delay after the host is up.
+     */
+    sdeventplus::utility::Timer<sdeventplus::ClockId::Monotonic> _hostUpTimer;
 
     /**
      * @brief The object used to dispatch a new PEL send from the

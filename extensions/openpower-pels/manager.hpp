@@ -5,6 +5,7 @@
 #include "data_interface.hpp"
 #include "event_logger.hpp"
 #include "host_notifier.hpp"
+#include "journal.hpp"
 #include "log_manager.hpp"
 #include "paths.hpp"
 #include "pel.hpp"
@@ -23,7 +24,7 @@ namespace openpower
 namespace pels
 {
 
-using PELInterface = sdbusplus::server::object::object<
+using PELInterface = sdbusplus::server::object_t<
     sdbusplus::org::open_power::Logging::server::PEL>;
 
 /**
@@ -48,21 +49,26 @@ class Manager : public PELInterface
      */
     Manager(phosphor::logging::internal::Manager& logManager,
             std::unique_ptr<DataInterfaceBase> dataIface,
-            EventLogger::LogFunction creatorFunc) :
+            EventLogger::LogFunction creatorFunc,
+            std::unique_ptr<JournalBase> journal) :
         PELInterface(logManager.getBus(), OBJ_LOGGING),
         _logManager(logManager), _eventLogger(std::move(creatorFunc)),
         _repo(getPELRepoPath()),
         _registry(getPELReadOnlyDataPath() / message::registryFileName),
         _event(sdeventplus::Event::get_default()),
-        _dataIface(std::move(dataIface))
+        _dataIface(std::move(dataIface)), _journal(std::move(journal))
     {
         for (const auto& entry : _logManager.entries)
         {
             setEntryPath(entry.first);
             setServiceProviderNotifyFlag(entry.first);
             // Create PELEntry interface and setup properties with their values
-            createPELEntry(entry.first);
+            createPELEntry(entry.first, true);
         }
+
+        _repo.for_each(
+            std::bind(&Manager::updateResolution, this, std::placeholders::_1));
+
         setupPELDeleteWatch();
     }
 
@@ -78,8 +84,10 @@ class Manager : public PELInterface
     Manager(phosphor::logging::internal::Manager& logManager,
             std::unique_ptr<DataInterfaceBase> dataIface,
             EventLogger::LogFunction creatorFunc,
+            std::unique_ptr<JournalBase> journal,
             std::unique_ptr<HostInterface> hostIface) :
-        Manager(logManager, std::move(dataIface), std::move(creatorFunc))
+        Manager(logManager, std::move(dataIface), std::move(creatorFunc),
+                std::move(journal))
     {
         _hostNotifier = std::make_unique<HostNotifier>(
             _repo, *(_dataIface.get()), std::move(hostIface));
@@ -201,6 +209,15 @@ class Manager : public PELInterface
             fFDC) override;
 
     /**
+     * @brief D-Bus method to return the PEL in JSON format
+     *
+     * @param[in] obmcLogID - The OpenBMC entry log ID
+     *
+     * @return std::string - The fully parsed PEL in JSON
+     */
+    std::string getPELJSON(uint32_t obmcLogID) override;
+
+    /**
      * @brief Converts the ESEL field in an OpenBMC event log to a
      *        vector of uint8_ts that just contains the PEL data.
      *
@@ -259,6 +276,17 @@ class Manager : public PELInterface
      * @param[in] pel - The PEL to use
      */
     void updateProgressSRC(std::unique_ptr<openpower::pels::PEL>& pel) const;
+
+    /**
+     * @brief Converts unprintable characters from the passed
+     *        in string to spaces so they won't crash D-Bus when
+     *        used as a property value.
+     *
+     * @param[in] field - The field to fix
+     *
+     * @return std::string - The string without non printable characters.
+     */
+    static std::string sanitizeFieldForDBus(std::string field);
 
   private:
     /**
@@ -409,8 +437,19 @@ class Manager : public PELInterface
      * Update the resolution property of D-bus with callouts extracted from PEL
      *
      * @param[in] pel - The PEL to use
+     *
+     * @return bool - false for Repositor::for_each().
      */
-    void updateResolution(std::unique_ptr<openpower::pels::PEL>& pel);
+    bool updateResolution(const openpower::pels::PEL& pel);
+
+    /**
+     * @brief Check if the D-Bus severity property for the event log
+     *        needs to be updated based on the final PEL severity,
+     *        and update the property accordingly.
+     *
+     * @param[in] pel - The PEL to operate on.
+     */
+    void updateDBusSeverity(const openpower::pels::PEL& pel);
 
     /**
      * @brief Create PELEntry Interface with supported properties
@@ -419,8 +458,25 @@ class Manager : public PELInterface
      * supported
      *
      * @param[in] obmcLogID - The OpenBMC entry log ID
+     * @param[in] skipIaSignal - If The InterfacesAdded signal should be
+     *                           skipped after creating the interfaces.
      */
-    void createPELEntry(uint32_t obmcLogID);
+    void createPELEntry(uint32_t obmcLogID, bool skipIaSignal = false);
+
+    /**
+     * @brief Schedules the delete of the OpenBMC event log for when
+     *        execution gets back to the event loop (uses sd_event_add_defer).
+     *
+     * @param[in] obmcLogID - The OpenBMC entry log ID
+     */
+    void scheduleObmcLogDelete(uint32_t obmcLogID);
+
+    /**
+     * @brief SD event callback to delete an OpenBMC event log
+     *
+     * @param[in] obmcLogID - The OpenBMC entry log ID
+     */
+    void deleteObmcLog(sdeventplus::source::EventBase&, uint32_t obmcLogID);
 
     /**
      * @brief Reference to phosphor-logging's Manager class
@@ -454,6 +510,11 @@ class Manager : public PELInterface
     std::unique_ptr<DataInterfaceBase> _dataIface;
 
     /**
+     * @brief Object used to read from the journal
+     */
+    std::unique_ptr<JournalBase> _journal;
+
+    /**
      * @brief The map used to keep track of PEL entry pointer associated with
      *        event log.
      */
@@ -479,6 +540,12 @@ class Manager : public PELInterface
      *        running out of space to make room for new ones.
      */
     std::unique_ptr<sdeventplus::source::Defer> _repoPrunerEventSource;
+
+    /**
+     * @brief The event source for deleting an OpenBMC event log.
+     *        Used when its corresponding PEL is invalid.
+     */
+    std::unique_ptr<sdeventplus::source::Defer> _obmcLogDeleteEventSource;
 
     /**
      * @brief The even source for watching for deleted PEL files.

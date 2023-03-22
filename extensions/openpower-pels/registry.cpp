@@ -19,8 +19,9 @@
 #include "pel_types.hpp"
 #include "pel_values.hpp"
 
-#include <fstream>
 #include <phosphor-logging/log.hpp>
+
+#include <fstream>
 
 namespace openpower
 {
@@ -562,12 +563,71 @@ std::vector<RegistryCallout>
     if (it == callouts.end())
     {
         // This can happen if not all possible values were in the
-        // message registry and that's fine.
+        // message registry and that's fine.  There may be a
+        // "CalloutsWhenNoADMatch" section that contains callouts
+        // to use in this case.
+        if (json.contains("CalloutsWhenNoADMatch"))
+        {
+            return getCalloutsWithoutAD(json["CalloutsWhenNoADMatch"],
+                                        systemNames);
+        }
         return std::vector<RegistryCallout>{};
     }
 
     // Proceed to find the callouts possibly based on system type.
     return getCalloutsWithoutAD((*it)["Callouts"], systemNames);
+}
+
+/**
+ * @brief Returns the journal capture information
+ *
+ *  The JSON looks like:
+ *    "JournalCapture": {
+ *        "NumLines": 30
+ *    }
+ *
+ *    "JournalCapture":
+ *    {
+ *        "Sections": [
+ *            {
+ *                "SyslogID": "phosphor-log-manager",
+ *                "NumLines": 20
+ *            }
+ *        ]
+ *    }
+ *
+ * @param json - The journal capture JSON
+ * @return JournalCapture - The filled in variant
+ */
+JournalCapture getJournalCapture(const nlohmann::json& json)
+{
+    JournalCapture capt;
+
+    // Primary key is either NumLines or Sections.
+    if (json.contains("NumLines"))
+    {
+        capt = json.at("NumLines").get<size_t>();
+    }
+    else if (json.contains("Sections"))
+    {
+        AppCaptureList captures;
+        for (const auto& capture : json.at("Sections"))
+        {
+            AppCapture ac;
+            ac.syslogID = capture.at("SyslogID").get<std::string>();
+            ac.numLines = capture.at("NumLines").get<size_t>();
+            captures.push_back(std::move(ac));
+        }
+
+        capt = captures;
+    }
+    else
+    {
+        log<level::ERR>("JournalCapture section not the right format");
+        throw std::runtime_error{"JournalCapture section not the right format"};
+    }
+
+    return capt;
 }
 
 } // namespace helper
@@ -610,7 +670,11 @@ std::optional<Entry> Registry::lookup(const std::string& name, LookupType type,
         {
             Entry entry;
             entry.name = (*e)["Name"];
-            entry.subsystem = helper::getSubsystem((*e)["Subsystem"]);
+
+            if (e->contains("Subsystem"))
+            {
+                entry.subsystem = helper::getSubsystem((*e)["Subsystem"]);
+            }
 
             if (e->contains("ActionFlags"))
             {
@@ -662,18 +726,13 @@ std::optional<Entry> Registry::lookup(const std::string& name, LookupType type,
 
             if (src.contains("Words6To9"))
             {
-                entry.src.hexwordADFields =
-                    helper::getSRCHexwordFields(src, name);
+                entry.src.hexwordADFields = helper::getSRCHexwordFields(src,
+                                                                        name);
             }
 
             if (src.contains("SymptomIDFields"))
             {
                 entry.src.symptomID = helper::getSRCSymptomIDFields(src, name);
-            }
-
-            if (src.contains("PowerFault"))
-            {
-                entry.src.powerFault = src["PowerFault"];
             }
 
             auto& doc = (*e)["Documentation"];
@@ -697,12 +756,18 @@ std::optional<Entry> Registry::lookup(const std::string& name, LookupType type,
                 }
             }
 
+            if (e->contains("JournalCapture"))
+            {
+                entry.journalCapture =
+                    helper::getJournalCapture((*e)["JournalCapture"]);
+            }
+
             return entry;
         }
-        catch (const std::exception& e)
+        catch (const std::exception& ex)
         {
             log<level::ERR>("Found invalid message registry field",
-                            entry("ERROR=%s", e.what()));
+                            entry("ERROR=%s", ex.what()));
         }
     }
 

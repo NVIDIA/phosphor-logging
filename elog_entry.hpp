@@ -16,7 +16,7 @@ namespace phosphor
 namespace logging
 {
 
-using EntryIfaces = sdbusplus::server::object::object<
+using EntryIfaces = sdbusplus::server::object_t<
     sdbusplus::xyz::openbmc_project::Logging::server::Entry,
     sdbusplus::xyz::openbmc_project::Object::server::Delete,
     sdbusplus::xyz::openbmc_project::Association::server::Definitions,
@@ -51,7 +51,7 @@ class Entry : public EntryIfaces
      *         Defer signal registration (pass true for deferSignal to the
      *         base class) until after the properties are set.
      *  @param[in] bus - Bus to attach to.
-     *  @param[in] path - Path to attach at.
+     *  @param[in] objectPath - Path to attach at.
      *  @param[in] idErr - The error entry id.
      *  @param[in] timestampErr - The commit timestamp.
      *  @param[in] severityErr - The severity of the error.
@@ -59,14 +59,15 @@ class Entry : public EntryIfaces
      *  @param[in] additionalDataErr - The error metadata.
      *  @param[in] objects - The list of associations.
      *  @param[in] fwVersion - The BMC code version.
+     *  @param[in] filePath - Serialization path
      *  @param[in] parent - The error's parent.
      */
-    Entry(sdbusplus::bus::bus& bus, const std::string& path, uint32_t idErr,
+    Entry(sdbusplus::bus_t& bus, const std::string& objectPath, uint32_t idErr,
           uint64_t timestampErr, Level severityErr, std::string&& msgErr,
           std::vector<std::string>&& additionalDataErr,
           AssociationList&& objects, const std::string& fwVersion,
-          internal::Manager& parent) :
-        EntryIfaces(bus, path.c_str(), EntryIfaces::action::defer_emit),
+          const std::string& filePath, internal::Manager& parent) :
+        EntryIfaces(bus, objectPath.c_str(), EntryIfaces::action::defer_emit),
         parent(parent)
     {
         id(idErr, true);
@@ -83,6 +84,10 @@ class Entry : public EntryIfaces
 
         version(fwVersion, true);
         purpose(VersionPurpose::BMC, true);
+        path(filePath, true);
+
+        // Emit deferred signal.
+        this->emit_object_added();
     };
 
     /** @brief Constructor that puts an "empty" error object on the bus,
@@ -93,7 +98,7 @@ class Entry : public EntryIfaces
      *  @param[in] id - The error entry id.
      *  @param[in] parent - The error's parent.
      */
-    Entry(sdbusplus::bus::bus& bus, const std::string& path, uint32_t entryId,
+    Entry(sdbusplus::bus_t& bus, const std::string& path, uint32_t entryId,
           internal::Manager& parent) :
         EntryIfaces(bus, path.c_str(), EntryIfaces::action::defer_emit),
         parent(parent)

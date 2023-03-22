@@ -21,6 +21,7 @@
 #include "extended_user_data.hpp"
 #include "extended_user_header.hpp"
 #include "failing_mtms.hpp"
+#include "fru_identity.hpp"
 #include "json_utils.hpp"
 #include "log_id.hpp"
 #include "pel_rules.hpp"
@@ -39,14 +40,14 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include <iostream>
 #include <phosphor-logging/log.hpp>
+
+#include <iostream>
 
 namespace openpower
 {
 namespace pels
 {
-namespace message = openpower::pels::message;
 namespace pv = openpower::pels::pel_values;
 using namespace phosphor::logging;
 
@@ -55,7 +56,7 @@ constexpr auto unknownValue = "Unknown";
 PEL::PEL(const message::Entry& regEntry, uint32_t obmcLogID, uint64_t timestamp,
          phosphor::logging::Entry::Level severity,
          const AdditionalData& additionalData, const PelFFDC& ffdcFilesIn,
-         const DataInterfaceBase& dataIface)
+         const DataInterfaceBase& dataIface, const JournalBase& journal)
 {
     // No changes in input, for non SBE error related requests
     PelFFDC ffdcFiles = ffdcFilesIn;
@@ -73,11 +74,17 @@ PEL::PEL(const message::Entry& regEntry, uint32_t obmcLogID, uint64_t timestamp,
     std::unique_ptr<sbe::SbeFFDC> sbeFFDCPtr;
     if (processReq)
     {
-        sbeFFDCPtr =
-            std::make_unique<sbe::SbeFFDC>(additionalData, ffdcFilesIn);
+        sbeFFDCPtr = std::make_unique<sbe::SbeFFDC>(additionalData,
+                                                    ffdcFilesIn);
         const auto& sbeFFDCFiles = sbeFFDCPtr->getSbeFFDC();
         ffdcFiles.insert(ffdcFiles.end(), sbeFFDCFiles.begin(),
                          sbeFFDCFiles.end());
+
+        // update pel priority for spare clock failures
+        if (auto customSeverity = sbeFFDCPtr->getSeverity())
+        {
+            severity = customSeverity.value();
+        }
     }
 #endif
 
@@ -103,8 +110,8 @@ PEL::PEL(const message::Entry& regEntry, uint32_t obmcLogID, uint64_t timestamp,
         }
     }
 
-    auto src =
-        std::make_unique<SRC>(regEntry, additionalData, callouts, dataIface);
+    auto src = std::make_unique<SRC>(regEntry, additionalData, callouts,
+                                     dataIface);
 
     if (!src->getDebugData().empty())
     {
@@ -178,9 +185,9 @@ PEL::PEL(const message::Entry& regEntry, uint32_t obmcLogID, uint64_t timestamp,
         addUserDataSection(std::move(ud));
 
         // Also put in the journal for debug
-        for (const auto& [name, data] : debugData)
+        for (const auto& [name, msgs] : debugData)
         {
-            for (const auto& message : data)
+            for (const auto& message : msgs)
             {
                 std::string entry = name + ": " + message;
                 log<level::INFO>(entry.c_str());
@@ -188,14 +195,14 @@ PEL::PEL(const message::Entry& regEntry, uint32_t obmcLogID, uint64_t timestamp,
         }
     }
 
+    addJournalSections(regEntry, journal);
+
     _ph->setSectionCount(2 + _optionalSections.size());
 
     checkRulesAndFix();
 }
 
-PEL::PEL(std::vector<uint8_t>& data) : PEL(data, 0)
-{
-}
+PEL::PEL(std::vector<uint8_t>& data) : PEL(data, 0) {}
 
 PEL::PEL(std::vector<uint8_t>& data, uint32_t obmcLogID)
 {
@@ -322,8 +329,8 @@ void PEL::checkRulesAndFix()
     // assume the user knows what they are doing.
     if (_uh->actionFlags() == actionFlagsDefault)
     {
-        auto [actionFlags, eventType] =
-            pel_rules::check(0, _uh->eventType(), _uh->severity());
+        auto [actionFlags, eventType] = pel_rules::check(0, _uh->eventType(),
+                                                         _uh->severity());
 
         _uh->setActionFlags(actionFlags);
         _uh->setEventType(eventType);
@@ -506,7 +513,7 @@ nlohmann::json PEL::getCalloutJSON(const PelFFDC& ffdcFiles)
     return callouts;
 }
 
-bool PEL::isCalloutPresent() const
+bool PEL::isHwCalloutPresent() const
 {
     auto pSRC = primarySRC();
     if (!pSRC)
@@ -522,7 +529,8 @@ bool PEL::isCalloutPresent() const
             if (((*i).fruIdentity()))
             {
                 auto& fruId = (*i).fruIdentity();
-                if ((*fruId).failingComponentType() != 0)
+                if ((*fruId).failingComponentType() ==
+                    src::FRUIdentity::hardwareFRU)
                 {
                     calloutPresent = true;
                     break;
@@ -566,8 +574,8 @@ void PEL::updateSysInfoInExtendedUserDataSection(
                     static_cast<uint16_t>(ComponentID::phosphorLogging);
 
                 // Update system data to ED section
-                auto ud =
-                    util::makeSysInfoUserDataSection(additionalData, dataIface);
+                auto ud = util::makeSysInfoUserDataSection(additionalData,
+                                                           dataIface, false);
                 extUserData->updateDataSection(subType, componentId,
                                                ud->data());
             }
@@ -586,6 +594,111 @@ void PEL::updateTerminateBitInSRCSection()
         if (pSRC)
         {
             (*pSRC)->setTerminateBit();
+        }
+    }
+}
+
+void PEL::addJournalSections(const message::Entry& regEntry,
+                             const JournalBase& journal)
+{
+    if (!regEntry.journalCapture)
+    {
+        return;
+    }
+
+    // Write all unwritten journal data to disk.
+    journal.sync();
+
+    const auto& jc = regEntry.journalCapture.value();
+    std::vector<std::vector<std::string>> allMessages;
+
+    if (std::holds_alternative<size_t>(jc))
+    {
+        // Get the previous numLines journal entries
+        const auto& numLines = std::get<size_t>(jc);
+        try
+        {
+            auto messages = journal.getMessages("", numLines);
+            if (!messages.empty())
+            {
+                allMessages.push_back(std::move(messages));
+            }
+        }
+        catch (const std::exception& e)
+        {
+            log<level::ERR>(
+                fmt::format("Failed during journal collection: {}", e.what())
+                    .c_str());
+        }
+    }
+    else if (std::holds_alternative<message::AppCaptureList>(jc))
+    {
+        // Get journal entries based on the syslog id field.
+        const auto& sections = std::get<message::AppCaptureList>(jc);
+        for (const auto& [syslogID, numLines] : sections)
+        {
+            try
+            {
+                auto messages = journal.getMessages(syslogID, numLines);
+                if (!messages.empty())
+                {
+                    allMessages.push_back(std::move(messages));
+                }
+            }
+            catch (const std::exception& e)
+            {
+                log<level::ERR>(
+                    fmt::format("Failed during journal collection: {}",
+                                e.what())
+                        .c_str());
+            }
+        }
+    }
+
+    // Create the UserData sections
+    for (const auto& messages : allMessages)
+    {
+        auto buffer = util::flattenLines(messages);
+
+        // If the buffer is way too big, it can overflow the uint16_t
+        // PEL section size field that is checked below so do a cursory
+        // check here.
+        if (buffer.size() > _maxPELSize)
+        {
+            log<level::WARNING>(
+                "Journal UserData section does not fit in PEL, dropping");
+            log<level::WARNING>(fmt::format("PEL size = {}, data size = {}",
+                                            size(), buffer.size())
+                                    .c_str());
+            continue;
+        }
+
+        // Sections must be 4 byte aligned.
+        while (buffer.size() % 4 != 0)
+        {
+            buffer.push_back(0);
+        }
+
+        auto ud = std::make_unique<UserData>(
+            static_cast<uint16_t>(ComponentID::phosphorLogging),
+            static_cast<uint8_t>(UserDataFormat::text),
+            static_cast<uint8_t>(UserDataFormatVersion::text), buffer);
+
+        if (size() + ud->header().size <= _maxPELSize)
+        {
+            _optionalSections.push_back(std::move(ud));
+        }
+        else
+        {
+            // Don't attempt to shrink here since we'd be dropping the
+            // most recent journal entries which would be confusing.
+            log<level::WARNING>(
+                "Journal UserData section does not fit in PEL, dropping");
+            log<level::WARNING>(fmt::format("PEL size = {}, UserData size = {}",
+                                            size(), ud->header().size)
+                                    .c_str());
+            ud.reset();
+            continue;
         }
     }
 }
@@ -648,8 +761,7 @@ void addProcessNameToJSON(nlohmann::json& json,
         }
     }
     catch (const std::exception& e)
-    {
-    }
+    {}
 
     if (pid)
     {
@@ -701,9 +813,24 @@ void addStatesToJSON(nlohmann::json& json, const DataInterfaceBase& dataIface)
     json["BootState"] = lastSegment('.', dataIface.getBootState());
 }
 
+void addBMCUptime(nlohmann::json& json, const DataInterfaceBase& dataIface)
+{
+    auto seconds = dataIface.getUptimeInSeconds();
+    if (seconds)
+    {
+        json["BMCUptime"] = dataIface.getBMCUptime(*seconds);
+    }
+    else
+    {
+        json["BMCUptime"] = "";
+    }
+    json["BMCLoad"] = dataIface.getBMCLoadAvg();
+}
+
 std::unique_ptr<UserData>
     makeSysInfoUserDataSection(const AdditionalData& ad,
-                               const DataInterfaceBase& dataIface)
+                               const DataInterfaceBase& dataIface,
+                               bool addUptime)
 {
     nlohmann::json json;
 
@@ -711,6 +838,11 @@ std::unique_ptr<UserData>
     addBMCFWVersionIDToJSON(json, dataIface);
     addIMKeyword(json, dataIface);
     addStatesToJSON(json, dataIface);
+
+    if (addUptime)
+    {
+        addBMCUptime(json, dataIface);
+    }
 
     return makeJSONUserDataSection(json);
 }
@@ -825,6 +957,23 @@ std::unique_ptr<UserData> makeFFDCuserDataSection(uint16_t componentID,
     }
 
     return std::make_unique<UserData>(compID, subType, version, data);
+}
+
+std::vector<uint8_t> flattenLines(const std::vector<std::string>& lines)
+{
+    std::vector<uint8_t> out;
+
+    for (const auto& line : lines)
+    {
+        out.insert(out.end(), line.begin(), line.end());
+
+        if (out.back() != '\n')
+        {
+            out.push_back('\n');
+        }
+    }
+
+    return out;
 }
 
 } // namespace util

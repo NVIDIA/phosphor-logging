@@ -3,9 +3,10 @@
 #include "elog_entry.hpp"
 #include "log_manager.hpp"
 
-#include <filesystem>
 #include <sdbusplus/bus.hpp>
 #include <sdbusplus/test/sdbus_mock.hpp>
+
+#include <filesystem>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -21,7 +22,7 @@ class TestQuiesceOnError : public testing::Test
 {
   public:
     sdbusplus::SdBusMock sdbusMock;
-    sdbusplus::bus::bus mockedBus = sdbusplus::get_mocked_new(&sdbusMock);
+    sdbusplus::bus_t mockedBus = sdbusplus::get_mocked_new(&sdbusMock);
     phosphor::logging::internal::Manager manager;
 
     TestQuiesceOnError() : manager(mockedBus, OBJ_INTERNAL)
@@ -38,6 +39,7 @@ TEST_F(TestQuiesceOnError, testNoCallout)
     uint64_t timestamp{100};
     std::string message{"test error"};
     std::string fwLevel{"level42"};
+    std::string path{"/tmp/99"};
     std::vector<std::string> testData{"no", "callout"};
     phosphor::logging::AssociationList associations{};
 
@@ -50,6 +52,7 @@ TEST_F(TestQuiesceOnError, testNoCallout)
                std::move(testData),
                std::move(associations),
                fwLevel,
+               path,
                manager};
 
     EXPECT_EQ(manager.isCalloutPresent(elog), false);
@@ -62,6 +65,7 @@ TEST_F(TestQuiesceOnError, testCallout)
     uint64_t timestamp{100};
     std::string message{"test error"};
     std::string fwLevel{"level42"};
+    std::string path{"/tmp/99"};
     std::vector<std::string> testData{
         "CALLOUT_INVENTORY_PATH=/xyz/openbmc_project/inventory/system/chassis/"
         "motherboard/powersupply0/"};
@@ -76,6 +80,7 @@ TEST_F(TestQuiesceOnError, testCallout)
                std::move(testData),
                std::move(associations),
                fwLevel,
+               path,
                manager};
 
     EXPECT_EQ(manager.isCalloutPresent(elog), true);
@@ -88,6 +93,7 @@ TEST_F(TestQuiesceOnError, testBlockingErrorsCreated)
     uint64_t timestamp{100};
     std::string message{"test error"};
     std::string fwLevel{"level42"};
+    std::string path{"/tmp/99"};
     std::vector<std::string> testData{
         "CALLOUT_INVENTORY_PATH=/xyz/openbmc_project/inventory/system/chassis/"
         "motherboard/powersupply0/"};
@@ -113,6 +119,7 @@ TEST_F(TestQuiesceOnError, testBlockingErrorsCreated)
                std::move(testData),
                std::move(associations),
                fwLevel,
+               path,
                manager};
 
     manager.quiesceOnError(id);
@@ -143,6 +150,7 @@ TEST_F(TestQuiesceOnError, testBlockingErrorsResolved)
     uint64_t timestamp{100};
     std::string message{"test error"};
     std::string fwLevel{"level42"};
+    std::string path{"/tmp/99"};
     std::vector<std::string> testData{
         "CALLOUT_INVENTORY_PATH=/xyz/openbmc_project/inventory/system/chassis/"
         "motherboard/powersupply0/"};
@@ -168,6 +176,7 @@ TEST_F(TestQuiesceOnError, testBlockingErrorsResolved)
                std::move(testData),
                std::move(associations),
                fwLevel,
+               path,
                manager};
 
     manager.quiesceOnError(id);
@@ -200,6 +209,7 @@ TEST_F(TestQuiesceOnError, testBlockingErrorTwice)
     uint64_t timestamp{100};
     std::string message{"test error"};
     std::string fwLevel{"level42"};
+    std::string path{"/tmp/99"};
     std::vector<std::string> testData{
         "CALLOUT_INVENTORY_PATH=/xyz/openbmc_project/inventory/system/chassis/"
         "motherboard/powersupply0/"};
@@ -225,6 +235,7 @@ TEST_F(TestQuiesceOnError, testBlockingErrorTwice)
                std::move(testData),
                std::move(associations),
                fwLevel,
+               path,
                manager};
 
     manager.quiesceOnError(id);

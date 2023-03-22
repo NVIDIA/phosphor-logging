@@ -15,11 +15,13 @@
  */
 #include "repository.hpp"
 
+#include <fcntl.h>
 #include <sys/stat.h>
 
-#include <fstream>
 #include <phosphor-logging/log.hpp>
 #include <xyz/openbmc_project/Common/File/error.hpp>
+
+#include <fstream>
 
 namespace openpower
 {
@@ -288,9 +290,8 @@ std::optional<sdbusplus::message::unix_fd> Repository::getPELFD(const LogID& id)
     auto pel = findPEL(id);
     if (pel != _pelAttributes.end())
     {
-        FILE* fp = fopen(pel->second.path.c_str(), "rb");
-
-        if (fp == nullptr)
+        int fd = open(pel->second.path.c_str(), O_RDONLY | O_NONBLOCK);
+        if (fd == -1)
         {
             auto e = errno;
             log<level::ERR>("Unable to open PEL File", entry("ERRNO=%d", e),
@@ -300,8 +301,7 @@ std::optional<sdbusplus::message::unix_fd> Repository::getPELFD(const LogID& id)
 
         // Must leave the file open here.  It will be closed by sdbusplus
         // when it sends it back over D-Bus.
-
-        return fileno(fp);
+        return fd;
     }
     return std::nullopt;
 }
@@ -467,8 +467,8 @@ void Repository::updatePEL(const fs::path& path, PELUpdateFunc updateFunc)
 bool Repository::isServiceableSev(const PELAttributes& pel)
 {
     auto sevType = static_cast<SeverityType>(pel.severity & 0xF0);
-    auto sevPVEntry =
-        pel_values::findByValue(pel.severity, pel_values::severityValues);
+    auto sevPVEntry = pel_values::findByValue(pel.severity,
+                                              pel_values::severityValues);
     std::string sevName = std::get<pel_values::registryNamePos>(*sevPVEntry);
 
     bool check1 = (sevType == SeverityType::predictive) ||
@@ -582,7 +582,8 @@ std::vector<Repository::AttributesReference>
     return attributes;
 }
 
-std::vector<uint32_t> Repository::prune()
+std::vector<uint32_t>
+    Repository::prune(const std::vector<uint32_t>& idsWithHwIsoEntry)
 {
     std::vector<uint32_t> obmcLogIDs;
     std::string msg = "Pruning PEL repository that takes up " +
@@ -650,30 +651,34 @@ std::vector<uint32_t> Repository::prune()
 
     // Check all 4 categories, which will result in at most 90%
     // usage (15 + 30 + 15 + 30).
-    removePELs(overBMCInfoLimit, isBMCInfo, obmcLogIDs);
-    removePELs(overBMCNonInfoLimit, isBMCNonInfo, obmcLogIDs);
-    removePELs(overNonBMCInfoLimit, isNonBMCInfo, obmcLogIDs);
-    removePELs(overNonBMCNonInfoLimit, isNonBMCNonInfo, obmcLogIDs);
+    removePELs(overBMCInfoLimit, isBMCInfo, idsWithHwIsoEntry, obmcLogIDs);
+    removePELs(overBMCNonInfoLimit, isBMCNonInfo, idsWithHwIsoEntry,
+               obmcLogIDs);
+    removePELs(overNonBMCInfoLimit, isNonBMCInfo, idsWithHwIsoEntry,
+               obmcLogIDs);
+    removePELs(overNonBMCNonInfoLimit, isNonBMCNonInfo, idsWithHwIsoEntry,
+               obmcLogIDs);
 
     // After the above pruning check if there are still too many PELs,
     // which can happen depending on PEL sizes.
     if (_pelAttributes.size() > _maxNumPELs)
     {
-        removePELs(tooManyPELsLimit, isAnyPEL, obmcLogIDs);
+        removePELs(tooManyPELsLimit, isAnyPEL, idsWithHwIsoEntry, obmcLogIDs);
     }
 
     if (!obmcLogIDs.empty())
     {
-        std::string msg = "Number of PELs removed to save space: " +
-                          std::to_string(obmcLogIDs.size());
-        log<level::INFO>(msg.c_str());
+        std::string m = "Number of PELs removed to save space: " +
+                        std::to_string(obmcLogIDs.size());
+        log<level::INFO>(m.c_str());
     }
 
     return obmcLogIDs;
 }
 
-void Repository::removePELs(IsOverLimitFunc& isOverLimit,
-                            IsPELTypeFunc& isPELType,
+void Repository::removePELs(const IsOverLimitFunc& isOverLimit,
+                            const IsPELTypeFunc& isPELType,
+                            const std::vector<uint32_t>& idsWithHwIsoEntry,
                             std::vector<uint32_t>& removedBMCLogIDs)
 {
     if (!isOverLimit())
@@ -712,6 +717,15 @@ void Repository::removePELs(IsOverLimitFunc& isOverLimit,
             if (isPELType(pel.second) && stateCheck(pel.second))
             {
                 auto removedID = pel.first.obmcID.id;
+
+                auto idFound = std::find(idsWithHwIsoEntry.begin(),
+                                         idsWithHwIsoEntry.end(), removedID);
+                if (idFound != idsWithHwIsoEntry.end())
+                {
+                    ++it;
+                    continue;
+                }
+
                 remove(pel.first);
 
                 removedBMCLogIDs.push_back(removedID);

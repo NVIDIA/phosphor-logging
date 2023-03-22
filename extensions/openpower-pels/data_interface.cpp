@@ -21,10 +21,16 @@
 
 #include <fmt/format.h>
 
-#include <fstream>
-#include <iterator>
 #include <phosphor-logging/log.hpp>
 #include <xyz/openbmc_project/State/Boot/Progress/server.hpp>
+
+#include <fstream>
+#include <iterator>
+
+// Use a timeout of 10s for D-Bus calls so if there are
+// timeouts the callers of the PEL creation method won't
+// also timeout.
+constexpr auto dbusTimeout = 10000000;
 
 namespace openpower
 {
@@ -38,6 +44,7 @@ constexpr auto vpdManager = "com.ibm.VPD.Manager";
 constexpr auto ledGroupManager = "xyz.openbmc_project.LED.GroupManager";
 constexpr auto logSetting = "xyz.openbmc_project.Settings";
 constexpr auto hwIsolation = "org.open_power.HardwareIsolation";
+constexpr auto biosConfigMgr = "xyz.openbmc_project.BIOSConfigManager";
 constexpr auto bootRawProgress = "xyz.openbmc_project.State.Boot.Raw";
 } // namespace service_name
 
@@ -58,7 +65,8 @@ constexpr auto enableHostPELs =
 constexpr auto vpdManager = "/com/ibm/VPD/Manager";
 constexpr auto logSetting = "/xyz/openbmc_project/logging/settings";
 constexpr auto hwIsolation = "/xyz/openbmc_project/hardware_isolation";
-constexpr auto bootRawSetting = "/xyz/openbmc_project/state/boot/raw0";
+constexpr auto biosConfigMgr = "/xyz/openbmc_project/bios_config/manager";
+constexpr auto bootRawProgress = "/xyz/openbmc_project/state/boot/raw0";
 } // namespace object_path
 
 namespace interface
@@ -84,10 +92,13 @@ constexpr auto ledGroup = "xyz.openbmc_project.Led.Group";
 constexpr auto operationalStatus =
     "xyz.openbmc_project.State.Decorator.OperationalStatus";
 constexpr auto logSetting = "xyz.openbmc_project.Logging.Settings";
-constexpr auto association = "xyz.openbmc_project.Association.Definitions";
+constexpr auto associationDef = "xyz.openbmc_project.Association.Definitions";
 constexpr auto dumpEntry = "xyz.openbmc_project.Dump.Entry";
 constexpr auto dumpProgress = "xyz.openbmc_project.Common.Progress";
 constexpr auto hwIsolationCreate = "org.open_power.HardwareIsolation.Create";
+constexpr auto hwIsolationEntry = "xyz.openbmc_project.HardwareIsolation.Entry";
+constexpr auto association = "xyz.openbmc_project.Association";
+constexpr auto biosConfigMgr = "xyz.openbmc_project.BIOSConfig.Manager";
 constexpr auto bootRawProgress = "xyz.openbmc_project.State.Boot.Raw";
 } // namespace interface
 
@@ -111,7 +122,7 @@ std::pair<std::string, std::string>
     return {base, connector};
 }
 
-DataInterface::DataInterface(sdbusplus::bus::bus& bus) : _bus(bus)
+DataInterface::DataInterface(sdbusplus::bus_t& bus) : _bus(bus)
 {
     readBMCFWVersion();
     readServerFWVersion();
@@ -141,6 +152,13 @@ DataInterface::DataInterface(sdbusplus::bus::bus& bus) : _bus(bus)
     _properties.emplace_back(std::make_unique<PropertyWatcher<DataInterface>>(
         bus, object_path::enableHostPELs, interface::enable, "Enabled", *this,
         [this](const auto& value) {
+            if (std::get<bool>(value) != this->_sendPELsToHost)
+            {
+                log<level::INFO>(
+                    fmt::format("The send PELs to host setting changed to {}",
+                                std::get<bool>(value))
+                        .c_str());
+            }
             this->_sendPELsToHost = std::get<bool>(value);
         }));
 
@@ -174,6 +192,26 @@ DataInterface::DataInterface(sdbusplus::bus::bus& bus) : _bus(bus)
         *this, [this](const auto& value) {
             this->_hostState = std::get<std::string>(value);
         }));
+
+    // Watch the BaseBIOSTable property for the hmc managed attribute
+    _properties.emplace_back(std::make_unique<PropertyWatcher<DataInterface>>(
+        bus, object_path::biosConfigMgr, interface::biosConfigMgr,
+        "BaseBIOSTable", service_name::biosConfigMgr, *this,
+        [this](const auto& value) {
+            const auto& attributes = std::get<BiosAttributes>(value);
+
+            auto it = attributes.find("pvm_hmc_managed");
+            if (it != attributes.end())
+            {
+                const auto& currentValVariant = std::get<5>(it->second);
+                auto currentVal = std::get_if<std::string>(&currentValVariant);
+                if (currentVal)
+                {
+                    this->_hmcManaged = (*currentVal == "Enabled") ? true
+                                                                   : false;
+                }
+            }
+        }));
 }
 
 DBusPropertyMap
@@ -186,7 +224,7 @@ DBusPropertyMap
     auto method = _bus.new_method_call(service.c_str(), objectPath.c_str(),
                                        interface::dbusProperty, "GetAll");
     method.append(interface);
-    auto reply = _bus.call(method);
+    auto reply = _bus.call(method, dbusTimeout);
 
     reply.read(properties);
 
@@ -199,25 +237,23 @@ void DataInterface::getProperty(const std::string& service,
                                 const std::string& property,
                                 DBusValue& value) const
 {
-
     auto method = _bus.new_method_call(service.c_str(), objectPath.c_str(),
                                        interface::dbusProperty, "Get");
     method.append(interface, property);
-    auto reply = _bus.call(method);
+    auto reply = _bus.call(method, dbusTimeout);
 
     reply.read(value);
 }
 
 DBusPathList DataInterface::getPaths(const DBusInterfaceList& interfaces) const
 {
-
     auto method = _bus.new_method_call(
         service_name::objectMapper, object_path::objectMapper,
         interface::objectMapper, "GetSubTreePaths");
 
     method.append(std::string{"/"}, 0, interfaces);
 
-    auto reply = _bus.call(method);
+    auto reply = _bus.call(method, dbusTimeout);
 
     DBusPathList paths;
     reply.read(paths);
@@ -234,7 +270,7 @@ DBusService DataInterface::getService(const std::string& objectPath,
 
     method.append(objectPath, std::vector<std::string>({interface}));
 
-    auto reply = _bus.call(method);
+    auto reply = _bus.call(method, dbusTimeout);
 
     std::map<DBusService, DBusInterfaceList> response;
     reply.read(response);
@@ -275,7 +311,6 @@ std::string DataInterface::getMachineTypeModel() const
     std::string model;
     try
     {
-
         auto service = getService(object_path::systemInv, interface::invAsset);
         if (!service.empty())
         {
@@ -302,7 +337,6 @@ std::string DataInterface::getMachineSerialNumber() const
     std::string sn;
     try
     {
-
         auto service = getService(object_path::systemInv, interface::invAsset);
         if (!service.empty())
         {
@@ -331,8 +365,8 @@ std::string DataInterface::getMotherboardCCIN() const
 
     try
     {
-        auto service =
-            getService(object_path::motherBoardInv, interface::viniRecordVPD);
+        auto service = getService(object_path::motherBoardInv,
+                                  interface::viniRecordVPD);
         if (!service.empty())
         {
             DBusValue value;
@@ -361,8 +395,8 @@ std::vector<uint8_t> DataInterface::getSystemIMKeyword() const
 
     try
     {
-        auto service =
-            getService(object_path::motherBoardInv, interface::vsbpRecordVPD);
+        auto service = getService(object_path::motherBoardInv,
+                                  interface::vsbpRecordVPD);
         if (!service.empty())
         {
             DBusValue value;
@@ -398,8 +432,8 @@ void DataInterface::getHWCalloutFields(const std::string& inventoryPath,
 
     auto service = getService(inventoryPath, interface::viniRecordVPD);
 
-    auto properties =
-        getAllProperties(service, inventoryPath, interface::viniRecordVPD);
+    auto properties = getAllProperties(service, inventoryPath,
+                                       interface::viniRecordVPD);
 
     auto value = std::get<std::vector<uint8_t>>(properties["FN"]);
     fruPartNumber = std::string{value.begin(), value.end()};
@@ -453,7 +487,7 @@ std::string DataInterface::expandLocationCode(const std::string& locationCode,
 
     method.append(addLocationCodePrefix(baseLoc), static_cast<uint16_t>(0));
 
-    auto reply = _bus.call(method);
+    auto reply = _bus.call(method, dbusTimeout);
 
     std::string expandedLocationCode;
     reply.read(expandedLocationCode);
@@ -466,7 +500,7 @@ std::string DataInterface::expandLocationCode(const std::string& locationCode,
     return expandedLocationCode;
 }
 
-std::string
+std::vector<std::string>
     DataInterface::getInventoryFromLocCode(const std::string& locationCode,
                                            uint16_t node, bool expanded) const
 {
@@ -492,37 +526,29 @@ std::string
         method.append(addLocationCodePrefix(baseLoc), node);
     }
 
-    auto reply = _bus.call(method);
+    auto reply = _bus.call(method, dbusTimeout);
 
     std::vector<sdbusplus::message::object_path> entries;
     reply.read(entries);
 
-    // Get the shortest entry from the paths received, as this
-    // would be the path furthest up the inventory hierarchy so
-    // would be the parent FRU.  There is guaranteed to at least
-    // be one entry if the call didn't fail.
-    std::string shortest{entries[0]};
+    std::vector<std::string> paths;
 
+    // Note: The D-Bus method will fail if nothing found.
     std::for_each(entries.begin(), entries.end(),
-                  [&shortest](const auto& path) {
-                      if (path.str.size() < shortest.size())
-                      {
-                          shortest = path;
-                      }
-                  });
+                  [&paths](const auto& path) { paths.push_back(path); });
 
-    return shortest;
+    return paths;
 }
 
 void DataInterface::assertLEDGroup(const std::string& ledGroup,
                                    bool value) const
 {
     DBusValue variant = value;
-    auto method =
-        _bus.new_method_call(service_name::ledGroupManager, ledGroup.c_str(),
-                             interface::dbusProperty, "Set");
+    auto method = _bus.new_method_call(service_name::ledGroupManager,
+                                       ledGroup.c_str(),
+                                       interface::dbusProperty, "Set");
     method.append(interface::ledGroup, "Asserted", variant);
-    _bus.call(method);
+    _bus.call(method, dbusTimeout);
 }
 
 void DataInterface::setFunctional(const std::string& objectPath,
@@ -535,7 +561,7 @@ void DataInterface::setFunctional(const std::string& objectPath,
                                        interface::dbusProperty, "Set");
 
     method.append(interface::operationalStatus, "Functional", variant);
-    _bus.call(method);
+    _bus.call(method, dbusTimeout);
 }
 
 using AssociationTuple = std::tuple<std::string, std::string, std::string>;
@@ -545,9 +571,9 @@ void DataInterface::setCriticalAssociation(const std::string& objectPath) const
 {
     DBusValue getAssociationValue;
 
-    auto service = getService(objectPath, interface::association);
+    auto service = getService(objectPath, interface::associationDef);
 
-    getProperty(service, objectPath, interface::association, "Associations",
+    getProperty(service, objectPath, interface::associationDef, "Associations",
                 getAssociationValue);
 
     auto association = std::get<AssociationsProperty>(getAssociationValue);
@@ -565,9 +591,9 @@ void DataInterface::setCriticalAssociation(const std::string& objectPath) const
         auto method = _bus.new_method_call(service.c_str(), objectPath.c_str(),
                                            interface::dbusProperty, "Set");
 
-        method.append(interface::association, "Associations",
+        method.append(interface::associationDef, "Associations",
                       setAssociationValue);
-        _bus.call(method);
+        _bus.call(method, dbusTimeout);
     }
 }
 
@@ -581,7 +607,7 @@ std::vector<std::string> DataInterface::getSystemNames() const
                                        interface::objectMapper, "GetSubTree");
     method.append(std::string{"/"}, 0,
                   std::vector<std::string>{interface::compatible});
-    auto reply = _bus.call(method);
+    auto reply = _bus.call(method, dbusTimeout);
 
     reply.read(subtree);
     if (subtree.empty())
@@ -604,8 +630,8 @@ bool DataInterface::getQuiesceOnError() const
 
     try
     {
-        auto service =
-            getService(object_path::logSetting, interface::logSetting);
+        auto service = getService(object_path::logSetting,
+                                  interface::logSetting);
         if (!service.empty())
         {
             DBusValue value;
@@ -639,7 +665,7 @@ std::vector<bool>
                                        interface::objectMapper, "GetSubTree");
     method.append(std::string{"/"}, 0,
                   std::vector<std::string>{interface::dumpEntry});
-    auto reply = _bus.call(method);
+    auto reply = _bus.call(method, dbusTimeout);
 
     reply.read(subtree);
 
@@ -686,7 +712,7 @@ std::vector<bool>
                     break;
                 }
             }
-            itDumpStatus++;
+            ++itDumpStatus;
         }
         itDumpStatus = result.begin();
     }
@@ -708,11 +734,11 @@ void DataInterface::createGuardRecord(const std::vector<uint8_t>& binPath,
         // api's. Making d-bus call no reply type to avoid cyclic dependency.
         // Added minimal timeout to catch initial failures.
         // Need to revisit this design later to avoid cyclic dependency.
-        constexpr auto dbusTimeout = 100000; // in micro seconds
-        _bus.call_noreply(method, dbusTimeout);
+        constexpr auto hwIsolationTimeout = 100000; // in micro seconds
+        _bus.call_noreply(method, hwIsolationTimeout);
     }
 
-    catch (const sdbusplus::exception::exception& e)
+    catch (const sdbusplus::exception_t& e)
     {
         std::string errName = e.name();
         // SD_BUS_ERROR_TIMEOUT error is expected, due to PEL api dependency
@@ -735,12 +761,117 @@ void DataInterface::createProgressSRC(
     DBusValue variant = std::make_tuple(priSRC, srcStruct);
 
     auto method = _bus.new_method_call(service_name::bootRawProgress,
-                                       object_path::bootRawSetting,
+                                       object_path::bootRawProgress,
                                        interface::dbusProperty, "Set");
 
     method.append(interface::bootRawProgress, "Value", variant);
 
-    _bus.call(method);
+    _bus.call(method, dbusTimeout);
 }
+
+std::vector<uint32_t> DataInterface::getLogIDWithHwIsolation() const
+{
+    std::vector<std::string> association = {"xyz.openbmc_project.Association"};
+    std::string hwErrorLog = "/isolated_hw_errorlog";
+    std::string errorLog = "/error_log";
+    DBusPathList paths;
+    std::vector<uint32_t> ids;
+
+    // Get all latest mapper associations
+    paths = getPaths(association);
+    for (auto& path : paths)
+    {
+        // Look for object path with hardware isolation entry if any
+        size_t pos = path.find(hwErrorLog);
+        if (pos != std::string::npos)
+        {
+            // Get the object path
+            std::string ph = path;
+            ph.erase(pos, hwErrorLog.length());
+            auto service = getService(ph, interface::hwIsolationEntry);
+            if (!service.empty())
+            {
+                bool status;
+                DBusValue value;
+
+                // Read the Resolved property from object path
+                getProperty(service, ph, interface::hwIsolationEntry,
+                            "Resolved", value);
+
+                status = std::get<bool>(value);
+
+                // If the entry isn't resolved
+                if (!status)
+                {
+                    auto assocService = getService(path,
+                                                   interface::association);
+                    if (!assocService.empty())
+                    {
+                        DBusValue endpoints;
+
+                        // Read Endpoints property
+                        getProperty(assocService, path, interface::association,
+                                    "endpoints", endpoints);
+
+                        auto logPath =
+                            std::get<std::vector<std::string>>(endpoints);
+                        if (!logPath.empty())
+                        {
+                            // Get OpenBMC event log Id
+                            uint32_t id = stoi(logPath[0].substr(
+                                logPath[0].find_last_of('/') + 1));
+                            ids.push_back(id);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Look for object path with error_log entry if any
+        pos = path.find(errorLog);
+        if (pos != std::string::npos)
+        {
+            auto service = getService(path, interface::association);
+            if (!service.empty())
+            {
+                DBusValue value;
+
+                // Read Endpoints property
+                getProperty(service, path, interface::association, "endpoints",
+                            value);
+
+                auto logPath = std::get<std::vector<std::string>>(value);
+                if (!logPath.empty())
+                {
+                    // Get OpenBMC event log Id
+                    uint32_t id = stoi(
+                        logPath[0].substr(logPath[0].find_last_of('/') + 1));
+                    ids.push_back(id);
+                }
+            }
+        }
+    }
+
+    if (ids.size() > 1)
+    {
+        // remove duplicates to have only unique ids
+        std::sort(ids.begin(), ids.end());
+        ids.erase(std::unique(ids.begin(), ids.end()), ids.end());
+    }
+    return ids;
+}
+
+std::vector<uint8_t> DataInterface::getRawProgressSRC(void) const
+{
+    using RawProgressProperty = std::tuple<uint64_t, std::vector<uint8_t>>;
+
+    DBusValue value;
+    getProperty(service_name::bootRawProgress, object_path::bootRawProgress,
+                interface::bootRawProgress, "Value", value);
+
+    const auto& rawProgress = std::get<RawProgressProperty>(value);
+    return std::get<1>(rawProgress);
+}
+
 } // namespace pels
 } // namespace openpower

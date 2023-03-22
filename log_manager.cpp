@@ -8,11 +8,14 @@
 #include "extensions.hpp"
 #include "util.hpp"
 
-#include <poll.h>
-#include <sys/inotify.h>
 #include <systemd/sd-bus.h>
 #include <systemd/sd-journal.h>
 #include <unistd.h>
+
+#include <phosphor-logging/lg2.hpp>
+#include <sdbusplus/vtable.hpp>
+#include <xyz/openbmc_project/Common/error.hpp>
+#include <xyz/openbmc_project/State/Host/server.hpp>
 
 #include <cassert>
 #include <chrono>
@@ -23,14 +26,10 @@
 #include <future>
 #include <iostream>
 #include <map>
-#include <phosphor-logging/lg2.hpp>
-#include <sdbusplus/vtable.hpp>
 #include <set>
 #include <string>
 #include <string_view>
 #include <vector>
-#include <xyz/openbmc_project/State/Host/server.hpp>
-#include <xyz/openbmc_project/Common/error.hpp>
 
 using namespace std::chrono;
 extern const std::map<
@@ -136,7 +135,7 @@ void Manager::_commit(uint64_t transactionId [[maybe_unused]],
         static constexpr auto transactionIdVarOffset = transactionIdVarSize + 1;
 
         // Flush all the pending log messages into the journal
-        journalSync();
+        util::journalSync();
 
         sd_journal* j = nullptr;
         int rc = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY);
@@ -233,9 +232,9 @@ void Manager::_commit(uint64_t transactionId [[maybe_unused]],
 }
 
 void callFQPNsMethods(
-    std::vector<std::string> const& fqpns, std::unique_ptr<Entry> const& entry,
-    std::map<std::string,
-             const std::function<std::string(Entry&, std::string&)>> const&
+    const std::vector<std::string>& fqpns, const std::unique_ptr<Entry>& entry,
+    const std::map<std::string,
+                   const std::function<std::string(Entry&, std::string&)>>&
         fnMap)
 {
     auto* e = entry.get();
@@ -406,11 +405,11 @@ void Manager::createEntry(std::string errMsg, Entry::Level errLvl,
 
     auto foundFQPNs = processMetadata(errMsg, additionalData, fnMap, objects);
 
-    auto e = std::make_unique<Entry>(busLog, objPath, entryId,
-                                     ms, // Milliseconds since 1970
-                                     errLvl, std::move(errMsg),
-                                     std::move(additionalData),
-                                     std::move(objects), fwVersion, *this);
+    auto e = std::make_unique<Entry>(
+        busLog, objPath, entryId,
+        ms, // Milliseconds since 1970
+        errLvl, std::move(errMsg), std::move(additionalData),
+        std::move(objects), fwVersion, getEntrySerializePath(entryId), *this);
 
     lastCreatedTimeStamp = ms;
 
@@ -436,7 +435,10 @@ void Manager::createEntry(std::string errMsg, Entry::Level errLvl,
         e->path(path);
     }
 
-    if (isQuiesceOnErrorEnabled() && isCalloutPresent(*e))
+    serialize(*e);
+
+    if (isQuiesceOnErrorEnabled() && (errLvl < Entry::sevLowerLimit) &&
+        isCalloutPresent(*e))
     {
         quiesceOnError(entryId);
     }
@@ -471,7 +473,7 @@ bool Manager::isQuiesceOnErrorEnabled()
         auto reply = this->busLog.call(method);
         reply.read(property);
     }
-    catch (const sdbusplus::exception::exception& e)
+    catch (const sdbusplus::exception_t& e)
     {
         lg2::error("Error reading QuiesceOnHwError property: {ERROR}", "ERROR",
                    e);
@@ -505,7 +507,7 @@ void Manager::findAndRemoveResolvedBlocks()
     }
 }
 
-void Manager::onEntryResolve(sdbusplus::message::message& msg)
+void Manager::onEntryResolve(sdbusplus::message_t& msg)
 {
     using Interface = std::string;
     using Property = std::string;
@@ -545,7 +547,7 @@ void Manager::checkAndQuiesceHost()
         auto reply = this->busLog.call(method);
         reply.read(property);
     }
-    catch (const sdbusplus::exception::exception& e)
+    catch (const sdbusplus::exception_t& e)
     {
         // Quiescing the host is a "best effort" type function. If unable to
         // read the host state or it comes back empty, just return.
@@ -567,7 +569,7 @@ void Manager::checkAndQuiesceHost()
         "org.freedesktop.systemd1", "/org/freedesktop/systemd1",
         "org.freedesktop.systemd1.Manager", "StartUnit");
 
-    quiesce.append("obmc-host-quiesce@0.target");
+    quiesce.append("obmc-host-graceful-quiesce@0.target");
     quiesce.append("replace");
 
     this->busLog.call_noreply(quiesce);
@@ -576,9 +578,10 @@ void Manager::checkAndQuiesceHost()
 void Manager::quiesceOnError(const uint32_t entryId)
 {
     // Verify we don't already have this entry blocking
-    auto it = find_if(
-        this->blockingErrors.begin(), this->blockingErrors.end(),
-        [&](std::unique_ptr<Block>& obj) { return obj->entryId == entryId; });
+    auto it = find_if(this->blockingErrors.begin(), this->blockingErrors.end(),
+                      [&](const std::unique_ptr<Block>& obj) {
+                          return obj->entryId == entryId;
+                      });
     if (it != this->blockingErrors.end())
     {
         // Already recorded so just return
@@ -589,15 +592,15 @@ void Manager::quiesceOnError(const uint32_t entryId)
 
     lg2::info("QuiesceOnError set and callout present");
 
-    auto blockPath =
-        std::string(OBJ_LOGGING) + "/block" + std::to_string(entryId);
+    auto blockPath = std::string(OBJ_LOGGING) + "/block" +
+                     std::to_string(entryId);
     auto blockObj = std::make_unique<Block>(this->busLog, blockPath, entryId);
     this->blockingErrors.push_back(std::move(blockObj));
 
     // Register call back if log is resolved
     using namespace sdbusplus::bus::match::rules;
     auto entryPath = std::string(OBJ_ENTRY) + '/' + std::to_string(entryId);
-    auto callback = std::make_unique<sdbusplus::bus::match::match>(
+    auto callback = std::make_unique<sdbusplus::bus::match_t>(
         this->busLog,
         propertiesChanged(entryPath, "xyz.openbmc_project.Logging.Entry"),
         std::bind(std::mem_fn(&Manager::onEntryResolve), this,
@@ -639,8 +642,8 @@ void Manager::doExtensionLogCreate(const Entry& entry, const FFDCEntries& ffdc)
 
 std::vector<std::string> Manager::processMetadata(
     const std::string& /*errorName*/, std::vector<std::string>& additionalData,
-    std::map<std::string,
-             const std::function<std::string(Entry&, std::string&)>> const&
+    const std::map<std::string,
+                   const std::function<std::string(Entry&, std::string&)>>&
         fnMap,
     AssociationList& objects) const
 {
@@ -679,9 +682,10 @@ std::vector<std::string> Manager::processMetadata(
 void Manager::checkAndRemoveBlockingError(uint32_t entryId)
 {
     // First look for blocking object and remove
-    auto it = find_if(
-        blockingErrors.begin(), blockingErrors.end(),
-        [&](std::unique_ptr<Block>& obj) { return obj->entryId == entryId; });
+    auto it = find_if(blockingErrors.begin(), blockingErrors.end(),
+                      [&](const std::unique_ptr<Block>& obj) {
+                          return obj->entryId == entryId;
+                      });
     if (it != blockingErrors.end())
     {
         blockingErrors.erase(it);
@@ -796,7 +800,6 @@ void Manager::restore()
     auto sanity = [](const auto& id, const auto& restoredId) {
         return id == restoredId;
     };
-    std::vector<uint32_t> errorIds;
 
     fs::path dir(ERRLOG_PERSIST_PATH);
     if (!fs::exists(dir) || fs::is_empty(dir))
@@ -855,7 +858,6 @@ void Manager::restore()
             if (sanity(static_cast<uint32_t>(idNum), e->id()))
             {
                 e->path(file.path(), true);
-                e->emit_object_added();
                 if (e->severity() >= Entry::sevLowerLimit)
                 {
                     restoreBin->infoEntries.insert(idNum);
@@ -867,7 +869,6 @@ void Manager::restore()
 
                 entries.insert(std::make_pair(idNum, std::move(e)));
                 binEntryMap.insert(std::make_pair(idNum, restoreBinName));
-                errorIds.push_back(idNum);
             }
             else
             {
@@ -887,13 +888,6 @@ void Manager::restore()
 
         Bin* restoreBin = &(pair.second);
         uint32_t eraseId;
-        auto removeEntries = [](std::vector<uint32_t>& ids, uint32_t id) {
-            auto it = std::find(ids.begin(), ids.end(), id);
-            if (it != ids.end())
-            {
-                ids.erase(it);
-            }
-        };
 
         while (restoreBin->errorEntries.size() > restoreBin->errorCap)
         {
@@ -901,7 +895,6 @@ void Manager::restore()
             erase(eraseId);
             lg2::info("Pruning Error EntryId {ENTRY_ID} in {NAMESPACE_NAME}",
                       "ENTRY_ID", eraseId, "NAMESPACE_NAME", pair.first);
-            removeEntries(errorIds, eraseId);
         }
 
         while (restoreBin->infoEntries.size() > restoreBin->errorInfoCap)
@@ -911,159 +904,14 @@ void Manager::restore()
             lg2::info(
                 "Pruning InfoError EntryId {ENTRY_ID} in {NAMESPACE_NAME}",
                 "ENTRY_ID", eraseId, "NAMESPACE_NAME", pair.first);
-            removeEntries(errorIds, eraseId);
         }
     }
 
-    if (!errorIds.empty())
+    if (!entries.empty())
     {
-        entryId = *(std::max_element(errorIds.begin(), errorIds.end()));
+        entryId = entries.rbegin()->first;
         lastCreatedTimeStamp = entries.find(entryId)->second->timestamp();
     }
-}
-
-void Manager::journalSync()
-{
-    bool syncRequested = false;
-    auto fd = -1;
-    auto rc = -1;
-    auto wd = -1;
-    auto bus = sdbusplus::bus::new_default();
-
-    auto start =
-        duration_cast<microseconds>(steady_clock::now().time_since_epoch())
-            .count();
-
-    // Each time an error log is committed, a request to sync the journal
-    // must occur and block that error log commit until it completes. A 5sec
-    // block is done to allow sufficient time for the journal to be synced.
-    //
-    // Number of loop iterations = 3 for the following reasons:
-    // Iteration #1: Requests a journal sync by killing the journald service.
-    // Iteration #2: Setup an inotify watch to monitor the synced file that
-    //               journald updates with the timestamp the last time the
-    //               journal was flushed.
-    // Iteration #3: Poll to wait until inotify reports an event which blocks
-    //               the error log from being commited until the sync completes.
-    constexpr auto maxRetry = 3;
-    for (int i = 0; i < maxRetry; i++)
-    {
-        // Read timestamp from synced file
-        constexpr auto syncedPath = "/run/systemd/journal/synced";
-        std::ifstream syncedFile(syncedPath);
-        if (syncedFile.fail())
-        {
-            // If the synced file doesn't exist, a sync request will create it.
-            if (errno != ENOENT)
-            {
-                lg2::error(
-                    "Failed to open journal synced file {FILENAME}: {ERROR}",
-                    "FILENAME", syncedPath, "ERROR", strerror(errno));
-                return;
-            }
-        }
-        else
-        {
-            // Only read the synced file if it exists.
-            // See if a sync happened by now
-            std::string timestampStr;
-            std::getline(syncedFile, timestampStr);
-            auto timestamp = std::stoll(timestampStr);
-            if (timestamp >= start)
-            {
-                break;
-            }
-        }
-
-        // Let's ask for a sync, but only once
-        if (!syncRequested)
-        {
-            syncRequested = true;
-
-            constexpr auto JOURNAL_UNIT = "systemd-journald.service";
-            auto signal = SIGRTMIN + 1;
-
-            auto method = bus.new_method_call(SYSTEMD_BUSNAME, SYSTEMD_PATH,
-                                              SYSTEMD_INTERFACE, "KillUnit");
-            method.append(JOURNAL_UNIT, "main", signal);
-            bus.call(method);
-            if (method.is_method_error())
-            {
-                lg2::error("Failed to kill journal service");
-                break;
-            }
-
-            continue;
-        }
-
-        // Let's install the inotify watch, if we didn't do that yet. This watch
-        // monitors the syncedFile for when journald updates it with a newer
-        // timestamp. This means the journal has been flushed.
-        if (fd < 0)
-        {
-            fd = inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
-            if (fd < 0)
-            {
-                lg2::error("Failed to create inotify watch: {ERROR}", "ERROR",
-                           strerror(errno));
-                return;
-            }
-
-            constexpr auto JOURNAL_RUN_PATH = "/run/systemd/journal";
-            wd = inotify_add_watch(fd, JOURNAL_RUN_PATH,
-                                   IN_MOVED_TO | IN_DONT_FOLLOW | IN_ONLYDIR);
-            if (wd < 0)
-            {
-                lg2::error("Failed to watch journal directory: {PATH}: {ERROR}",
-                           "PATH", JOURNAL_RUN_PATH, "ERROR", strerror(errno));
-                close(fd);
-                return;
-            }
-            continue;
-        }
-
-        // Let's wait until inotify reports an event
-        struct pollfd fds = {
-            fd,
-            POLLIN,
-            0,
-        };
-        constexpr auto pollTimeout = 5; // 5 seconds
-        rc = poll(&fds, 1, pollTimeout * 1000);
-        if (rc < 0)
-        {
-            lg2::error("Failed to add event: {ERROR}", "ERROR",
-                       strerror(errno));
-            inotify_rm_watch(fd, wd);
-            close(fd);
-            return;
-        }
-        else if (rc == 0)
-        {
-            lg2::info("Poll timeout ({TIMEOUT}), no new journal synced data",
-                      "TIMEOUT", pollTimeout);
-            break;
-        }
-
-        // Read from the specified file descriptor until there is no new data,
-        // throwing away everything read since the timestamp will be read at the
-        // beginning of the loop.
-        constexpr auto maxBytes = 64;
-        uint8_t buffer[maxBytes];
-        while (read(fd, buffer, maxBytes) > 0)
-            ;
-    }
-
-    if (fd != -1)
-    {
-        if (wd != -1)
-        {
-            inotify_rm_watch(fd, wd);
-        }
-        close(fd);
-    }
-
-    return;
 }
 
 std::string Manager::readFWVersion()
@@ -1191,7 +1039,8 @@ phosphor::logging::ManagedObject Manager::getAll(const std::string& nspace, Name
             prop["Resolved"] = v;
 
             // ServiceProviderNotify
-            v = entryFound->second->serviceProviderNotify();
+            v = Entry::convertNotifyToString(
+                entryFound->second->serviceProviderNotify());
             prop["ServiceProviderNotify"] = v;
 
             // UpdateTimeStamp
@@ -1263,7 +1112,8 @@ phosphor::logging::ManagedObject Manager::getAll(const std::string& nspace, Name
             prop["Resolved"] = v;
 
             // ServiceProviderNotify
-            v = entryFound->second->serviceProviderNotify();
+            v = Entry::convertNotifyToString(
+                entryFound->second->serviceProviderNotify());
             prop["ServiceProviderNotify"] = v;
 
             // UpdateTimeStamp

@@ -6,8 +6,9 @@
 #include <cereal/types/string.hpp>
 #include <cereal/types/tuple.hpp>
 #include <cereal/types/vector.hpp>
-#include <fstream>
 #include <phosphor-logging/log.hpp>
+
+#include <fstream>
 
 // Register class version
 // From cereal documentation;
@@ -117,10 +118,14 @@ fs::path serialize(const Entry& e)
     return path;
 }
 
+fs::path getEntrySerializePath(uint32_t id, const fs::path& dir)
+{
+    return dir / std::to_string(id);
+}
+
 fs::path serialize(const Entry& e, const fs::path& dir)
 {
-    auto path = dir / std::to_string(e.id());
-    auto pathStr = std::string(path);
+    auto path = getEntrySerializePath(e.id(), dir);
     std::ofstream os(path.c_str(), std::ios::binary);
     cereal::BinaryOutputArchive oarchive(os);
     oarchive(e);

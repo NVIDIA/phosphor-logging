@@ -22,8 +22,9 @@
 
 #include <fmt/format.h>
 
-#include <iostream>
 #include <phosphor-logging/log.hpp>
+
+#include <iostream>
 
 namespace openpower
 {
@@ -58,25 +59,43 @@ UserHeader::UserHeader(const message::Entry& entry,
     _header.subType = 0;
     _header.componentID = static_cast<uint16_t>(ComponentID::phosphorLogging);
 
-    _eventSubsystem = entry.subsystem;
+    std::optional<uint8_t> subsys;
 
     // Check for additional data - PEL_SUBSYSTEM
     auto ss = additionalData.getValue("PEL_SUBSYSTEM");
     if (ss)
     {
         auto eventSubsystem = std::stoul(*ss, NULL, 16);
-        std::string subsystem =
-            pv::getValue(eventSubsystem, pel_values::subsystemValues);
-        if (subsystem == "invalid")
+        std::string subsystemString = pv::getValue(eventSubsystem,
+                                                   pel_values::subsystemValues);
+        if (subsystemString == "invalid")
         {
             log<level::WARNING>(
-                fmt::format("UH: Invalid SubSystem value:{:#X}", eventSubsystem)
+                fmt::format(
+                    "UH: Invalid SubSystem value in PEL_SUBSYSTEM: {:#X}",
+                    eventSubsystem)
                     .c_str());
         }
         else
         {
-            _eventSubsystem = eventSubsystem;
+            subsys = eventSubsystem;
         }
+    }
+    else
+    {
+        subsys = entry.subsystem;
+    }
+
+    if (subsys)
+    {
+        _eventSubsystem = *subsys;
+    }
+    else
+    {
+        // Gotta use something, how about 'others'.
+        log<level::WARNING>(
+            "No PEL subystem value supplied for error, using 'others'");
+        _eventSubsystem = 0x70;
     }
 
     _eventScope = entry.eventScope.value_or(
@@ -85,12 +104,13 @@ UserHeader::UserHeader(const message::Entry& entry,
     {
         bool mfgSevStatus = false;
         bool mfgActionFlagStatus = false;
-        std::optional<uint8_t> sev = std::nullopt;
-        uint16_t val = 0;
 
         // Get the mfg severity & action flags
         if (entry.mfgSeverity || entry.mfgActionFlags)
         {
+            std::optional<uint8_t> sev = std::nullopt;
+            uint16_t val = 0;
+
             if (entry.mfgSeverity)
             {
                 // Find the mf severity possibly dependent on the system type.
@@ -143,7 +163,6 @@ UserHeader::UserHeader(const message::Entry& entry,
                 {
                     // Either someone  screwed up the message registry
                     // or getSystemNames failed.
-                    std::string types;
                     log<level::ERR>(
                         "Failed finding the severity in the message registry",
                         phosphor::logging::entry("ERROR=%s",
@@ -210,8 +229,8 @@ UserHeader::UserHeader(Stream& pel)
     }
     catch (const std::exception& e)
     {
-        log<level::ERR>("Cannot unflatten user header",
-                        entry("ERROR=%s", e.what()));
+        log<level::ERR>(
+            fmt::format("Cannot unflatten user header: {}", e.what()).c_str());
         _valid = false;
     }
 }
@@ -221,15 +240,17 @@ void UserHeader::validate()
     bool failed = false;
     if (header().id != static_cast<uint16_t>(SectionID::userHeader))
     {
-        log<level::ERR>("Invalid user header section ID",
-                        entry("ID=0x%X", header().id));
+        log<level::ERR>(
+            fmt::format("Invalid user header section ID: {0:#x}", header().id)
+                .c_str());
         failed = true;
     }
 
     if (header().version != userHeaderVersion)
     {
-        log<level::ERR>("Invalid user header version",
-                        entry("VERSION=0x%X", header().version));
+        log<level::ERR>(
+            fmt::format("Invalid user header version: {0:#x}", header().version)
+                .c_str());
         failed = true;
     }
 
@@ -247,8 +268,8 @@ std::optional<std::string> UserHeader::getJSON() const
     subsystem = pv::getValue(_eventSubsystem, pel_values::subsystemValues);
     eventScope = pv::getValue(_eventScope, pel_values::eventScopeValues);
     eventType = pv::getValue(_eventType, pel_values::eventTypeValues);
-    actionFlags =
-        pv::getValuesBitwise(_actionFlags, pel_values::actionFlagsValues);
+    actionFlags = pv::getValuesBitwise(_actionFlags,
+                                       pel_values::actionFlagsValues);
 
     std::string hostState{"Invalid"};
     std::string hmcState{"Invalid"};

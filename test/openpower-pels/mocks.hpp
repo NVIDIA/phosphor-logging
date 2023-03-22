@@ -1,10 +1,12 @@
 #include "extensions/openpower-pels/data_interface.hpp"
 #include "extensions/openpower-pels/host_interface.hpp"
+#include "extensions/openpower-pels/journal.hpp"
 
 #include <fcntl.h>
 
-#include <filesystem>
 #include <sdeventplus/source/io.hpp>
+
+#include <filesystem>
 
 #include <gmock/gmock.h>
 
@@ -16,9 +18,7 @@ namespace pels
 class MockDataInterface : public DataInterfaceBase
 {
   public:
-    MockDataInterface()
-    {
-    }
+    MockDataInterface() {}
     MOCK_METHOD(std::string, getMachineTypeModel, (), (const override));
     MOCK_METHOD(std::string, getMachineSerialNumber, (), (const override));
     MOCK_METHOD(std::string, getServerFWVersion, (), (const override));
@@ -37,7 +37,7 @@ class MockDataInterface : public DataInterfaceBase
     MOCK_METHOD(std::vector<std::string>, getSystemNames, (), (const override));
     MOCK_METHOD(std::string, expandLocationCode, (const std::string&, uint16_t),
                 (const override));
-    MOCK_METHOD(std::string, getInventoryFromLocCode,
+    MOCK_METHOD(std::vector<std::string>, getInventoryFromLocCode,
                 (const std::string&, uint16_t, bool), (const override));
     MOCK_METHOD(void, assertLEDGroup, (const std::string&, bool),
                 (const override));
@@ -57,6 +57,9 @@ class MockDataInterface : public DataInterfaceBase
     MOCK_METHOD(void, createProgressSRC,
                 (const uint64_t&, const std::vector<uint8_t>&),
                 (const override));
+    MOCK_METHOD(std::vector<uint32_t>, getLogIDWithHwIsolation, (),
+                (const override));
+    MOCK_METHOD(std::vector<uint8_t>, getRawProgressSRC, (), (const override));
 
     void changeHostState(bool newState)
     {
@@ -143,6 +146,17 @@ class MockHostInterface : public HostInterface
     virtual std::chrono::milliseconds getHostFullRetryDelay() const override
     {
         return std::chrono::milliseconds(400);
+    }
+
+    /**
+     * @brief Returns the amount of time to wait after the host is up
+     *        before sending commands.
+     *
+     * @return milliseconds - The amount of time to wait
+     */
+    virtual std::chrono::milliseconds getHostUpDelay() const override
+    {
+        return std::chrono::milliseconds(0);
     }
 
     /**
@@ -263,6 +277,17 @@ class MockHostInterface : public HostInterface
      * @brief The number of commands processed
      */
     size_t _cmdsProcessed = 0;
+};
+
+class MockJournal : public JournalBase
+{
+  public:
+    MockJournal() {}
+
+    MOCK_METHOD(std::vector<std::string>, getMessages,
+                (const std::string&, size_t), (const override));
+
+    MOCK_METHOD(void, sync, (), (const override));
 };
 
 } // namespace pels

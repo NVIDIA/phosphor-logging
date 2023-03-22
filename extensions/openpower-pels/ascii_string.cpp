@@ -17,16 +17,12 @@
 
 #include "pel_types.hpp"
 
-#include <phosphor-logging/log.hpp>
-
 namespace openpower
 {
 namespace pels
 {
 namespace src
 {
-
-using namespace phosphor::logging;
 
 AsciiString::AsciiString(Stream& stream)
 {
@@ -51,7 +47,9 @@ AsciiString::AsciiString(const message::Entry& entry)
     }
     else // BMC Error
     {
-        setByte(2, entry.subsystem);
+        // If subsystem wasn't specified, it should get set later in
+        // the SRC constructor.  Default to 'other' in case it doesn't.
+        setByte(2, entry.subsystem ? entry.subsystem.value() : 0x70);
     }
 
     // Then the reason code

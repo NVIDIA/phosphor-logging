@@ -3,6 +3,7 @@
 #include "pel_types.hpp"
 #include "stream.hpp"
 
+#include <array>
 #include <optional>
 
 namespace openpower
@@ -102,10 +103,9 @@ class FRUIdentity
      * @param[in] procedureFromRegistry - The maintenance procedure name
      *                                    as defined in the message registry.
      */
-    FRUIdentity(const std::string& procedureFromRegistry) :
+    explicit FRUIdentity(const std::string& procedureFromRegistry) :
         FRUIdentity(procedureFromRegistry, CalloutValueType::registryName)
-    {
-    }
+    {}
 
     /**
      * @brief Constructor
@@ -131,8 +131,7 @@ class FRUIdentity
                 bool trustedLocationCode) :
         FRUIdentity(symbolicFRUFromRegistry, CalloutValueType::registryName,
                     trustedLocationCode)
-    {
-    }
+    {}
 
     /**
      * @brief Constructor

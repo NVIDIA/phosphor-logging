@@ -23,6 +23,7 @@
 #include <Python.h>
 
 #include <nlohmann/json.hpp>
+
 #include <sstream>
 #endif
 #include <fmt/format.h>
@@ -126,8 +127,7 @@ std::string prettyJSON(const orderedJSON& json)
 std::optional<std::string> getPythonJSON(std::vector<std::string>& hexwords,
                                          uint8_t creatorID)
 {
-    PyObject *pName, *pModule, *pDict, *pFunc, *pArgs, *pResult, *pBytes,
-        *eType, *eValue, *eTraceback, *pKey;
+    PyObject *pName, *pModule, *eType, *eValue, *eTraceback;
     std::string pErrStr;
     std::string module = getNumberString("%c", tolower(creatorID)) + "src";
     pName = PyUnicode_FromString(
@@ -162,9 +162,9 @@ std::optional<std::string> getPythonJSON(std::vector<std::string>& hexwords,
         std::unique_ptr<PyObject, decltype(&pyDecRef)> modPtr(pModule,
                                                               &pyDecRef);
         std::string funcToCall = "parseSRCToJson";
-        pKey = PyUnicode_FromString(funcToCall.c_str());
+        PyObject* pKey = PyUnicode_FromString(funcToCall.c_str());
         std::unique_ptr<PyObject, decltype(&pyDecRef)> keyPtr(pKey, &pyDecRef);
-        pDict = PyModule_GetDict(pModule);
+        PyObject* pDict = PyModule_GetDict(pModule);
         Py_INCREF(pDict);
         if (!PyDict_Contains(pDict, pKey))
         {
@@ -177,34 +177,31 @@ std::optional<std::string> getPythonJSON(std::vector<std::string>& hexwords,
                 entry("PARSER_MODULE=%s", module.c_str()));
             return std::nullopt;
         }
-        pFunc = PyDict_GetItemString(pDict, funcToCall.c_str());
+        PyObject* pFunc = PyDict_GetItemString(pDict, funcToCall.c_str());
         Py_DECREF(pDict);
         Py_INCREF(pFunc);
         if (PyCallable_Check(pFunc))
         {
-            pArgs = PyTuple_New(9);
+            PyObject* pArgs = PyTuple_New(9);
             std::unique_ptr<PyObject, decltype(&pyDecRef)> argPtr(pArgs,
                                                                   &pyDecRef);
             for (size_t i = 0; i < 9; i++)
             {
+                std::string arg{"00000000"};
                 if (i < hexwords.size())
                 {
-                    auto arg = hexwords[i];
-                    PyTuple_SetItem(pArgs, i,
-                                    Py_BuildValue("s#", arg.c_str(), 8));
+                    arg = hexwords[i];
                 }
-                else
-                {
-                    PyTuple_SetItem(pArgs, i, Py_BuildValue("s", "00000000"));
-                }
+                PyTuple_SetItem(pArgs, i, Py_BuildValue("s", arg.c_str()));
             }
-            pResult = PyObject_CallObject(pFunc, pArgs);
+            PyObject* pResult = PyObject_CallObject(pFunc, pArgs);
             Py_DECREF(pFunc);
             if (pResult)
             {
                 std::unique_ptr<PyObject, decltype(&pyDecRef)> resPtr(
                     pResult, &pyDecRef);
-                pBytes = PyUnicode_AsEncodedString(pResult, "utf-8", "~E~");
+                PyObject* pBytes = PyUnicode_AsEncodedString(pResult, "utf-8",
+                                                             "~E~");
                 std::unique_ptr<PyObject, decltype(&pyDecRef)> pyBytePtr(
                     pBytes, &pyDecRef);
                 const char* output = PyBytes_AS_STRING(pBytes);
@@ -254,10 +251,10 @@ std::optional<std::string> getPythonJSON(std::vector<std::string>& hexwords,
     }
     if (!pErrStr.empty())
     {
-        log<level::ERR>("Python exception thrown by parser",
-                        entry("ERROR=%s", pErrStr.c_str()),
-                        entry("SRC=%s", hexwords.front().c_str()),
-                        entry("PARSER_MODULE=%s", module.c_str()));
+        log<level::DEBUG>("Python exception thrown by parser",
+                          entry("ERROR=%s", pErrStr.c_str()),
+                          entry("SRC=%s", hexwords.front().c_str()),
+                          entry("PARSER_MODULE=%s", module.c_str()));
     }
     return std::nullopt;
 }
@@ -309,7 +306,8 @@ SRC::SRC(Stream& pel)
     }
     catch (const std::exception& e)
     {
-        log<level::ERR>("Cannot unflatten SRC", entry("ERROR=%s", e.what()));
+        log<level::ERR>(
+            fmt::format("Cannot unflatten SRC: {}", e.what()).c_str());
         _valid = false;
     }
 }
@@ -325,13 +323,6 @@ SRC::SRC(const message::Entry& regEntry, const AdditionalData& additionalData,
     _version = srcVersion;
 
     _flags = 0;
-
-    auto item = additionalData.getValue("POWER_THERMAL_CRITICAL_FAULT");
-    if ((regEntry.src.powerFault.value_or(false)) ||
-        (item.value_or("") == "TRUE"))
-    {
-        _flags |= powerFaultEvent;
-    }
 
     _reserved1B = 0;
 
@@ -353,6 +344,7 @@ SRC::SRC(const message::Entry& regEntry, const AdditionalData& additionalData,
     //   P: Platform dump status
     //  FF: SRC format, set below
 
+    setProgressCode(dataIface);
     setDumpStatus(dataIface);
     setBMCFormat();
     setBMCPosition();
@@ -368,8 +360,8 @@ SRC::SRC(const message::Entry& regEntry, const AdditionalData& additionalData,
     if (ss)
     {
         auto eventSubsystem = std::stoul(*ss, NULL, 16);
-        std::string subsystem =
-            pv::getValue(eventSubsystem, pel_values::subsystemValues);
+        std::string subsystem = pv::getValue(eventSubsystem,
+                                             pel_values::subsystemValues);
         if (subsystem == "invalid")
         {
             log<level::WARNING>(
@@ -407,8 +399,8 @@ void SRC::setUserDefinedHexWords(const message::Entry& regEntry,
         // Can only set words 6 - 9
         if (!isUserDefinedWord(wordNum))
         {
-            std::string msg =
-                "SRC user data word out of range: " + std::to_string(wordNum);
+            std::string msg = "SRC user data word out of range: " +
+                              std::to_string(wordNum);
             addDebugData(msg);
             continue;
         }
@@ -458,15 +450,17 @@ void SRC::validate()
     if ((header().id != static_cast<uint16_t>(SectionID::primarySRC)) &&
         (header().id != static_cast<uint16_t>(SectionID::secondarySRC)))
     {
-        log<level::ERR>("Invalid SRC section ID",
-                        entry("ID=0x%X", header().id));
+        log<level::ERR>(
+            fmt::format("Invalid SRC section ID: {0:#x}", header().id).c_str());
         failed = true;
     }
 
     // Check the version in the SRC, not in the header
     if (_version != srcVersion)
     {
-        log<level::ERR>("Invalid SRC version", entry("VERSION=0x%X", _version));
+        log<level::ERR>(
+            fmt::format("Invalid SRC version: {0:#x}", header().version)
+                .c_str());
         failed = true;
     }
 
@@ -724,8 +718,6 @@ std::optional<std::string> SRC::getJSON(message::Registry& registry,
                pv::boolString.at(_flags & i5OSServiceEventBit), 1);
     jsonInsert(ps, "Hypervisor Dump Initiated",
                pv::boolString.at(_flags & hypDumpInit), 1);
-    jsonInsert(ps, "Power Control Net Fault",
-               pv::boolString.at(isPowerFaultEvent()), 1);
 
     if (isBMCSRC())
     {
@@ -821,8 +813,8 @@ void SRC::addCallouts(const message::Entry& regEntry,
                       const nlohmann::json& jsonCallouts,
                       const DataInterfaceBase& dataIface)
 {
-    auto registryCallouts =
-        getRegistryCallouts(regEntry, additionalData, dataIface);
+    auto registryCallouts = getRegistryCallouts(regEntry, additionalData,
+                                                dataIface);
 
     auto item = additionalData.getValue("CALLOUT_INVENTORY_PATH");
     auto priority = additionalData.getValue("CALLOUT_PRIORITY");
@@ -890,16 +882,16 @@ void SRC::addInventoryCallout(const std::string& inventoryPath,
         {
             dataIface.getHWCalloutFields(inventoryPath, fn, ccin, sn);
 
-            CalloutPriority p =
-                priority ? priority.value() : CalloutPriority::high;
+            CalloutPriority p = priority ? priority.value()
+                                         : CalloutPriority::high;
 
-            callout =
-                std::make_unique<src::Callout>(p, locCode, fn, ccin, sn, mrus);
+            callout = std::make_unique<src::Callout>(p, locCode, fn, ccin, sn,
+                                                     mrus);
         }
-        catch (const sdbusplus::exception::exception& e)
+        catch (const sdbusplus::exception_t& e)
         {
-            std::string msg =
-                "No VPD found for " + inventoryPath + ": " + e.what();
+            std::string msg = "No VPD found for " + inventoryPath + ": " +
+                              e.what();
             addDebugData(msg);
 
             // Just create the callout with empty FRU fields
@@ -907,7 +899,7 @@ void SRC::addInventoryCallout(const std::string& inventoryPath,
                 CalloutPriority::high, locCode, fn, ccin, sn, mrus);
         }
     }
-    catch (const sdbusplus::exception::exception& e)
+    catch (const sdbusplus::exception_t& e)
     {
         std::string msg = "Could not get location code for " + inventoryPath +
                           ": " + e.what();
@@ -989,8 +981,8 @@ void SRC::addRegistryCallouts(
     }
     catch (const std::exception& e)
     {
-        std::string msg =
-            "Error parsing PEL message registry callout JSON: "s + e.what();
+        std::string msg = "Error parsing PEL message registry callout JSON: "s +
+                          e.what();
         addDebugData(msg);
     }
 }
@@ -1011,8 +1003,8 @@ void SRC::addRegistryCallout(
         }
         catch (const std::exception& e)
         {
-            auto msg =
-                "Unable to expand location code " + locCode + ": " + e.what();
+            auto msg = "Unable to expand location code " + locCode + ": " +
+                       e.what();
             addDebugData(msg);
             return;
         }
@@ -1020,8 +1012,8 @@ void SRC::addRegistryCallout(
 
     // Via the PEL values table, get the priority enum.
     // The schema will have validated the priority was a valid value.
-    auto priorityIt =
-        pv::findByName(regCallout.priority, pv::calloutPriorityValues);
+    auto priorityIt = pv::findByName(regCallout.priority,
+                                     pv::calloutPriorityValues);
     assert(priorityIt != pv::calloutPriorityValues.end());
     auto priority =
         static_cast<CalloutPriority>(std::get<pv::fieldValuePos>(*priorityIt));
@@ -1029,8 +1021,8 @@ void SRC::addRegistryCallout(
     if (!regCallout.procedure.empty())
     {
         // Procedure callout
-        callout =
-            std::make_unique<src::Callout>(priority, regCallout.procedure);
+        callout = std::make_unique<src::Callout>(priority,
+                                                 regCallout.procedure);
     }
     else if (!regCallout.symbolicFRU.empty())
     {
@@ -1066,12 +1058,12 @@ void SRC::addRegistryCallout(
     else
     {
         // A hardware callout
-        std::string inventoryPath;
+        std::vector<std::string> inventoryPaths;
 
         try
         {
             // Get the inventory item from the unexpanded location code
-            inventoryPath =
+            inventoryPaths =
                 dataIface.getInventoryFromLocCode(regCallout.locCode, 0, false);
         }
         catch (const std::exception& e)
@@ -1083,7 +1075,8 @@ void SRC::addRegistryCallout(
             return;
         }
 
-        addInventoryCallout(inventoryPath, priority, locCode, dataIface);
+        // Just use first path returned since they all point to the same FRU.
+        addInventoryCallout(inventoryPaths[0], priority, locCode, dataIface);
     }
 
     if (callout)
@@ -1195,10 +1188,13 @@ void SRC::addDevicePathCallouts(const AdditionalData& additionalData,
 
         try
         {
-            auto inventoryPath = dataIface.getInventoryFromLocCode(
+            auto inventoryPaths = dataIface.getInventoryFromLocCode(
                 callout.locationCode, 0, false);
 
-            addInventoryCallout(inventoryPath, priority, locCode, dataIface);
+            // Just use first path returned since they all
+            // point to the same FRU.
+            addInventoryCallout(inventoryPaths[0], priority, locCode,
+                                dataIface);
         }
         catch (const std::exception& e)
         {
@@ -1285,6 +1281,13 @@ void SRC::addJSONCallout(const nlohmann::json& jsonCallout,
     {
         auto procedure = jsonCallout.at("Procedure").get<std::string>();
 
+        // If it's the registry name instead of the raw name, convert.
+        if (pv::maintenanceProcedures.find(procedure) !=
+            pv::maintenanceProcedures.end())
+        {
+            procedure = pv::maintenanceProcedures.at(procedure);
+        }
+
         callout = std::make_unique<src::Callout>(
             static_cast<CalloutPriority>(priority), procedure,
             src::CalloutValueType::raw);
@@ -1292,6 +1295,12 @@ void SRC::addJSONCallout(const nlohmann::json& jsonCallout,
     else if (jsonCallout.contains("SymbolicFRU"))
     {
         auto fru = jsonCallout.at("SymbolicFRU").get<std::string>();
+
+        // If it's the registry name instead of the raw name, convert.
+        if (pv::symbolicFRUs.find(fru) != pv::symbolicFRUs.end())
+        {
+            fru = pv::symbolicFRUs.at(fru);
+        }
 
         bool trusted = false;
         if (jsonCallout.contains("TrustedLocationCode") && !locCode.empty())
@@ -1323,8 +1332,11 @@ void SRC::addJSONCallout(const nlohmann::json& jsonCallout,
 
             try
             {
-                inventoryPath = dataIface.getInventoryFromLocCode(
+                auto inventoryPaths = dataIface.getInventoryFromLocCode(
                     unexpandedLocCode, 0, false);
+                // Just use first path returned since they all
+                // point to the same FRU.
+                inventoryPath = inventoryPaths[0];
             }
             catch (const std::exception& e)
             {
@@ -1456,8 +1468,8 @@ void SRC::setDumpStatus(const DataInterfaceBase& dataIface)
     }
     catch (const std::exception& e)
     {
-        // Exception - may be no dump interface on dbus or getProperty
-        // failed
+        log<level::ERR>(
+            fmt::format("Checking dump status failed: {}", e.what()).c_str());
     }
 }
 
@@ -1500,6 +1512,57 @@ std::vector<uint8_t> SRC::getSrcStruct()
     _asciiString->flatten(stream);
 
     return data;
+}
+
+void SRC::setProgressCode(const DataInterfaceBase& dataIface)
+{
+    std::vector<uint8_t> progressSRC;
+
+    try
+    {
+        progressSRC = dataIface.getRawProgressSRC();
+    }
+    catch (const std::exception& e)
+    {
+        log<level::ERR>(
+            fmt::format("Error getting progress code: {}", e.what()).c_str());
+        return;
+    }
+
+    _hexData[2] = getProgressCode(progressSRC);
+}
+
+uint32_t SRC::getProgressCode(std::vector<uint8_t>& rawProgressSRC)
+{
+    uint32_t progressCode = 0;
+
+    // A valid progress SRC is at least 72 bytes
+    if (rawProgressSRC.size() < 72)
+    {
+        return progressCode;
+    }
+
+    try
+    {
+        // The ASCII string field in progress SRCs starts at offset 40.
+        // Take the first 8 characters to put in the uint32:
+        //   "CC009189" -> 0xCC009189
+        Stream stream{rawProgressSRC, 40};
+        src::AsciiString aString{stream};
+        auto progressCodeString = aString.get().substr(0, 8);
+
+        if (std::all_of(progressCodeString.begin(), progressCodeString.end(),
+                        [](char c) {
+                            return std::isxdigit(static_cast<unsigned char>(c));
+                        }))
+        {
+            progressCode = std::stoul(progressCodeString, nullptr, 16);
+        }
+    }
+    catch (const std::exception& e)
+    {}
+
+    return progressCode;
 }
 
 } // namespace pels

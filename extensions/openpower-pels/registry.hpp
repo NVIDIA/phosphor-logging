@@ -1,10 +1,12 @@
 #pragma once
 #include "additional_data.hpp"
 
-#include <filesystem>
 #include <nlohmann/json.hpp>
+
+#include <filesystem>
 #include <optional>
 #include <string>
+#include <variant>
 #include <vector>
 
 namespace openpower
@@ -82,11 +84,6 @@ struct SRC
     uint16_t reasonCode;
 
     /**
-     * @brief Specifies if the SRC represents a power fault.  Optional.
-     */
-    std::optional<bool> powerFault;
-
-    /**
      * @brief An optional vector of SRC hexword numbers that should be used
      *        along with the SRC ASCII string to build the Symptom ID, which
      *        is a field in the Extended Header section.
@@ -108,10 +105,19 @@ struct SRC
     using AdditionalDataField = std::tuple<std::string, std::string>;
     std::optional<std::map<WordNum, AdditionalDataField>> hexwordADFields;
 
-    SRC() : type(0), reasonCode(0)
-    {
-    }
+    SRC() : type(0), reasonCode(0) {}
 };
+
+struct AppCapture
+{
+    std::string syslogID;
+    size_t numLines;
+};
+
+// Can specify either the syslog IDs to capture along with how many
+// entries of each, or just how many entries to get the full journal.
+using AppCaptureList = std::vector<AppCapture>;
+using JournalCapture = std::variant<size_t, AppCaptureList>;
 
 /**
  * @brief Represents a message registry entry, which is used for creating a
@@ -132,7 +138,7 @@ struct Entry
     /**
      * @brief The PEL subsystem field.
      */
-    uint8_t subsystem;
+    std::optional<uint8_t> subsystem;
 
     /**
      * @brief The optional PEL severity field.  If not specified, the PEL
@@ -186,6 +192,11 @@ struct Entry
      * @brief The callout JSON, if the entry has callouts.
      */
     std::optional<nlohmann::json> callouts;
+
+    /**
+     * @brief The journal capture instructions, if present.
+     */
+    std::optional<JournalCapture> journalCapture;
 };
 
 /**
@@ -230,8 +241,7 @@ class Registry
      */
     explicit Registry(const std::filesystem::path& registryFile) :
         Registry(registryFile, true)
-    {
-    }
+    {}
 
     /**
      * @brief Constructor
@@ -247,8 +257,7 @@ class Registry
                       bool loadCallouts) :
         _registryFile(registryFile),
         _loadCallouts(loadCallouts)
-    {
-    }
+    {}
 
     /**
      * @brief Find a registry entry based on its error name or reason code.

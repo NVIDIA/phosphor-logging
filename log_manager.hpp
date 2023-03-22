@@ -9,13 +9,14 @@
 #include "xyz/openbmc_project/Logging/Namespace/server.hpp"
 #include "xyz/openbmc_project/Logging/Internal/Manager/server.hpp"
 
-#include <fstream>
-#include <list>
-#include <vector>
 #include <nlohmann/json.hpp>
 #include <phosphor-logging/lg2.hpp>
 #include <phosphor-logging/log.hpp>
 #include <sdbusplus/bus.hpp>
+
+#include <fstream>
+#include <list>
+#include <vector>
 
 namespace phosphor
 {
@@ -34,7 +35,7 @@ using NamespaceIface =
 namespace details
 {
 template <typename... T>
-using ServerObject = typename sdbusplus::server::object::object<T...>;
+using ServerObject = typename sdbusplus::server::object_t<T...>;
 
 using ManagerIface =
     sdbusplus::xyz::openbmc_project::Logging::Internal::server::Manager;
@@ -87,7 +88,7 @@ class Manager : public details::ServerObject<details::ManagerIface>
      *  @param[in] bus - Bus to attach to.
      *  @param[in] path - Path to attach at.
      */
-    Manager(sdbusplus::bus::bus& bus, const std::string& objPath);
+    Manager(sdbusplus::bus_t& bus, const std::string& objPath);
 
     /**
      * @fn parseJson
@@ -290,9 +291,9 @@ class Manager : public details::ServerObject<details::ManagerIface>
     /**
      * @brief Returns the sdbusplus bus object
      *
-     * @return sdbusplus::bus::bus&
+     * @return sdbusplus::bus_t&
      */
-    sdbusplus::bus::bus& getBus()
+    sdbusplus::bus_t& getBus()
     {
         return busLog;
     }
@@ -447,16 +448,10 @@ class Manager : public details::ServerObject<details::ManagerIface>
      */
     std::vector<std::string> processMetadata(
         const std::string& errorName, std::vector<std::string>& additionalData,
-        std::map<std::string,
-                 const std::function<std::string(Entry&, std::string&)>> const&
+        const std::map<std::string,
+                       const std::function<std::string(Entry&, std::string&)>>&
             fnMap,
         AssociationList& objects) const;
-
-    /** @brief Synchronize unwritten journal messages to disk.
-     *  @details This is the same implementation as the systemd command
-     *  "journalctl --sync".
-     */
-    void journalSync();
 
     /** @brief Reads the BMC code level
      *
@@ -494,7 +489,7 @@ class Manager : public details::ServerObject<details::ManagerIface>
      *
      * @param[in] msg - sdbusplus dbusmessage
      */
-    void onEntryResolve(sdbusplus::message::message& msg);
+    void onEntryResolve(sdbusplus::message_t& msg);
 
     /** @brief Remove block objects for any resolved entries  */
     void findAndRemoveResolvedBlocks();
@@ -507,7 +502,7 @@ class Manager : public details::ServerObject<details::ManagerIface>
     void checkAndQuiesceHost();
 
     /** @brief Persistent sdbusplus DBus bus connection. */
-    sdbusplus::bus::bus& busLog;
+    sdbusplus::bus_t& busLog;
 
     /** @brief Id of last error log entry */
     uint32_t entryId;
@@ -524,7 +519,7 @@ class Manager : public details::ServerObject<details::ManagerIface>
     std::vector<std::unique_ptr<Block>> blockingErrors;
 
     /** @brief Map of entry id to call back object on properties changed */
-    std::map<uint32_t, std::unique_ptr<sdbusplus::bus::match::match>>
+    std::map<uint32_t, std::unique_ptr<sdbusplus::bus::match_t>>
         propChangedEntryCallback;
 };
 
@@ -555,15 +550,19 @@ class Manager : public details::ServerObject<DeleteAllIface, CreateIface, Namesp
      *  @param[in] path - Path to attach at.
      *  @param[in] manager - Reference to internal manager object.
      */
-    Manager(sdbusplus::bus::bus& bus, const std::string& path,
+    Manager(sdbusplus::bus_t& bus, const std::string& path,
             internal::Manager& manager) :
-        details::ServerObject<DeleteAllIface, CreateIface, NamespaceIface>(bus, path.c_str(), details::ServerObject<DeleteAllIface,CreateIface,NamespaceIface>::action::defer_emit),
+        details::ServerObject<DeleteAllIface, CreateIface, NamespaceIface>(
+            bus, path.c_str(),
+            details::ServerObject<DeleteAllIface, CreateIface,
+                                  NamespaceIface>::action::defer_emit),
         manager(manager){};
 
     /** @brief Delete all d-bus objects.
      */
     void deleteAll() override
     {
+        log<level::INFO>("Deleting all log entries");
         manager.eraseAll();
     }
 

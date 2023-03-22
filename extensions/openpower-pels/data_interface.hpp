@@ -3,10 +3,12 @@
 #include "dbus_types.hpp"
 #include "dbus_watcher.hpp"
 
-#include <filesystem>
 #include <phosphor-logging/log.hpp>
 #include <sdbusplus/bus.hpp>
 #include <sdbusplus/bus/match.hpp>
+
+#include <filesystem>
+#include <fstream>
 
 namespace openpower
 {
@@ -144,6 +146,91 @@ class DataInterfaceBase
     }
 
     /**
+     * @brief Returns the time the system was running.
+     *
+     * @return std::optional<uint64_t> - The System uptime or std::nullopt
+     */
+    std::optional<uint64_t> getUptimeInSeconds() const
+    {
+        std::ifstream versionFile{"/proc/uptime"};
+        std::string line{};
+
+        std::getline(versionFile, line);
+        auto pos = line.find(" ");
+        if (pos == std::string::npos)
+        {
+            return std::nullopt;
+        }
+
+        uint64_t seconds = atol(line.substr(0, pos).c_str());
+        if (seconds == 0)
+        {
+            return std::nullopt;
+        }
+
+        return seconds;
+    }
+
+    /**
+     * @brief Returns the time the system was running.
+     *
+     * @param[in] seconds - The number of seconds the system has been running
+     *
+     * @return std::string - days/hours/minutes/seconds
+     */
+    std::string getBMCUptime(uint64_t seconds) const
+    {
+        time_t t(seconds);
+        tm* p = gmtime(&t);
+
+        std::string uptime = std::to_string(p->tm_year - 70) + "y " +
+                             std::to_string(p->tm_yday) + "d " +
+                             std::to_string(p->tm_hour) + "h " +
+                             std::to_string(p->tm_min) + "m " +
+                             std::to_string(p->tm_sec) + "s";
+
+        return uptime;
+    }
+
+    /**
+     * @brief Returns the system load average over the past 1 minute, 5 minutes
+     *        and 15 minutes.
+     *
+     * @return std::string - The system load average
+     */
+    std::string getBMCLoadAvg() const
+    {
+        std::string loadavg{};
+
+        std::ifstream loadavgFile{"/proc/loadavg"};
+        std::string line;
+        std::getline(loadavgFile, line);
+
+        size_t count = 3;
+        for (size_t i = 0; i < count; i++)
+        {
+            auto pos = line.find(" ");
+            if (pos == std::string::npos)
+            {
+                return {};
+            }
+
+            if (i != count - 1)
+            {
+                loadavg.append(line.substr(0, pos + 1));
+            }
+            else
+            {
+                loadavg.append(line.substr(0, pos));
+            }
+
+            line = line.substr(pos + 1);
+        }
+
+        return loadavg;
+    }
+
+    /**
      * @brief Returns the 'send event logs to host' setting.
      *
      * @return bool - If sending PELs to the host is enabled.
@@ -265,7 +352,7 @@ class DataInterfaceBase
                                            uint16_t node) const = 0;
 
     /**
-     * @brief Returns the inventory path for the FRU that the location
+     * @brief Returns the inventory paths for the FRU that the location
      *        code represents.
      *
      * @param[in] locationCode - If an expanded location code, then the
@@ -280,11 +367,11 @@ class DataInterfaceBase
      * @param[in] expanded - If the location code already has the relevent
      *                       VPD fields embedded in it.
      *
-     * @return std::string - The inventory D-Bus object
+     * @return std::vector<std::string> - The inventory D-Bus objects
      */
-    virtual std::string getInventoryFromLocCode(const std::string& LocationCode,
-                                                uint16_t node,
-                                                bool expanded) const = 0;
+    virtual std::vector<std::string>
+        getInventoryFromLocCode(const std::string& LocationCode, uint16_t node,
+                                bool expanded) const = 0;
 
     /**
      * @brief Sets the Asserted property on the LED group passed in.
@@ -366,6 +453,22 @@ class DataInterfaceBase
     virtual void
         createProgressSRC(const uint64_t& priSRC,
                           const std::vector<uint8_t>& srcStruct) const = 0;
+
+    /**
+     * @brief Get the list of unresolved OpenBMC event log ids that have an
+     * associated hardware isolation entry.
+     *
+     * @return std::vector<uint32_t> - The list of log ids
+     */
+    virtual std::vector<uint32_t> getLogIDWithHwIsolation() const = 0;
+
+    /**
+     * @brief Returns the latest raw progress SRC from the State.Boot.Raw
+     *        D-Bus interface.
+     *
+     * @return std::vector<uint8_t> - The progress SRC bytes
+     */
+    virtual std::vector<uint8_t> getRawProgressSRC() const = 0;
 
   protected:
     /**
@@ -479,7 +582,7 @@ class DataInterface : public DataInterfaceBase
      *
      * @param[in] bus - The sdbusplus bus object
      */
-    explicit DataInterface(sdbusplus::bus::bus& bus);
+    explicit DataInterface(sdbusplus::bus_t& bus);
 
     /**
      * @brief Finds the D-Bus service name that hosts the
@@ -592,7 +695,7 @@ class DataInterface : public DataInterfaceBase
                                    uint16_t node) const override;
 
     /**
-     * @brief Returns the inventory path for the FRU that the location
+     * @brief Returns the inventory paths for the FRU that the location
      *        code represents.
      *
      * @param[in] locationCode - If an expanded location code, then the
@@ -607,11 +710,11 @@ class DataInterface : public DataInterfaceBase
      * @param[in] expanded - If the location code already has the relevent
      *                       VPD fields embedded in it.
      *
-     * @return std::string - The inventory D-Bus object
+     * @return std::vector<std::string> - The inventory D-Bus objects
      */
-    std::string getInventoryFromLocCode(const std::string& locationCode,
-                                        uint16_t node,
-                                        bool expanded) const override;
+    std::vector<std::string>
+        getInventoryFromLocCode(const std::string& locationCode, uint16_t node,
+                                bool expanded) const override;
 
     /**
      * @brief Sets the Asserted property on the LED group passed in.
@@ -677,6 +780,22 @@ class DataInterface : public DataInterfaceBase
         createProgressSRC(const uint64_t& priSRC,
                           const std::vector<uint8_t>& srcStruct) const override;
 
+    /**
+     * @brief Get the list of unresolved OpenBMC event log ids that have an
+     * associated hardware isolation entry.
+     *
+     * @return std::vector<uint32_t> - The list of log ids
+     */
+    std::vector<uint32_t> getLogIDWithHwIsolation() const override;
+
+    /**
+     * @brief Returns the latest raw progress SRC from the State.Boot.Raw
+     *        D-Bus interface.
+     *
+     * @return std::vector<uint8_t>: The progress SRC bytes
+     */
+    std::vector<uint8_t> getRawProgressSRC() const override;
+
   private:
     /**
      * @brief Reads the BMC firmware version string and puts it into
@@ -712,7 +831,7 @@ class DataInterface : public DataInterfaceBase
      *        When the motherboard is found, it then adds a PropertyWatcher
      *        for the motherboard CCIN.
      */
-    void motherboardIfaceAdded(sdbusplus::message::message& msg);
+    void motherboardIfaceAdded(sdbusplus::message_t& msg);
 
     /**
      * @brief Adds the Ufcs- prefix to the location code passed in
@@ -737,7 +856,7 @@ class DataInterface : public DataInterfaceBase
     /**
      * @brief The sdbusplus bus object for making D-Bus calls.
      */
-    sdbusplus::bus::bus& _bus;
+    sdbusplus::bus_t& _bus;
 
     /**
      * @brief The interfacesAdded match object used to wait for inventory

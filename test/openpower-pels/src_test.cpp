@@ -190,7 +190,6 @@ TEST_F(SRCTest, CreateTestNoCallouts)
     entry.src.type = 0xBD;
     entry.src.reasonCode = 0xABCD;
     entry.subsystem = 0x42;
-    entry.src.powerFault = true;
     entry.src.hexwordADFields = {
         {5, {"TEST1", "DESCR1"}}, // Not a user defined word
         {6, {"TEST1", "DESCR1"}},
@@ -214,7 +213,7 @@ TEST_F(SRCTest, CreateTestNoCallouts)
     SRC src{entry, ad, dataIface};
 
     EXPECT_TRUE(src.valid());
-    EXPECT_TRUE(src.isPowerFaultEvent());
+    EXPECT_FALSE(src.isPowerFaultEvent());
     EXPECT_EQ(src.size(), baseSRCSize);
 
     const auto& hexwords = src.hexwordData();
@@ -253,37 +252,8 @@ TEST_F(SRCTest, CreateTestNoCallouts)
     SRC newSRC{stream};
 
     EXPECT_TRUE(newSRC.valid());
-    EXPECT_EQ(newSRC.isPowerFaultEvent(), src.isPowerFaultEvent());
     EXPECT_EQ(newSRC.asciiString(), src.asciiString());
     EXPECT_FALSE(newSRC.callouts());
-}
-
-// Create an SRC to test POWER_THERMAL_CRITICAL_FAULT set to TRUE
-// sets the power fault bit in SRC
-TEST_F(SRCTest, PowerFaultTest)
-{
-    message::Entry entry;
-    entry.src.type = 0xBD;
-    entry.src.reasonCode = 0xABCD;
-    entry.subsystem = 0x42;
-    entry.src.powerFault = false;
-
-    // Values for the SRC words pointed to above
-    std::vector<std::string> adData{"POWER_THERMAL_CRITICAL_FAULT=TRUE",
-                                    "TEST2=12345678", "TEST3=0XDEF", "TEST4=Z"};
-    AdditionalData ad{adData};
-    NiceMock<MockDataInterface> dataIface;
-
-    std::vector<std::string> dumpType{"bmc/entry", "resource/entry",
-                                      "system/entry"};
-    EXPECT_CALL(dataIface, checkDumpStatus(dumpType))
-        .WillOnce(Return(std::vector<bool>{false, false, false}));
-
-    SRC src{entry, ad, dataIface};
-
-    EXPECT_TRUE(src.valid());
-    EXPECT_TRUE(src.isPowerFaultEvent());
-    EXPECT_EQ(src.size(), baseSRCSize);
 }
 
 // Test when the CCIN string isn't a 4 character number
@@ -293,7 +263,6 @@ TEST_F(SRCTest, BadCCINTest)
     entry.src.type = 0xBD;
     entry.src.reasonCode = 0xABCD;
     entry.subsystem = 0x42;
-    entry.src.powerFault = false;
 
     std::vector<std::string> adData{};
     AdditionalData ad{adData};
@@ -368,7 +337,6 @@ TEST_F(SRCTest, InventoryCalloutTest)
     entry.src.type = 0xBD;
     entry.src.reasonCode = 0xABCD;
     entry.subsystem = 0x42;
-    entry.src.powerFault = false;
 
     std::vector<std::string> adData{"CALLOUT_INVENTORY_PATH=motherboard"};
     AdditionalData ad{adData};
@@ -425,7 +393,6 @@ TEST_F(SRCTest, InventoryCalloutNoLocCodeTest)
     entry.src.type = 0xBD;
     entry.src.reasonCode = 0xABCD;
     entry.subsystem = 0x42;
-    entry.src.powerFault = false;
 
     std::vector<std::string> adData{"CALLOUT_INVENTORY_PATH=motherboard"};
     AdditionalData ad{adData};
@@ -471,7 +438,6 @@ TEST_F(SRCTest, InventoryCalloutNoVPDTest)
     entry.src.type = 0xBD;
     entry.src.reasonCode = 0xABCD;
     entry.subsystem = 0x42;
-    entry.src.powerFault = false;
 
     std::vector<std::string> adData{"CALLOUT_INVENTORY_PATH=motherboard"};
     AdditionalData ad{adData};
@@ -526,7 +492,6 @@ TEST_F(SRCTest, RegistryCalloutTest)
     entry.src.type = 0xBD;
     entry.src.reasonCode = 0xABCD;
     entry.subsystem = 0x42;
-    entry.src.powerFault = false;
 
     entry.callouts = R"(
         [
@@ -679,12 +644,12 @@ TEST_F(SRCTest, RegistryCalloutTest)
             .WillOnce(Return("UXXX-P0-C9"));
 
         EXPECT_CALL(dataIface, getInventoryFromLocCode("P0-C8", 0, false))
-            .WillOnce(Return(
-                "/xyz/openbmc_project/inventory/chassis/motherboard/cpu0"));
+            .WillOnce(Return(std::vector<std::string>{
+                "/xyz/openbmc_project/inventory/chassis/motherboard/cpu0"}));
 
         EXPECT_CALL(dataIface, getInventoryFromLocCode("P0-C9", 0, false))
-            .WillOnce(Return(
-                "/xyz/openbmc_project/inventory/chassis/motherboard/cpu1"));
+            .WillOnce(Return(std::vector<std::string>{
+                "/xyz/openbmc_project/inventory/chassis/motherboard/cpu1"}));
 
         EXPECT_CALL(
             dataIface,
@@ -738,7 +703,6 @@ TEST_F(SRCTest, SymbolicFRUWithInvPathTest)
     entry.src.type = 0xBD;
     entry.src.reasonCode = 0xABCD;
     entry.subsystem = 0x42;
-    entry.src.powerFault = false;
 
     entry.callouts = R"(
         [{
@@ -851,7 +815,6 @@ TEST_F(SRCTest, DevicePathCalloutTest)
     entry.src.type = 0xBD;
     entry.src.reasonCode = 0xABCD;
     entry.subsystem = 0x42;
-    entry.src.powerFault = false;
 
     const auto calloutJSON = R"(
     {
@@ -903,18 +866,18 @@ TEST_F(SRCTest, DevicePathCalloutTest)
 
     EXPECT_CALL(dataIface, getInventoryFromLocCode("P1-C40", 0, false))
         .Times(3)
-        .WillRepeatedly(
-            Return("/xyz/openbmc_project/inventory/chassis/motherboard/cpu0"));
+        .WillRepeatedly(Return(std::vector<std::string>{
+            "/xyz/openbmc_project/inventory/chassis/motherboard/cpu0"}));
 
     EXPECT_CALL(dataIface, getInventoryFromLocCode("P1", 0, false))
         .Times(3)
-        .WillRepeatedly(
-            Return("/xyz/openbmc_project/inventory/chassis/motherboard"));
+        .WillRepeatedly(Return(std::vector<std::string>{
+            "/xyz/openbmc_project/inventory/chassis/motherboard"}));
 
     EXPECT_CALL(dataIface, getInventoryFromLocCode("P1-C15", 0, false))
         .Times(3)
-        .WillRepeatedly(
-            Return("/xyz/openbmc_project/inventory/chassis/motherboard/bmc"));
+        .WillRepeatedly(Return(std::vector<std::string>{
+            "/xyz/openbmc_project/inventory/chassis/motherboard/bmc"}));
 
     EXPECT_CALL(dataIface, expandLocationCode("P1-C40", 0))
         .Times(3)
@@ -1094,6 +1057,14 @@ TEST_F(SRCTest, JsonCalloutsTest)
             {
                 "SymbolicFRU": "FRUTST2LONG",
                 "Priority": "L"
+            },
+            {
+                "Procedure": "fsi_path",
+                "Priority": "L"
+            },
+            {
+                "SymbolicFRU": "ambient_temp",
+                "Priority": "L"
             }
         ]
     )"_json;
@@ -1102,7 +1073,6 @@ TEST_F(SRCTest, JsonCalloutsTest)
     entry.src.type = 0xBD;
     entry.src.reasonCode = 0xABCD;
     entry.subsystem = 0x42;
-    entry.src.powerFault = false;
 
     AdditionalData ad;
     NiceMock<MockDataInterface> dataIface;
@@ -1119,7 +1089,8 @@ TEST_F(SRCTest, JsonCalloutsTest)
             .WillOnce(Return("UXXX-P0-C1"));
         EXPECT_CALL(dataIface, getInventoryFromLocCode("P0-C1", 0, false))
             .Times(1)
-            .WillOnce(Return("/inv/system/chassis/motherboard/bmc"));
+            .WillOnce(Return(std::vector<std::string>{
+                "/inv/system/chassis/motherboard/bmc"}));
         EXPECT_CALL(
             dataIface,
             getHWCalloutFields("/inv/system/chassis/motherboard/bmc", _, _, _))
@@ -1161,7 +1132,7 @@ TEST_F(SRCTest, JsonCalloutsTest)
     EXPECT_TRUE(src.hexwordData()[3] & 0x03000000);
 
     const auto& callouts = src.callouts()->callouts();
-    ASSERT_EQ(callouts.size(), 6);
+    ASSERT_EQ(callouts.size(), 8);
 
     // Check callout 0
     {
@@ -1238,6 +1209,27 @@ TEST_F(SRCTest, JsonCalloutsTest)
         EXPECT_EQ(fru->failingComponentType(), src::FRUIdentity::symbolicFRU);
     }
 
+    // Check callout 6
+    {
+        EXPECT_EQ(callouts[6]->priority(), 'L');
+        EXPECT_EQ(callouts[6]->locationCode(), "");
+
+        auto& fru = callouts[6]->fruIdentity();
+        EXPECT_EQ(fru->getMaintProc().value(), "BMC0004");
+        EXPECT_EQ(fru->failingComponentType(),
+                  src::FRUIdentity::maintenanceProc);
+    }
+
+    // Check callout 7
+    {
+        EXPECT_EQ(callouts[7]->priority(), 'L');
+        EXPECT_EQ(callouts[7]->locationCode(), "");
+
+        auto& fru = callouts[7]->fruIdentity();
+        EXPECT_EQ(fru->getPN().value(), "AMBTEMP");
+        EXPECT_EQ(fru->failingComponentType(), src::FRUIdentity::symbolicFRU);
+    }
+
     // Check that it didn't find any errors
     const auto& data = src.getDebugData();
     EXPECT_TRUE(data.empty());
@@ -1272,7 +1264,6 @@ TEST_F(SRCTest, JsonBadCalloutsTest)
     entry.src.type = 0xBD;
     entry.src.reasonCode = 0xABCD;
     entry.subsystem = 0x42;
-    entry.src.powerFault = false;
 
     AdditionalData ad;
     NiceMock<MockDataInterface> dataIface;
@@ -1291,7 +1282,8 @@ TEST_F(SRCTest, JsonBadCalloutsTest)
 
         EXPECT_CALL(dataIface, getInventoryFromLocCode("P0-C1", 0, false))
             .Times(1)
-            .WillOnce(Return("/inv/system/chassis/motherboard/bmc"));
+            .WillOnce(Return(std::vector<std::string>{
+                "/inv/system/chassis/motherboard/bmc"}));
         EXPECT_CALL(
             dataIface,
             getHWCalloutFields("/inv/system/chassis/motherboard/bmc", _, _, _))
@@ -1355,7 +1347,6 @@ TEST_F(SRCTest, InventoryCalloutTestPriority)
     entry.src.type = 0xBD;
     entry.src.reasonCode = 0xABCD;
     entry.subsystem = 0x42;
-    entry.src.powerFault = false;
 
     std::vector<std::string> adData{"CALLOUT_INVENTORY_PATH=motherboard",
                                     "CALLOUT_PRIORITY=M"};
@@ -1395,7 +1386,6 @@ TEST_F(SRCTest, DumpStatusBitsCheck)
     entry.src.type = 0xBD;
     entry.src.reasonCode = 0xABCD;
     entry.subsystem = 0x42;
-    entry.src.powerFault = false;
 
     AdditionalData ad;
     NiceMock<MockDataInterface> dataIface;
@@ -1454,7 +1444,6 @@ TEST_F(SRCTest, TestPELSubsystem)
     entry.src.type = 0xBD;
     entry.src.reasonCode = 0xABCD;
     entry.subsystem = 0x42;
-    entry.src.powerFault = true;
 
     // Values for the SRC words pointed to above
     std::vector<std::string> adData{"PEL_SUBSYSTEM=0x20"};
@@ -1473,4 +1462,102 @@ TEST_F(SRCTest, TestPELSubsystem)
     EXPECT_TRUE(src.valid());
 
     EXPECT_EQ(src.asciiString(), "BD20ABCD                        ");
+}
+
+void setAsciiString(std::vector<uint8_t>& src, const std::string& value)
+{
+    assert(40 + value.size() <= src.size());
+
+    for (size_t i = 0; i < value.size(); i++)
+    {
+        src[40 + i] = value[i];
+    }
+}
+
+TEST_F(SRCTest, TestGetProgressCode)
+{
+    {
+        // A real SRC with CC009184
+        std::vector<uint8_t> src{
+            2,  8,   0,  9,   0,   0,  0,  72, 0,  0,  0,  224, 0,  0,  0,
+            0,  204, 0,  145, 132, 0,  0,  0,  0,  0,  0,  0,   0,  0,  0,
+            0,  0,   0,  0,   0,   0,  0,  0,  0,  0,  67, 67,  48, 48, 57,
+            49, 56,  52, 32,  32,  32, 32, 32, 32, 32, 32, 32,  32, 32, 32,
+            32, 32,  32, 32,  32,  32, 32, 32, 32, 32, 32, 32};
+
+        EXPECT_EQ(SRC::getProgressCode(src), 0xCC009184);
+    }
+
+    {
+        // A real SRC with STANDBY
+        std::vector<uint8_t> src{
+            2,  0,  0,  1,  0,  0,  0,  72, 0,  0,  0,  0,  0,  0,  0,
+            0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+            0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  83, 84, 65, 78, 68,
+            66, 89, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+            32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32};
+
+        EXPECT_EQ(SRC::getProgressCode(src), 0);
+    }
+
+    {
+        // A real SRC with CC009184, but 1 byte too short
+        std::vector<uint8_t> src{
+            2,  8,   0,  9,   0,   0,  0,  72, 0,  0,  0,  224, 0,  0,  0,
+            0,  204, 0,  145, 132, 0,  0,  0,  0,  0,  0,  0,   0,  0,  0,
+            0,  0,   0,  0,   0,   0,  0,  0,  0,  0,  67, 67,  48, 48, 57,
+            49, 56,  52, 32,  32,  32, 32, 32, 32, 32, 32, 32,  32, 32, 32,
+            32, 32,  32, 32,  32,  32, 32, 32, 32, 32, 32, 32};
+        src.resize(71);
+        EXPECT_EQ(SRC::getProgressCode(src), 0);
+    }
+
+    {
+        // A few different ones
+        const std::map<std::string, uint32_t> progressCodes{
+            {"12345678", 0x12345678}, {"ABCDEF00", 0xABCDEF00},
+            {"abcdef00", 0xABCDEF00}, {"X1234567", 0},
+            {"1234567X", 0},          {"1       ", 0}};
+
+        std::vector<uint8_t> src(72, 0x0);
+
+        for (const auto& [code, expected] : progressCodes)
+        {
+            setAsciiString(src, code);
+            EXPECT_EQ(SRC::getProgressCode(src), expected);
+        }
+
+        // empty
+        src.clear();
+        EXPECT_EQ(SRC::getProgressCode(src), 0);
+    }
+}
+
+// Test progress is in right SRC hex data field
+TEST_F(SRCTest, TestProgressCodeField)
+{
+    message::Entry entry;
+    entry.src.type = 0xBD;
+    entry.src.reasonCode = 0xABCD;
+    entry.subsystem = 0x42;
+
+    AdditionalData ad;
+    NiceMock<MockDataInterface> dataIface;
+    std::vector<std::string> dumpType{"bmc/entry", "resource/entry",
+                                      "system/entry"};
+    EXPECT_CALL(dataIface, checkDumpStatus(dumpType))
+        .WillOnce(Return(std::vector<bool>{false, false, false}));
+    EXPECT_CALL(dataIface, getRawProgressSRC())
+        .WillOnce(Return(std::vector<uint8_t>{
+            2,  8,   0,  9,   0,   0,  0,  72, 0,  0,  0,  224, 0,  0,  0,
+            0,  204, 0,  145, 132, 0,  0,  0,  0,  0,  0,  0,   0,  0,  0,
+            0,  0,   0,  0,   0,   0,  0,  0,  0,  0,  67, 67,  48, 48, 57,
+            49, 56,  52, 32,  32,  32, 32, 32, 32, 32, 32, 32,  32, 32, 32,
+            32, 32,  32, 32,  32,  32, 32, 32, 32, 32, 32, 32}));
+
+    SRC src{entry, ad, dataIface};
+    EXPECT_TRUE(src.valid());
+
+    // Verify that the hex vlue is set at the right hexword
+    EXPECT_EQ(src.hexwordData()[2], 0xCC009184);
 }

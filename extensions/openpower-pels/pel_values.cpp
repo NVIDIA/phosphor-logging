@@ -35,7 +35,7 @@ const PELValues subsystemValues = {
     {0x13, "processor_unit", "Processor Unit (CPU)"},
     {0x14, "processor_bus", "Processor Bus Controller"},
 
-    {0x20, "memory", "Memory "},
+    {0x20, "memory", "Memory"},
     {0x21, "memory_ctlr", "Memory Controller"},
     {0x22, "memory_bus", "Memory Bus Interface"},
     {0x23, "memory_dimm", "Memory DIMM"},
@@ -225,7 +225,12 @@ const std::map<std::string, std::string> maintenanceProcedures = {
     // Problem is somewhere in the FSI bus path
     {"fsi_path", "BMC0004"},
     // Problem is over-current PSU fault
-    {"power_overcurrent", "BMC0005"}};
+    {"power_overcurrent", "BMC0005"},
+    // An unrecoverable event occurred, look for previous errors for the cause
+    {"find_sue_root_cause", "BMC0006"},
+    // Correct system backplane VPD mismatch
+    {"system_vpd_correction", "BMC0007"},
+};
 
 /**
  * @brief Map of the registry names for the symbolic FRUs to their
@@ -237,7 +242,9 @@ const std::map<std::string, std::string> symbolicFRUs = {
     {"usb_pgood", "USBPGD"},          {"ambient_temp", "AMBTEMP"},
     {"ambient_temp_back", "AMBBACK"}, {"ambient_perf_loss", "AMBPERF"},
     {"ac_module", "ACMODUL"},         {"fan_cable", "FANCBL"},
-    {"cable_continued", "CBLCONT"},   {"altitude", "ALTTUDE"}};
+    {"cable_continued", "CBLCONT"},   {"altitude", "ALTTUDE"},
+    {"pcie_hot_plug", "PCIEHP"},      {"overtemp", "OVERTMP"},
+    {"memory_dimm", "MEMDIMM"}};
 
 PELValues::const_iterator findByValue(uint32_t value, const PELValues& fields)
 {
@@ -326,7 +333,6 @@ const std::map<TransmissionState, std::string> transmissionStates = {
 std::string getValue(const uint8_t field, const pel_values::PELValues& values,
                      const uint8_t position)
 {
-
     auto tmp = pel_values::findByValue(field, values);
     if (tmp != values.end())
     {

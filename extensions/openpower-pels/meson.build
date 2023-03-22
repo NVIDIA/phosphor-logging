@@ -1,6 +1,5 @@
 libpldm_dep = dependency(
     'libpldm',
-    fallback: ['pldm', 'libpldm_dep'],
     default_options: ['libpldm-only=enabled', 'oem-ibm=enabled'],
 )
 
@@ -23,10 +22,7 @@ python_dep = python_inst.dependency()
 if cpp.has_header('CLI/CLI.hpp')
     CLI11_dep = declare_dependency()
 else
-    CLI11_dep = dependency(
-        'CLI11',
-        fallback: [ 'CLI11', 'CLI11_dep' ],
-    )
+    CLI11_dep = dependency('CLI11')
 endif
 
 extra_sources = []
@@ -66,6 +62,7 @@ libpel_sources = files(
     'failing_mtms.cpp',
     'fru_identity.cpp',
     'generic.cpp',
+    'journal.cpp',
     'json_utils.cpp',
     'log_id.cpp',
     'mru.cpp',
@@ -139,6 +136,8 @@ log_manager_ext_sources += files(
 
 install_data(
     'registry/message_registry.json',
+    'registry/O_component_ids.json',
+    'registry/B_component_ids.json',
     install_dir: get_option('datadir') / 'phosphor-logging/pels',
 )
 
