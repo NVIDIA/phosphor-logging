@@ -1119,6 +1119,88 @@ bool Manager::deleteAll(const std::string& nspace, sdbusplus::xyz::openbmc_proje
 // using ManagedObject = std::map<std::string, std::map<std::string,
 // std::map<std::string, std::variant<std::vector<std::string>,
 // bool, std::string, std::vector<uint8_t>, int64_t, uint32_t>>>>;
+// This function will return filtered URI
+phosphor::logging::ManagedObject Manager::getAll(NamespaceIface::ResolvedFilterType rfilter)
+{
+    phosphor::logging::ManagedObject ret_obj;
+
+    // Iterate over all the entries
+    auto iter = entries.begin();
+    while (iter != entries.end())
+    {
+
+        // If looking for Resolved, but entry is not resolved then skip entry
+        if (rfilter == NamespaceIface::ResolvedFilterType::Resolved
+            && !(iter->second->resolved()))
+            {
+                ++iter;
+                continue;
+            }
+
+        // If looking for Unresolved, but entry is resolved then skip entry
+        if (rfilter == NamespaceIface::ResolvedFilterType::Unresolved
+            && (iter->second->resolved()))
+            {
+                ++iter;
+                continue;
+            }
+
+        varType v;
+        propMap prop;
+        objMap obj;
+
+        // Id
+        v = iter->second->id();
+        prop["Id"] = v;
+
+        // Timestamp
+        v = iter->second->timestamp();
+        prop["Timestamp"] = v;
+
+        // Severity
+        v = Entry::convertLevelToString(iter->second->severity());
+        prop["Severity"] = v;
+
+        // Message
+        v = iter->second->message();
+        prop["Message"] = v;
+
+        // AdditionalData
+        v = iter->second->additionalData();
+        prop["AdditionalData"] = v;
+
+        // Resolution
+        v = iter->second->resolution();
+        prop["Resolution"] = v;
+
+        // Resolved
+        v = iter->second->resolved();
+        prop["Resolved"] = v;
+
+        // ServiceProviderNotify
+        v = iter->second->serviceProviderNotify();
+        prop["ServiceProviderNotify"] = v;
+
+        // UpdateTimeStamp
+        v = iter->second->updateTimestamp();
+        prop["UpdateTimeStamp"] = v;
+            obj.insert(
+                obj.begin(),
+                std::make_pair("xyz.openbmc_project.Logging.Entry", prop));
+
+        ret_obj[sdbusplus::message::object_path(
+            std::string(OBJ_ENTRY) + '/' +
+            std::to_string(iter->second->id()))] = obj;
+
+        ++iter;
+    }
+
+    return ret_obj;
+}
+
+// using ManagedObject = std::map<std::string, std::map<std::string,
+// std::map<std::string, std::variant<std::vector<std::string>,
+// bool, std::string, std::vector<uint8_t>, int64_t, uint32_t>>>>;
 
 phosphor::logging::ManagedObject Manager::getAll(const std::string& nspace, NamespaceIface::ResolvedFilterType rfilter)
 {
@@ -1344,3 +1426,4 @@ void Manager::createWithFFDC(
 } // namespace internal
 } // namespace logging
 } // namespace phosphor
+
