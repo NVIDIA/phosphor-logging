@@ -1026,7 +1026,8 @@ phosphor::logging::ManagedObject Manager::getAll(NamespaceIface::ResolvedFilterT
         prop["Resolved"] = v;
 
         // ServiceProviderNotify
-        v = iter->second->serviceProviderNotify();
+        v = Entry::convertNotifyToString(
+            iter->second->serviceProviderNotify());
         prop["ServiceProviderNotify"] = v;
 
         // UpdateTimeStamp
