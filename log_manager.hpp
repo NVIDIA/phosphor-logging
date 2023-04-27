@@ -348,6 +348,7 @@ class Manager : public details::ServerObject<details::ManagerIface>
      */
     ManagedObject getAll(const std::string& nspaces, NamespaceIface::ResolvedFilterType rfilter);
 
+    ManagedObject getAll(NamespaceIface::ResolvedFilterType rfilter);
     /** @brief Get logs per namespace
      *
      * Gets Stats about Phosphor Logging Entries
@@ -571,6 +572,11 @@ class Manager : public details::ServerObject<DeleteAllIface, CreateIface, Namesp
      */
     ManagedObject getAll(std::string nspace, NamespaceIface::ResolvedFilterType rfilter) override
     {
+        if (nspace.compare("Namespace.All") == 0)
+        {
+            return manager.getAll(rfilter);
+        }
+
         return manager.getAll(nspace, rfilter);
     }
 
@@ -633,3 +639,4 @@ class Manager : public details::ServerObject<DeleteAllIface, CreateIface, Namesp
 
 } // namespace logging
 } // namespace phosphor
+
