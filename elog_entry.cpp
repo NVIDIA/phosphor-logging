@@ -36,6 +36,15 @@ bool Entry::resolved(bool value)
         updateTimestamp(ms);
 
         serialize(*this);
+
+        /* if the entry is marked as "Resolved" and purging of resolved logs
+         * is enabled, queue the deletion of the log.
+        */
+        if (value == true && parent.getAutoPurgeResolved())
+        {
+            parent.addPendingLogDelete(id());
+            // lg2::debug("Entry::resolved(true) set for {ID}", "ID", id());
+        }
     }
 
     return current;

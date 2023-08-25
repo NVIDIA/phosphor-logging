@@ -41,3 +41,17 @@ option(
     value: '/etc/rsyslog.d/server.conf',
     description: 'Path to rsyslog server conf file',
 )
+
+option(
+    'rw_config_file_path',
+    type: 'string',
+    value: '/etc/phosphor-logging/conf/rw-config.json',
+    description: 'Path to read-write phosphor-logging config file',
+)
+
+option(
+    'log_purge_policy_default',
+    type: 'boolean',
+    value: false,
+    description: 'Default value of log purge policy enabled state',
+)

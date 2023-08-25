@@ -88,9 +88,15 @@ Manager::Manager(sdbusplus::bus::bus& bus, const std::string& objPath) :
     busLog(bus), entryId(0), lastCreatedTimeStamp(0),
     fwVersion(readFWVersion()),
     defaultBin(DEFAULT_BIN_NAME, ERROR_CAP, ERROR_INFO_CAP, ERRLOG_PERSIST_PATH,
-               true)
+               true),
+    _autoPurgeResolved(LOG_PURGE_POLICY_DEFAULT),
+    _autoPurgeEventSource(sdeventplus::Event::get_default(),
+                          sdeventplus::Clock<sdeventplus::ClockId::Monotonic>(sdeventplus::Event::get_default()).now(),
+                          std::chrono::seconds{0},
+                          std::bind(std::mem_fn(&Manager::pendingLogDeleteCallback), this))
 {
     this->addBin(this->defaultBin);
+    this->_autoPurgeEventSource.set_enabled(sdeventplus::source::Enabled::Off);
 }
 
 int Manager::getRealErrSize(const std::string& binName)
@@ -101,6 +107,82 @@ int Manager::getRealErrSize(const std::string& binName)
 int Manager::getInfoErrSize(const std::string& binName)
 {
     return binNameMap[binName].infoEntries.size();
+}
+
+bool Manager::getAutoPurgeResolved()
+{
+    //lg2::debug("getting property, value is {VAL}", "VAL", this->_autoPurgeResolved);
+    return this->_autoPurgeResolved;
+}
+
+void Manager::setAutoPurgeResolved(bool confPurgeResolvedLogs)
+{
+    lg2::info("setting property, current value: {CURR}, set value: {NEW}",
+              "CURR", this->_autoPurgeResolved, "NEW", confPurgeResolvedLogs);
+    // If enabling log purge policy, mark existing resolved logs for deletion.
+    // If disabling, cancel any pending deletion operation
+    if (!this->_autoPurgeResolved && confPurgeResolvedLogs)
+    {
+        lg2::info("start scan for resolved entries");
+        size_t resolvedCount = 0;
+        auto iter = this->entries.begin();
+        while (iter != this->entries.end())
+        {
+            if (iter->second->resolved())
+            {
+                this->addPendingLogDelete(iter->second->id());
+                resolvedCount++;
+            }
+            ++iter;
+        }
+        lg2::info("finish scan for resolved entries, {COUNT} will be resolved"
+                  " in the background", "COUNT", resolvedCount);
+    }
+    else if (this->_autoPurgeResolved && !confPurgeResolvedLogs)
+    {
+        this->cancelPendingLogDeletion();
+    }
+    this->_autoPurgeResolved = confPurgeResolvedLogs;
+    this->updateRWConfigJson();
+}
+
+void Manager::addPendingLogDelete(uint32_t entryId)
+{
+    this->_pendingPurgeEvents.push_back(entryId);
+    this->_autoPurgeEventSource.set_enabled(sdeventplus::source::Enabled::On);
+}
+
+void Manager::pendingLogDeleteCallback()
+{
+    // Delete one event, then yield back to the event loop
+    // Use vector and delete from the back instead of using a set
+    // because this is O(n) overall instead of O(n log n)
+    // This LIFO behavior is also needed to satisfy the usecase of
+    // a log being manually resolved - that needs to be handled first.
+    //lg2::debug("pendingLogDeleteCallback");
+    if (this->_pendingPurgeEvents.size() > 0)
+    {
+        // This is guaranteed to not run off the beginning because size > 0
+        auto it = this->_pendingPurgeEvents.end() - 1;
+        auto entryId = *it;
+        //lg2::info("pendingLogDeleteCallback: delete {EID}", "EID", entryId);
+        this->erase(entryId);
+        this->_pendingPurgeEvents.erase(it);
+    }
+    if (this->_pendingPurgeEvents.size() == 0)
+    {
+        // Deactivate event source iff no more pending deletes
+        lg2::info("pendingLogDeleteCallback: deactivate event source");
+        this->_autoPurgeEventSource.set_enabled(sdeventplus::source::Enabled::Off);
+    }
+}
+
+void Manager::cancelPendingLogDeletion()
+{
+    lg2::info("cancelPendingLogDeletion: cancelled {COUNT} pending deletions",
+              "COUNT", this->_pendingPurgeEvents.size());
+    this->_pendingPurgeEvents.clear();
+    this->_autoPurgeEventSource.set_enabled(sdeventplus::source::Enabled::Off);
 }
 
 uint32_t Manager::commit(uint64_t transactionId, std::string errMsg)
@@ -854,6 +936,14 @@ void Manager::restore()
             // validate the restored error entry id
             if (sanity(static_cast<uint32_t>(idNum), e->id()))
             {
+                if (this->_autoPurgeResolved && e->resolved())
+                {
+                    // lg2::error(
+                    //     "Log entry {ID_NUM} is resolved, so purging it at bootup.",
+                    //     "ID_NUM", idNum);
+                    fs::remove(file.path());
+                    continue;
+                }
                 e->path(file.path(), true);
                 e->emit_object_added();
                 if (e->severity() >= Entry::sevLowerLimit)

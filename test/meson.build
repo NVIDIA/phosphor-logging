@@ -36,6 +36,7 @@ tests = [
     'serialization_test_properties',
     'elog_errorwrap_test',
     'linear_policy_test',
+    'log_purge_policy_test',
 ]
 foreach t : tests
     test(
