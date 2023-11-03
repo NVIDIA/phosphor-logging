@@ -27,6 +27,7 @@ class Bin
     uint32_t errorCap;
     uint32_t errorInfoCap;
     std::string persistLocation;
+    std::string jsonPath;
     std::set<uint32_t> errorEntries;
     std::set<uint32_t> infoEntries;
     bool persistInfoLog;
