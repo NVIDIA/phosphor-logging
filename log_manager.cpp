@@ -1352,6 +1352,35 @@ void Manager::create(const std::string& message, Entry::Level severity,
     createEntry(message, severity, ad);
 }
 
+size_t Manager::getInfoLogCapacity()
+{
+    Bin* entryBin = &(binNameMap["SEL"]);
+    return entryBin->errorInfoCap;
+}
+
+size_t Manager::setInfoLogCapacity(size_t infoLogCapacity)
+{
+    Bin* entryBin = &(binNameMap["SEL"]);
+
+    if (infoLogCapacity > ERROR_INFO_CAP) {
+        throw sdbusplus::xyz::openbmc_project::Common::Error::
+            InvalidArgument();
+    }
+    try{
+        this->updateConfigJsonWithSelCapacity(entryBin->jsonPath, infoLogCapacity);
+    }
+    catch (const std::exception& e)
+    {
+        throw sdbusplus::xyz::openbmc_project::Common::File::Error::Open();
+    }
+    entryBin->errorInfoCap = infoLogCapacity;
+    while (entryBin->infoEntries.size() > entryBin->errorInfoCap)
+    {
+        erase(*(entryBin->infoEntries.begin()));
+    }
+    return infoLogCapacity;
+}
+
 void Manager::createWithFFDC(
     const std::string& message, Entry::Level severity,
     const std::map<std::string, std::string>& additionalData,

@@ -6,6 +6,7 @@
 #include "xyz/openbmc_project/Collection/DeleteAll/server.hpp"
 #include "xyz/openbmc_project/Logging/Create/server.hpp"
 #include "xyz/openbmc_project/Logging/Entry/server.hpp"
+#include "xyz/openbmc_project/Logging/Capacity/server.hpp"
 #include "xyz/openbmc_project/Logging/Namespace/server.hpp"
 #include "xyz/openbmc_project/Logging/Internal/Manager/server.hpp"
 
@@ -14,6 +15,7 @@
 #include <phosphor-logging/log.hpp>
 #include <sdbusplus/bus.hpp>
 #include <sdeventplus/source/time.hpp>
+#include <xyz/openbmc_project/Common/File/error.hpp>
 
 #include <fstream>
 #include <list>
@@ -34,6 +36,7 @@ using DeleteAllIface =
     sdbusplus::server::xyz::openbmc_project::collection::DeleteAll;
 using NamespaceIface =
     sdbusplus::xyz::openbmc_project::Logging::server::Namespace;
+using CapacityIface = sdbusplus::xyz::openbmc_project::Logging::server::Capacity;
 
 namespace details
 {
@@ -162,6 +165,10 @@ class Manager : public details::ServerObject<details::ManagerIface>
                             std::string(*id),
                         persistInfoLog);
 
+                    if (std::string(*id) == "SEL")
+                    {
+                        bin.jsonPath = jsonPath;
+                    }
                     this->addBin(bin);
                 }
             }
@@ -277,6 +284,72 @@ class Manager : public details::ServerObject<details::ManagerIface>
             return 2;
         }
         return 0;
+    }
+
+    void updateConfigJsonWithSelCapacity(const std::string& jsonPath,
+                                         size_t errorInfoCapacity)
+    {
+        std::ifstream jsonInputStream;
+        std::ofstream jsonOutputStream;
+        nlohmann::json data;
+        try
+        {
+            jsonInputStream.open(jsonPath);
+            if (jsonInputStream.is_open())
+            {
+                data = nlohmann::json::parse(jsonInputStream, nullptr, false);
+                jsonInputStream.close();
+            }
+            else
+            {
+                lg2::error("Couldn't open argument file passed in.");
+                throw sdbusplus::xyz::openbmc_project::Common::File::Error::Open();
+            }
+        }
+        catch (const std::exception& e)
+        {
+            lg2::error("Failed to update JSON file: {ERROR}", "ERROR", e.what());
+            throw;
+        }
+
+        for (auto& item : data["Namespaces"].items())
+        {
+            if (item.value()["ID"].is_string())
+            {
+                auto id =
+                    item.value()["ID"].get_ptr<nlohmann::json::string_t*>();
+
+                if (std::string(*id) == "SEL")
+                {
+                    auto errorInfoCap =
+                        item.value()["InfoErrorCapacity"]
+                            .get_ptr<nlohmann::json::number_unsigned_t*>();
+                    *errorInfoCap = errorInfoCapacity;
+                }
+            }
+        }
+
+        try
+        {
+            jsonOutputStream.open(jsonPath);
+            if (jsonOutputStream.is_open())
+            {
+                jsonOutputStream << data;
+                jsonOutputStream.close();
+            }
+            else
+            {
+                lg2::error("Config file {FILE} could not be opened for writing.",
+                        "FILE", jsonPath);
+                throw sdbusplus::xyz::openbmc_project::Common::File::Error::Open();;
+            }
+        }
+        catch (const std::exception& e)
+        {
+            lg2::error("Failed to open/write JSON file: {ERROR}", "ERROR",
+                       e.what());
+            throw;
+        }
     }
 
     /* @fn getSelPolicy()
@@ -495,6 +568,19 @@ class Manager : public details::ServerObject<details::ManagerIface>
         sdbusplus::server::xyz::openbmc_project::logging::Entry::Level severity,
         const std::map<std::string, std::string>& additionalData);
 
+    /** @brief Configure the error info capacity.
+     *
+     * @param[in] infoLogCapacity - capacity of error info event
+     * @return the error info capacity
+     */
+    size_t setInfoLogCapacity(size_t infoLogCapacity);
+
+    /** @brief Get the error info capacity.
+     *
+     * @return the error info capacity
+     */
+    size_t getInfoLogCapacity();
+
     /** @brief Creates an event log, and accepts FFDC files
      *
      * This is the same as create(), but also takes an FFDC argument.
@@ -670,9 +756,10 @@ class Manager : public details::ServerObject<details::ManagerIface>
  *  @details A concrete implementation for the
  *           xyz.openbmc_project.Collection.DeleteAll,
  *           xyz.openbmc_project.Logging.Create and
+ *           xyz.openbmc_project.Logging.Capacity and
  *           xyz.openbmc_project.Logging.Namespace interfaces.
  */
-class Manager : public details::ServerObject<DeleteAllIface, CreateIface, NamespaceIface>
+class Manager : public details::ServerObject<DeleteAllIface, CreateIface, NamespaceIface, CapacityIface>
 {
   public:
     Manager() = delete;
@@ -691,10 +778,10 @@ class Manager : public details::ServerObject<DeleteAllIface, CreateIface, Namesp
      */
     Manager(sdbusplus::bus_t& bus, const std::string& path,
             internal::Manager& manager) :
-        details::ServerObject<DeleteAllIface, CreateIface, NamespaceIface>(
+        details::ServerObject<DeleteAllIface, CreateIface, NamespaceIface, CapacityIface>(
             bus, path.c_str(),
             details::ServerObject<DeleteAllIface, CreateIface,
-                                  NamespaceIface>::action::defer_emit),
+                                  NamespaceIface, CapacityIface>::action::defer_emit),
         manager(manager){};
 
     /** @brief Delete all d-bus objects.
@@ -758,6 +845,24 @@ class Manager : public details::ServerObject<DeleteAllIface, CreateIface, Namesp
         std::map<std::string, std::string> additionalData) override
     {
         manager.create(message, severity, additionalData);
+    }
+
+    /** @brief D-Bus method call implementation to configure the info capacity.
+     *
+     * @param[in] infoLogCapacity - capacity of info event
+     */
+    size_t infoLogCapacity(size_t infoLogCapacity) override
+    {
+        return manager.setInfoLogCapacity(infoLogCapacity);
+    }
+
+    /** @brief D-Bus method call implementation to get the info capacity.
+     *
+     * @return the info capacity
+     */
+    size_t infoLogCapacity() const override
+    {
+        return manager.getInfoLogCapacity();
     }
 
     /** @brief D-Bus method call implementation to create an event log with FFDC
