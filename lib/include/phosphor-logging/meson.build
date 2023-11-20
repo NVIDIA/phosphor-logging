@@ -19,6 +19,7 @@ install_headers(
     'lg2.hpp',
     'log.hpp',
     'sdjournal.hpp',
+    'redfish_event_log.hpp',
     subdir: 'phosphor-logging',
 )
 

@@ -1522,6 +1522,36 @@ void Manager::createWithFFDC(
     createEntry(message, severity, ad, ffdc);
 }
 
+void Manager::rfSendEvent(std::string rfMessage, Entry::Level rfSeverity,
+                  std::map<std::string, std::string> rfAdditionalData)
+{
+    std::vector<std::string> ad;
+    if (rfAdditionalData.find("REDFISH_MESSAGE_ID") == rfAdditionalData.end() ||
+        rfAdditionalData.find("REDFISH_ORIGIN_OF_CONDITION") ==
+            rfAdditionalData.end())
+    {
+        lg2::error("Redfish Commit Error: Missing required metadata");
+        return;
+    }
+
+    if ((rfAdditionalData.size() == 3 &&
+         rfAdditionalData.find("REDFISH_MESSAGE_ARGS") ==
+             rfAdditionalData.end()))
+    {
+        lg2::error("Redfish Commit Error: Missing required metadata");
+        return;
+    }
+
+    if (rfAdditionalData.size() > 3)
+    {
+        lg2::error("Redfish Commit Error: unsupported metadata");
+        return;
+    }
+
+    metadata::associations::combine(rfAdditionalData, ad);
+    createEntry(rfMessage, rfSeverity, ad);
+}
+
 } // namespace internal
 } // namespace logging
 } // namespace phosphor

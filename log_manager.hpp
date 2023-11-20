@@ -628,7 +628,26 @@ class Manager : public details::ServerObject<details::ManagerIface>
      * if a log with a callout is created
      */
     void checkAndQuiesceHost();
-
+    /** @brief Implementation for rfSendEvent
+     *  Write the dbus log when resource created/deleted/modified or rebooted.
+     *  The dbus log will be picked by the RF event framework and generates the event
+     *  @param[in] rfMessage - The Message property of the event entry.
+     *  @param[in] rfSeverity - The Severity property of the event entry.
+     *  @param[in] rfAdditionalData - The AdditionalData property of the event entry.
+     entry. e.g.:
+                {
+                "key1": "value1",
+                "key2": "value2"
+                }
+            ends up in AdditionaData like:
+                ["KEY1=value1", "KEY2=value2"]
+            The keys supported by the RF event framework are:
+            REDFISH_MESSAGE_ID
+            REDFISH_MESSAGE_ARGS
+            REDFISH_ORIGIN_OF_CONDITION
+     */
+    void rfSendEvent(std::string rfMessage, Entry::Level rfSeverity,
+                  std::map<std::string, std::string> rfAdditionalData) override;
     /** @brief Persistent sdbusplus DBus bus connection. */
     sdbusplus::bus::bus& busLog;
 
