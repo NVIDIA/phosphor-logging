@@ -19,9 +19,8 @@
 
 #include "util.hpp"
 
-#include <fmt/format.h>
-
-#include <phosphor-logging/log.hpp>
+#include <phosphor-logging/lg2.hpp>
+#include <xyz/openbmc_project/State/BMC/server.hpp>
 #include <xyz/openbmc_project/State/Boot/Progress/server.hpp>
 
 #include <fstream>
@@ -46,6 +45,8 @@ constexpr auto logSetting = "xyz.openbmc_project.Settings";
 constexpr auto hwIsolation = "org.open_power.HardwareIsolation";
 constexpr auto biosConfigMgr = "xyz.openbmc_project.BIOSConfigManager";
 constexpr auto bootRawProgress = "xyz.openbmc_project.State.Boot.Raw";
+constexpr auto pldm = "xyz.openbmc_project.PLDM";
+constexpr auto inventoryManager = "xyz.openbmc_project.Inventory.Manager";
 } // namespace service_name
 
 namespace object_path
@@ -100,10 +101,19 @@ constexpr auto hwIsolationEntry = "xyz.openbmc_project.HardwareIsolation.Entry";
 constexpr auto association = "xyz.openbmc_project.Association";
 constexpr auto biosConfigMgr = "xyz.openbmc_project.BIOSConfig.Manager";
 constexpr auto bootRawProgress = "xyz.openbmc_project.State.Boot.Raw";
+constexpr auto invItem = "xyz.openbmc_project.Inventory.Item";
+constexpr auto invFan = "xyz.openbmc_project.Inventory.Item.Fan";
+constexpr auto invPowerSupply =
+    "xyz.openbmc_project.Inventory.Item.PowerSupply";
+constexpr auto inventoryManager = "xyz.openbmc_project.Inventory.Manager";
 } // namespace interface
 
-using namespace sdbusplus::xyz::openbmc_project::State::Boot::server;
-using namespace phosphor::logging;
+using namespace sdbusplus::server::xyz::openbmc_project::state::boot;
+using namespace sdbusplus::server::xyz::openbmc_project::state;
+namespace match_rules = sdbusplus::bus::match::rules;
+
+const DBusInterfaceList hotplugInterfaces{interface::invFan,
+                                          interface::invPowerSupply};
 
 std::pair<std::string, std::string>
     DataInterfaceBase::extractConnectorFromLocCode(
@@ -132,86 +142,90 @@ DataInterface::DataInterface(sdbusplus::bus_t& bus) : _bus(bus)
     _properties.emplace_back(std::make_unique<PropertyWatcher<DataInterface>>(
         bus, object_path::hostState, interface::bootProgress, "BootProgress",
         *this, [this](const auto& value) {
-            this->_bootState = std::get<std::string>(value);
-            auto status = Progress::convertProgressStagesFromString(
-                std::get<std::string>(value));
+        this->_bootState = std::get<std::string>(value);
+        auto status = Progress::convertProgressStagesFromString(
+            std::get<std::string>(value));
 
-            if ((status == Progress::ProgressStages::SystemInitComplete) ||
-                (status == Progress::ProgressStages::OSStart) ||
-                (status == Progress::ProgressStages::OSRunning))
-            {
-                setHostUp(true);
-            }
-            else
-            {
-                setHostUp(false);
-            }
-        }));
+        if ((status == Progress::ProgressStages::SystemInitComplete) ||
+            (status == Progress::ProgressStages::OSRunning))
+        {
+            setHostUp(true);
+        }
+        else
+        {
+            setHostUp(false);
+        }
+    }));
 
     // Watch the host PEL enable property
     _properties.emplace_back(std::make_unique<PropertyWatcher<DataInterface>>(
         bus, object_path::enableHostPELs, interface::enable, "Enabled", *this,
         [this](const auto& value) {
-            if (std::get<bool>(value) != this->_sendPELsToHost)
-            {
-                log<level::INFO>(
-                    fmt::format("The send PELs to host setting changed to {}",
-                                std::get<bool>(value))
-                        .c_str());
-            }
-            this->_sendPELsToHost = std::get<bool>(value);
-        }));
+        if (std::get<bool>(value) != this->_sendPELsToHost)
+        {
+            lg2::info("The send PELs to host setting changed to {VAL}", "VAL",
+                      std::get<bool>(value));
+        }
+        this->_sendPELsToHost = std::get<bool>(value);
+    }));
 
     // Watch the BMCState property
     _properties.emplace_back(std::make_unique<PropertyWatcher<DataInterface>>(
         bus, object_path::bmcState, interface::bmcState, "CurrentBMCState",
         *this, [this](const auto& value) {
-            this->_bmcState = std::get<std::string>(value);
-        }));
+        const auto& state = std::get<std::string>(value);
+        this->_bmcState = state;
+
+        // Wait for BMC ready to start watching for
+        // plugs so things calm down first.
+        if (BMC::convertBMCStateFromString(state) == BMC::BMCState::Ready)
+        {
+            startFruPlugWatch();
+        }
+    }));
 
     // Watch the chassis current and requested power state properties
     _properties.emplace_back(std::make_unique<InterfaceWatcher<DataInterface>>(
         bus, object_path::chassisState, interface::chassisState, *this,
         [this](const auto& properties) {
-            auto state = properties.find("CurrentPowerState");
-            if (state != properties.end())
-            {
-                this->_chassisState = std::get<std::string>(state->second);
-            }
+        auto state = properties.find("CurrentPowerState");
+        if (state != properties.end())
+        {
+            this->_chassisState = std::get<std::string>(state->second);
+        }
 
-            auto trans = properties.find("RequestedPowerTransition");
-            if (trans != properties.end())
-            {
-                this->_chassisTransition = std::get<std::string>(trans->second);
-            }
-        }));
+        auto trans = properties.find("RequestedPowerTransition");
+        if (trans != properties.end())
+        {
+            this->_chassisTransition = std::get<std::string>(trans->second);
+        }
+    }));
 
     // Watch the CurrentHostState property
     _properties.emplace_back(std::make_unique<PropertyWatcher<DataInterface>>(
         bus, object_path::hostState, interface::hostState, "CurrentHostState",
         *this, [this](const auto& value) {
-            this->_hostState = std::get<std::string>(value);
-        }));
+        this->_hostState = std::get<std::string>(value);
+    }));
 
     // Watch the BaseBIOSTable property for the hmc managed attribute
     _properties.emplace_back(std::make_unique<PropertyWatcher<DataInterface>>(
         bus, object_path::biosConfigMgr, interface::biosConfigMgr,
         "BaseBIOSTable", service_name::biosConfigMgr, *this,
         [this](const auto& value) {
-            const auto& attributes = std::get<BiosAttributes>(value);
+        const auto& attributes = std::get<BiosAttributes>(value);
 
-            auto it = attributes.find("pvm_hmc_managed");
-            if (it != attributes.end())
+        auto it = attributes.find("pvm_hmc_managed");
+        if (it != attributes.end())
+        {
+            const auto& currentValVariant = std::get<5>(it->second);
+            auto currentVal = std::get_if<std::string>(&currentValVariant);
+            if (currentVal)
             {
-                const auto& currentValVariant = std::get<5>(it->second);
-                auto currentVal = std::get_if<std::string>(&currentValVariant);
-                if (currentVal)
-                {
-                    this->_hmcManaged = (*currentVal == "Enabled") ? true
-                                                                   : false;
-                }
+                this->_hmcManaged = (*currentVal == "Enabled") ? true : false;
             }
-        }));
+        }
+    }));
 }
 
 DBusPropertyMap
@@ -323,10 +337,9 @@ std::string DataInterface::getMachineTypeModel() const
     }
     catch (const std::exception& e)
     {
-        log<level::WARNING>(fmt::format("Failed reading Model property from "
-                                        "Interface: {} exception: {}",
-                                        interface::invAsset, e.what())
-                                .c_str());
+        lg2::warning("Failed reading Model property from "
+                     "interface: {IFACE} exception: {ERROR}",
+                     "IFACE", interface::invAsset, "ERROR", e);
     }
 
     return model;
@@ -349,11 +362,9 @@ std::string DataInterface::getMachineSerialNumber() const
     }
     catch (const std::exception& e)
     {
-        log<level::WARNING>(
-            fmt::format("Failed reading SerialNumber property from "
-                        "Interface: {} exception: {}",
-                        interface::invAsset, e.what())
-                .c_str());
+        lg2::warning("Failed reading SerialNumber property from "
+                     "interface: {IFACE} exception: {ERROR}",
+                     "IFACE", interface::invAsset, "ERROR", e);
     }
 
     return sn;
@@ -379,11 +390,9 @@ std::string DataInterface::getMotherboardCCIN() const
     }
     catch (const std::exception& e)
     {
-        log<level::WARNING>(
-            fmt::format("Failed reading Motherboard CCIN property from "
-                        "Interface: {} exception: {}",
-                        interface::viniRecordVPD, e.what())
-                .c_str());
+        lg2::warning("Failed reading Motherboard CCIN property from "
+                     "interface: {IFACE} exception: {ERROR}",
+                     "IFACE", interface::viniRecordVPD, "ERROR", e);
     }
 
     return ccin;
@@ -408,11 +417,9 @@ std::vector<uint8_t> DataInterface::getSystemIMKeyword() const
     }
     catch (const std::exception& e)
     {
-        log<level::WARNING>(
-            fmt::format("Failed reading System IM property from "
-                        "Interface: {} exception: {}",
-                        interface::vsbpRecordVPD, e.what())
-                .c_str());
+        lg2::warning("Failed reading System IM property from "
+                     "interface: {IFACE} exception: {ERROR}",
+                     "IFACE", interface::vsbpRecordVPD, "ERROR", e);
     }
 
     return systemIM;
@@ -554,13 +561,22 @@ void DataInterface::assertLEDGroup(const std::string& ledGroup,
 void DataInterface::setFunctional(const std::string& objectPath,
                                   bool value) const
 {
-    DBusValue variant = value;
-    auto service = getService(objectPath, interface::operationalStatus);
+    DBusPropertyMap prop{{"Functional", value}};
+    DBusInterfaceMap iface{{interface::operationalStatus, prop}};
 
-    auto method = _bus.new_method_call(service.c_str(), objectPath.c_str(),
-                                       interface::dbusProperty, "Set");
+    // PIM takes a relative path like /system/chassis so remove
+    // /xyz/openbmc_project/inventory if present.
+    std::string path{objectPath};
+    if (path.starts_with(object_path::baseInv))
+    {
+        path = objectPath.substr(strlen(object_path::baseInv));
+    }
+    DBusObjectMap object{{path, iface}};
 
-    method.append(interface::operationalStatus, "Functional", variant);
+    auto method = _bus.new_method_call(service_name::inventoryManager,
+                                       object_path::baseInv,
+                                       interface::inventoryManager, "Notify");
+    method.append(std::move(object));
     _bus.call(method, dbusTimeout);
 }
 
@@ -643,11 +659,9 @@ bool DataInterface::getQuiesceOnError() const
     }
     catch (const std::exception& e)
     {
-        log<level::WARNING>(
-            fmt::format("Failed reading QuiesceOnHwError property from "
-                        "Interface: {} exception: {}",
-                        interface::logSetting, e.what())
-                .c_str());
+        lg2::warning("Failed reading QuiesceOnHwError property from "
+                     "interface: {IFACE} exception: {ERROR}",
+                     "IFACE", interface::logSetting, "ERROR", e);
     }
 
     return ret;
@@ -745,12 +759,10 @@ void DataInterface::createGuardRecord(const std::vector<uint8_t>& binPath,
         // mentioned above. Ignoring the error.
         if (errName != SD_BUS_ERROR_TIMEOUT)
         {
-            log<level::ERR>(
-                fmt::format("GUARD D-Bus call exception"
-                            "OBJPATH={}, INTERFACE={}, EXCEPTION={}",
-                            object_path::hwIsolation,
-                            interface::hwIsolationCreate, e.what())
-                    .c_str());
+            lg2::error("GUARD D-Bus call exception. Path={PATH}, "
+                       "interface = {IFACE}, exception = {ERROR}",
+                       "PATH", object_path::hwIsolation, "IFACE",
+                       interface::hwIsolationCreate, "ERROR", e);
         }
     }
 }
@@ -873,5 +885,129 @@ std::vector<uint8_t> DataInterface::getRawProgressSRC(void) const
     return std::get<1>(rawProgress);
 }
 
+void DataInterface::startFruPlugWatch()
+{
+    // Add a watch on inventory InterfacesAdded and then find all
+    // existing hotpluggable interfaces and add propertiesChanged
+    // watches on them.
+
+    _invIaMatch = std::make_unique<sdbusplus::bus::match_t>(
+        _bus, match_rules::interfacesAdded(object_path::baseInv),
+        std::bind(&DataInterface::inventoryIfaceAdded, this,
+                  std::placeholders::_1));
+    try
+    {
+        auto paths = getPaths(hotplugInterfaces);
+
+        _invPresentMatches.clear();
+
+        std::for_each(paths.begin(), paths.end(),
+                      [this](const auto& path) { addHotplugWatch(path); });
+    }
+    catch (const sdbusplus::exception_t& e)
+    {
+        lg2::warning("Failed getting FRU paths to watch: {ERROR}", "ERROR", e);
+    }
+}
+
+void DataInterface::addHotplugWatch(const std::string& path)
+{
+    if (!_invPresentMatches.contains(path))
+    {
+        _invPresentMatches.emplace(
+            path,
+            std::make_unique<sdbusplus::bus::match_t>(
+                _bus, match_rules::propertiesChanged(path, interface::invItem),
+                std::bind(&DataInterface::presenceChanged, this,
+                          std::placeholders::_1)));
+    }
+}
+
+void DataInterface::inventoryIfaceAdded(sdbusplus::message_t& msg)
+{
+    sdbusplus::message::object_path path;
+    DBusInterfaceMap interfaces;
+
+    msg.read(path, interfaces);
+
+    // Check if any of the new interfaces are for hot pluggable FRUs.
+    if (std::find_if(interfaces.begin(), interfaces.end(),
+                     [](const auto& interfacePair) {
+        return std::find(hotplugInterfaces.begin(), hotplugInterfaces.end(),
+                         interfacePair.first) != hotplugInterfaces.end();
+    }) == interfaces.end())
+    {
+        return;
+    }
+
+    addHotplugWatch(path.str);
+
+    // If an Inventory.Item interface was also added, check presence now.
+
+    // Notes:
+    // * This assumes the Inv.Item and Inv.Fan/PS are added together which
+    //   is currently the case.
+    // * If the code ever switches to something without a Present
+    //   property, then the IA signal itself would probably indicate presence.
+
+    auto itemIt = interfaces.find(interface::invItem);
+    if (itemIt != interfaces.end())
+    {
+        notifyPresenceSubsribers(path.str, itemIt->second);
+    }
+}
+
+void DataInterface::presenceChanged(sdbusplus::message_t& msg)
+{
+    DBusInterface interface;
+    DBusPropertyMap properties;
+
+    msg.read(interface, properties);
+    if (interface != interface::invItem)
+    {
+        return;
+    }
+
+    std::string path = msg.get_path();
+    notifyPresenceSubsribers(path, properties);
+}
+
+void DataInterface::notifyPresenceSubsribers(const std::string& path,
+                                             const DBusPropertyMap& properties)
+{
+    auto prop = properties.find("Present");
+    if ((prop == properties.end()) || (!std::get<bool>(prop->second)))
+    {
+        return;
+    }
+
+    std::string locCode;
+
+    try
+    {
+        auto service = getService(path, interface::locCode);
+
+        // If the hotplugged FRU is hosted by PLDM, then it is
+        // in an IO expansion drawer and we don't care about it.
+        if (service == service_name::pldm)
+        {
+            return;
+        }
+
+        locCode = getLocationCode(path);
+    }
+    catch (const sdbusplus::exception_t& e)
+    {
+        lg2::debug("Could not get location code for {PATH}: {ERROR}", "PATH",
+                   path, "ERROR", e);
+        return;
+    }
+
+    lg2::debug("Detected FRU {PATH} ({LOC}) present ", "PATH", path, "LOC",
+               locCode);
+
+    // Tell the subscribers.
+    setFruPresent(locCode);
+}
 } // namespace pels
 } // namespace openpower

@@ -34,17 +34,23 @@ class Repository
         std::bitset<16> actionFlags;
         TransmissionState hostState;
         TransmissionState hmcState;
+        uint32_t plid;
+        bool deconfig;
+        bool guard;
+        uint64_t creationTime;
 
         PELAttributes() = delete;
 
         PELAttributes(const std::filesystem::path& p, size_t size,
                       uint8_t creator, uint8_t subsystem, uint8_t sev,
                       uint16_t flags, TransmissionState hostState,
-                      TransmissionState hmcState) :
+                      TransmissionState hmcState, uint32_t plid, bool deconfig,
+                      bool guard, uint64_t creationTime) :
             path(p),
             sizeOnDisk(size), creator(creator), subsystem(subsystem),
             severity(sev), actionFlags(flags), hostState(hostState),
-            hmcState(hmcState)
+            hmcState(hmcState), plid(plid), deconfig(deconfig), guard(guard),
+            creationTime(creationTime)
         {}
     };
 
@@ -306,6 +312,16 @@ class Repository
         getPELAttributes(const LogID& id) const;
 
     /**
+     * @brief Returns the attributes map so that others can traverse PELs.
+     *
+     * @return - A const reference to the attributes map.
+     */
+    const std::map<LogID, PELAttributes>& getAttributesMap() const
+    {
+        return _pelAttributes;
+    }
+
+    /**
      * @brief Sets the host transmission state on a PEL file
      *
      * Writes the host transmission state field in the User Header
@@ -438,20 +454,23 @@ class Repository
      */
     void archivePEL(const PEL& pel);
 
-  private:
-    using PELUpdateFunc = std::function<void(PEL&)>;
+    using PELUpdateFunc = std::function<bool(PEL&)>;
 
     /**
      * @brief Lets a function modify a PEL and saves the results
      *
-     * Runs updateFunc (a void(PEL&) function) on the PEL data
-     * on the file specified, and writes the results back to the file.
+     * Runs updateFunc (a bool(PEL&) function) on the PEL data
+     * on the file specified, and writes the results back to the file
+     * if the function returned true.
      *
      * @param[in] path - The file path to use
      * @param[in] updateFunc - The function to run to update the PEL.
+     *
+     * @return bool - If the PEL was updated or not.
      */
-    void updatePEL(const std::filesystem::path& path, PELUpdateFunc updateFunc);
+    bool updatePEL(const std::filesystem::path& path, PELUpdateFunc updateFunc);
 
+  private:
     /**
      * @brief Finds an entry in the _pelAttributes map.
      *

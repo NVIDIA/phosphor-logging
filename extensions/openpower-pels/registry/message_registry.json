@@ -253,6 +253,33 @@
         },
 
         {
+            "Name": "xyz.openbmc_project.Certs.Error.InvalidCertificate",
+            "Subsystem": "user_error",
+            "Severity": "predictive",
+
+            "SRC": {
+                "ReasonCode": "0x100C",
+                "Words6To9": {}
+            },
+
+            "Callouts": [
+                {
+                    "CalloutList": [
+                        {
+                            "Priority": "high",
+                            "Procedure": "next_level_support"
+                        }
+                    ]
+                }
+            ],
+
+            "Documentation": {
+                "Description": "Certificate verification failed",
+                "Message": "Certificate verification failed"
+            }
+        },
+
+        {
             "Name": "org.open_power.Logging.Error.SentBadPELToHost",
             "Subsystem": "bmc_firmware",
             "Severity": "non_error",
@@ -718,6 +745,31 @@
         },
 
         {
+            "Name": "org.open_power.Proc.FSI.Error.MasterDetectionFailure",
+            "Subsystem": "cec_chip_iface",
+            "ComponentID": "0x3000",
+            "Severity": "unrecoverable",
+
+            "SRC": {
+                "ReasonCode": "0x300C",
+                "Words6To9": {}
+            },
+
+            "Documentation": {
+                "Description": "There was a failure while initializing the FSI links",
+                "Message": "There was a failure while initializing the FSI links",
+                "Notes": [
+                    "The FSI device driver had a problem doing a scan.",
+                    "The callouts are done based on the passed in FSI device path."
+                ]
+            },
+
+            "JournalCapture": {
+                "NumLines": 75
+            }
+        },
+
+        {
             "Name": "org.open_power.OCC.Firmware.PresenceMismatch",
             "Subsystem": "bmc_firmware",
             "ComponentID": "0x2600",
@@ -809,6 +861,86 @@
         },
 
         {
+            "Name": "org.open_power.Faultlog.PoweronTime.ReadFail",
+            "Subsystem": "bmc_firmware",
+            "ComponentID": "0xF100",
+
+            "SRC": {
+                "ReasonCode": "0xF101",
+                "Words6To9": {}
+            },
+
+            "Documentation": {
+                "Description": "Failure to read chassis poweron time from persistent file",
+                "Message": "Failure to read chassis poweron time from persistent file",
+                "Notes": [
+                    "Severity needs to be set based on needs for this registry.",
+                    "Debug traces will be captured in AdditionalData section"
+                ]
+            }
+        },
+
+        {
+            "Name": "org.open_power.Faultlog.PoweronTime.WriteFail",
+            "Subsystem": "bmc_firmware",
+            "ComponentID": "0xF100",
+
+            "SRC": {
+                "ReasonCode": "0xF102",
+                "Words6To9": {}
+            },
+
+            "Documentation": {
+                "Description": "Failure to write chassis poweron time to persistent file",
+                "Message": "Failure to write chassis poweron time to persistent file",
+                "Notes": [
+                    "Severity needs to be set based on needs for this registry.",
+                    "Debug traces will be captured in AdditionalData section"
+                ]
+            }
+        },
+
+        {
+            "Name": "org.open_power.Faultlog.Error.DeconfiguredHW",
+            "Subsystem": "cec_hardware",
+            "Severity": "predictive",
+            "ComponentID": "0xF100",
+            "SRC": {
+                "ReasonCode": "0xF138",
+                "Words6To9": {
+                    "6": {
+                        "Description": "Number of system guard records if any",
+                        "AdditionalDataPropSource": "GUARD_RECORD_COUNT"
+                    },
+                    "8": {
+                        "Description": "Number of PEL's having deconfig bit set",
+                        "AdditionalDataPropSource": "PEL_WITH_DECONFIG_BIT_COUNT"
+                    }
+                }
+            },
+            "Callouts": [
+                {
+                    "CalloutList": [
+                        {
+                            "Priority": "high",
+                            "Procedure": "detected_issue_need_service"
+                        }
+                    ]
+                }
+            ],
+            "Documentation": {
+                "Description": "Firmware detected either a FRU deconfigured And/Or guard record",
+                "Message": "Firmware detected either a FRU deconfigured And/Or guard record",
+                "Notes": [
+                    "Either Guard And/Or Deconfiguration records found during periodic check ",
+                    "as part of the NAG event. Look into the BMC Nag dump for more details. ",
+                    "This is a reminder for servicing faulty hardware pending service present ",
+                    "in the system."
+                ]
+            }
+        },
+
+        {
             "Name": "xyz.openbmc_project.State.Error.HostNotRunning",
             "Subsystem": "cec_sp_hostboot_iface",
             "ComponentID": "0x3400",
@@ -829,7 +961,7 @@
             },
 
             "JournalCapture": {
-                "NumLines": 30
+                "NumLines": 100
             }
         },
 
@@ -862,7 +994,7 @@
             },
 
             "JournalCapture": {
-                "NumLines": 30
+                "NumLines": 100
             }
         },
 
@@ -916,7 +1048,7 @@
             },
 
             "JournalCapture": {
-                "NumLines": 30
+                "NumLines": 100
             }
         },
 
@@ -980,7 +1112,7 @@
             },
 
             "JournalCapture": {
-                "NumLines": 30
+                "NumLines": 100
             }
         },
 
@@ -1014,7 +1146,7 @@
             },
 
             "JournalCapture": {
-                "NumLines": 30
+                "NumLines": 100
             }
         },
 
@@ -1048,7 +1180,7 @@
             },
 
             "JournalCapture": {
-                "NumLines": 30
+                "NumLines": 100
             }
         },
 
@@ -1082,7 +1214,7 @@
             },
 
             "JournalCapture": {
-                "NumLines": 30
+                "NumLines": 100
             }
         },
 
@@ -1116,7 +1248,7 @@
             },
 
             "JournalCapture": {
-                "NumLines": 30
+                "NumLines": 100
             }
         },
 
@@ -1150,7 +1282,7 @@
             },
 
             "JournalCapture": {
-                "NumLines": 30
+                "NumLines": 100
             }
         },
 
@@ -1184,7 +1316,7 @@
             },
 
             "JournalCapture": {
-                "NumLines": 30
+                "NumLines": 100
             }
         },
 
@@ -1218,7 +1350,7 @@
             },
 
             "JournalCapture": {
-                "NumLines": 30
+                "NumLines": 100
             }
         },
 
@@ -1251,7 +1383,57 @@
             },
 
             "JournalCapture": {
-                "NumLines": 30
+                "NumLines": 100
+            }
+        },
+
+        {
+            "Name": "xyz.openbmc_project.State.Error.TpmMeasurementFail",
+            "Subsystem": "bmc_firmware",
+            "ComponentID": "0x3400",
+            "SRC": {
+                "ReasonCode": "0x3415",
+                "Words6To9": {}
+            },
+            "Callouts": [
+                {
+                    "CalloutList": [
+                        {
+                            "Priority": "high",
+                            "Procedure": "next_level_support"
+                        }
+                    ]
+                }
+            ],
+            "Documentation": {
+                "Description": "TPM measurement failed",
+                "Message": "The system has detected a failure in the TPM measurement.",
+                "Notes": [
+                    "This error occurs when /sys/class/tpm/tpm0/pcr-sha256/0",
+                    "is missing or has a value of 0, indicating a potential compromise",
+                    "of the system's boot process.",
+                    "Please contact your system administrator or next level support",
+                    "to investigate and resolve the issue."
+                ]
+            }
+        },
+
+        {
+            "Name": "xyz.openbmc_project.State.Info.ChassisPowerOnStarted",
+            "Subsystem": "bmc_firmware",
+            "ComponentID": "0x3400",
+            "Severity": "non_error",
+            "SRC": {
+                "ReasonCode": "0x3416",
+                "Words6To9": {}
+            },
+            "Documentation": {
+                "Description": "A power on of the chassis has been started",
+                "Message": "The chassis is powering on.",
+                "Notes": [
+                    "This informational error is logged each time the chassis",
+                    "is powered on."
+                ]
             }
         },
 
@@ -1408,6 +1590,19 @@
                             "LocCode": "P0-C96"
                         }
                     ]
+                },
+                {
+                    "System": "ibm,bonnell",
+                    "CalloutList": [
+                        {
+                            "Priority": "low",
+                            "LocCode": "P0"
+                        },
+                        {
+                            "Priority": "low",
+                            "LocCode": "P0-C5"
+                        }
+                    ]
                 }
             ],
 
@@ -1514,6 +1709,7 @@
             "SRC": {
                 "ReasonCode": "0xE510",
                 "SymptomIDFields": ["SRCWord6", "SRCWord7", "SRCWord8"],
+                "CheckstopFlag": true,
                 "Words6To9": {
                     "6": {
                         "AdditionalDataPropSource": "SRC6"
@@ -1687,7 +1883,8 @@
             "SRC": {
                 "Type": "11",
                 "ReasonCode": "0x15F1",
-                "Words6To9": {}
+                "Words6To9": {},
+                "DeconfigFlag": true
             },
 
             "Callouts": [
@@ -1740,7 +1937,8 @@
             "SRC": {
                 "Type": "11",
                 "ReasonCode": "0x15F2",
-                "Words6To9": {}
+                "Words6To9": {},
+                "DeconfigFlag": true
             },
 
             "Callouts": [
@@ -1792,7 +1990,8 @@
             "SRC": {
                 "Type": "11",
                 "ReasonCode": "0x15F6",
-                "Words6To9": {}
+                "Words6To9": {},
+                "DeconfigFlag": true
             },
 
             "Callouts": [
@@ -1902,7 +2101,8 @@
             "SRC": {
                 "Type": "11",
                 "ReasonCode": "0x15FF",
-                "Words6To9": {}
+                "Words6To9": {},
+                "DeconfigFlag": true
             },
 
             "Callouts": [
@@ -2178,6 +2378,15 @@
                         },
                         {
                             "Priority": "medium",
+                            "LocCode": "P0"
+                        }
+                    ]
+                },
+                {
+                    "System": "ibm,bonnell",
+                    "CalloutList": [
+                        {
+                            "Priority": "high",
                             "LocCode": "P0"
                         }
                     ]
@@ -2658,32 +2867,6 @@
                                         "LocCode": "P0-C56"
                                     },
                                     { "Priority": "low", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "12P0VB_PG_OK",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    {
-                                        "Priority": "high",
-                                        "SymbolicFRU": "pgood_part"
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "12P0VA_PG_OK",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    {
-                                        "Priority": "high",
-                                        "SymbolicFRU": "pgood_part"
-                                    }
                                 ]
                             }
                         ]
@@ -3629,6 +3812,19 @@
                         ]
                     },
                     {
+                        "ADValue": "12.0VA",
+                        "Callouts": [
+                            {
+                                "CalloutList": [
+                                    {
+                                        "Priority": "high",
+                                        "SymbolicFRU": "pgood_part"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
                         "ADValue": "5.0VCS",
                         "Callouts": [
                             {
@@ -3639,7 +3835,27 @@
                         ]
                     },
                     {
-                        "ADValue": "PCIE_VDD0",
+                        "ADValue": "1.8V",
+                        "Callouts": [
+                            {
+                                "CalloutList": [
+                                    { "Priority": "high", "LocCode": "P0" }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "ADValue": "0.9V",
+                        "Callouts": [
+                            {
+                                "CalloutList": [
+                                    { "Priority": "high", "LocCode": "P0" }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "ADValue": "3.3V",
                         "Callouts": [
                             {
                                 "CalloutList": [
@@ -3653,13 +3869,90 @@
                         ]
                     },
                     {
-                        "ADValue": "PCIE_CORE",
+                        "ADValue": "1.5V_AVDD",
+                        "Callouts": [
+                            {
+                                "CalloutList": [
+                                    { "Priority": "high", "LocCode": "P0-C5" },
+                                    { "Priority": "medium", "LocCode": "P0" }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "ADValue": "0.65V_VDN",
+                        "Callouts": [
+                            {
+                                "CalloutList": [
+                                    { "Priority": "high", "LocCode": "P0-C5" },
+                                    { "Priority": "medium", "LocCode": "P0" }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "ADValue": "0.7VA_VDD",
+                        "Callouts": [
+                            {
+                                "CalloutList": [
+                                    { "Priority": "high", "LocCode": "P0-C5" },
+                                    { "Priority": "medium", "LocCode": "P0" }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "ADValue": "0.7VB_VDD",
+                        "Callouts": [
+                            {
+                                "CalloutList": [
+                                    { "Priority": "high", "LocCode": "P0-C5" },
+                                    { "Priority": "medium", "LocCode": "P0" }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "ADValue": "0.75V_VCS",
+                        "Callouts": [
+                            {
+                                "CalloutList": [
+                                    { "Priority": "high", "LocCode": "P0-C5" },
+                                    { "Priority": "medium", "LocCode": "P0" }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "ADValue": "0.9V_VIO",
+                        "Callouts": [
+                            {
+                                "CalloutList": [
+                                    { "Priority": "high", "LocCode": "P0-C5" },
+                                    { "Priority": "medium", "LocCode": "P0" }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "ADValue": "0.85V_VPCIE",
+                        "Callouts": [
+                            {
+                                "CalloutList": [
+                                    { "Priority": "high", "LocCode": "P0-C5" },
+                                    { "Priority": "medium", "LocCode": "P0" }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "ADValue": "PMIC2_PG",
                         "Callouts": [
                             {
                                 "CalloutList": [
                                     {
                                         "Priority": "high",
-                                        "SymbolicFRU": "pcie_hot_plug"
+                                        "SymbolicFRU": "memory_dimm"
                                     },
                                     { "Priority": "medium", "LocCode": "P0" }
                                 ]
@@ -3667,134 +3960,43 @@
                         ]
                     },
                     {
-                        "ADValue": "AVDD",
+                        "ADValue": "PMIC3_PG",
                         "Callouts": [
                             {
                                 "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0-C5" },
-                                    { "Priority": "medium", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "VDN",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0-C5" },
-                                    { "Priority": "medium", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "VDDA",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0-C5" },
-                                    { "Priority": "medium", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "VDDB",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0-C5" },
-                                    { "Priority": "medium", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "VCS",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0-C5" },
-                                    { "Priority": "medium", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "VIO",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0-C5" },
-                                    { "Priority": "medium", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "VPCIE",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0-C5" },
-                                    { "Priority": "medium", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "PMIC2",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0" },
                                     {
-                                        "Priority": "medium",
-                                        "LocCode": "memory_dimm"
-                                    }
+                                        "Priority": "high",
+                                        "SymbolicFRU": "memory_dimm"
+                                    },
+                                    { "Priority": "medium", "LocCode": "P0" }
                                 ]
                             }
                         ]
                     },
                     {
-                        "ADValue": "PMIC3",
+                        "ADValue": "VDDR_1.2VB",
                         "Callouts": [
                             {
                                 "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0" },
                                     {
-                                        "Priority": "medium",
-                                        "LocCode": "memory_dimm"
-                                    }
+                                        "Priority": "high",
+                                        "SymbolicFRU": "memory_dimm"
+                                    },
+                                    { "Priority": "medium", "LocCode": "P0" }
                                 ]
                             }
                         ]
                     },
                     {
-                        "ADValue": "VDDR1",
+                        "ADValue": "VDDR_1.2VA",
                         "Callouts": [
                             {
                                 "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0" },
                                     {
-                                        "Priority": "medium",
-                                        "LocCode": "memory_dimm"
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "VDDR0",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0" },
-                                    {
-                                        "Priority": "medium",
-                                        "LocCode": "memory_dimm"
-                                    }
+                                        "Priority": "high",
+                                        "SymbolicFRU": "memory_dimm"
+                                    },
+                                    { "Priority": "medium", "LocCode": "P0" }
                                 ]
                             }
                         ]
@@ -3843,7 +4045,8 @@
             "SRC": {
                 "Type": "11",
                 "ReasonCode": "0x2700",
-                "Words6To9": {}
+                "Words6To9": {},
+                "DeconfigFlag": true
             },
 
             "Documentation": {
@@ -3891,7 +4094,8 @@
             "SRC": {
                 "Type": "11",
                 "ReasonCode": "0x2900",
-                "Words6To9": {}
+                "Words6To9": {},
+                "DeconfigFlag": true
             },
 
             "Documentation": {
@@ -4197,7 +4401,8 @@
             "SRC": {
                 "Type": "11",
                 "ReasonCode": "0xE100",
-                "Words6To9": {}
+                "Words6To9": {},
+                "DeconfigFlag": true
             },
 
             "Documentation": {
@@ -4221,7 +4426,8 @@
             "SRC": {
                 "Type": "11",
                 "ReasonCode": "0xE200",
-                "Words6To9": {}
+                "Words6To9": {},
+                "DeconfigFlag": true
             },
 
             "Documentation": {
@@ -4270,7 +4476,8 @@
             "SRC": {
                 "Type": "11",
                 "ReasonCode": "0x76F0",
-                "Words6To9": {}
+                "Words6To9": {},
+                "DeconfigFlag": true
             },
 
             "Documentation": {
@@ -4297,7 +4504,8 @@
             "SRC": {
                 "Type": "11",
                 "ReasonCode": "0x76F1",
-                "Words6To9": {}
+                "Words6To9": {},
+                "DeconfigFlag": true
             },
 
             "Callouts": [
@@ -4326,6 +4534,20 @@
                         {
                             "Priority": "low",
                             "LocCode": "P1"
+                        }
+                    ]
+                },
+                {
+                    "System": "ibm,bonnell",
+                    "CalloutList": [
+                        {
+                            "Priority": "high",
+                            "SymbolicFRUTrusted": "air_mover",
+                            "UseInventoryLocCode": true
+                        },
+                        {
+                            "Priority": "low",
+                            "LocCode": "P0"
                         }
                     ]
                 }
@@ -4368,6 +4590,10 @@
                 {
                     "System": "ibm,everest",
                     "CalloutList": [{ "Priority": "medium", "LocCode": "P1" }]
+                },
+                {
+                    "System": "ibm,bonnell",
+                    "CalloutList": [{ "Priority": "medium", "LocCode": "P0" }]
                 }
             ],
 
@@ -4423,6 +4649,10 @@
                         { "Priority": "medium", "LocCode": "P1" },
                         { "Priority": "low", "LocCode": "P0" }
                     ]
+                },
+                {
+                    "System": "ibm,bonnell",
+                    "CalloutList": [{ "Priority": "high", "LocCode": "P0" }]
                 }
             ],
 
@@ -4476,6 +4706,10 @@
                         { "Priority": "medium", "LocCode": "P1" },
                         { "Priority": "low", "LocCode": "P0" }
                     ]
+                },
+                {
+                    "System": "ibm,bonnell",
+                    "CalloutList": [{ "Priority": "high", "LocCode": "P0" }]
                 }
             ],
 
@@ -5445,8 +5679,9 @@
         },
 
         {
-            "Name": "org.open_power.Host.Boot.Error.WatchdogTimeout",
+            "Name": "org.open_power.Host.Boot.Error.WatchdogTimedOut",
             "Subsystem": "cec_sp_hostboot_iface",
+            "ComponentID": "0xC100",
 
             "SRC": {
                 "ReasonCode": "0xC101",
@@ -5459,6 +5694,33 @@
                 "Notes": [
                     "Host did not respond before the expiry of the watchdog timeout interval.",
                     "Collecting hostboot dump."
+                ]
+            }
+        },
+
+        {
+            "Name": "xyz.openbmc_project.Dump.Error.Ramoops",
+            "Subsystem": "bmc_firmware",
+            "ComponentID": "0xC200",
+
+            "SRC": {
+                "ReasonCode": "0xC201",
+                "Words6To9": {}
+            },
+
+            "Callouts": [
+                {
+                    "CalloutList": [
+                        { "Priority": "high", "Procedure": "bmc_code" }
+                    ]
+                }
+            ],
+
+            "Documentation": {
+                "Description": "BMC rebooted unexpectedly due to kernel panic",
+                "Message": "BMC rebooted unexpectedly resulting in a ramoops dump being collected",
+                "Notes": [
+                    "Investigate the collected BMC dump to identify the reason for the BMC reboot."
                 ]
             }
         },
@@ -6224,6 +6486,114 @@
             "Documentation": {
                 "Description": "Dump has been deleted/offloaded",
                 "Message": "BMC/System/Resource dump has been deleted/offloaded"
+            }
+        },
+        {
+            "Name": "xyz.openbmc_project.Memory.MemoryECC.Error.CEThresholdReached",
+            "Subsystem": "cec_hardware",
+            "ComponentID": "0xF300",
+            "Severity": "predictive",
+
+            "SRC": {
+                "ReasonCode": "0xF301",
+                "Words6To9": {}
+            },
+
+            "Callouts": [
+                {
+                    "System": "ibm,rainier",
+                    "CalloutList": [
+                        {
+                            "Priority": "high",
+                            "LocCode": "P0-C5"
+                        }
+                    ]
+                },
+                {
+                    "System": "ibm,everest",
+                    "CalloutList": [
+                        {
+                            "Priority": "high",
+                            "LocCode": "P0-C0"
+                        }
+                    ]
+                },
+                {
+                    "System": "ibm,bonnell",
+                    "CalloutList": [
+                        {
+                            "Priority": "high",
+                            "LocCode": "P0"
+                        }
+                    ]
+                }
+            ],
+
+            "Documentation": {
+                "Description": "Correctable ECC memory error collection limit is reached.",
+                "Message": "Correctable ECC memory error collection limit is reached."
+            }
+        },
+        {
+            "Name": "xyz.openbmc_project.Memory.MemoryECC.Error.CE",
+            "Subsystem": "cec_hardware",
+            "ComponentID": "0xF300",
+            "Severity": "non_error",
+
+            "SRC": {
+                "ReasonCode": "0xF302",
+                "Words6To9": {}
+            },
+
+            "Documentation": {
+                "Description": "Correctable ECC/other correctable memory error.",
+                "Message": "Correctable ECC/other correctable memory error."
+            }
+        },
+        {
+            "Name": "xyz.openbmc_project.Memory.MemoryECC.Error.UE",
+            "Subsystem": "cec_hardware",
+            "ComponentID": "0xF300",
+            "Severity": "predictive",
+
+            "SRC": {
+                "ReasonCode": "0xF303",
+                "Words6To9": {}
+            },
+
+            "Callouts": [
+                {
+                    "System": "ibm,rainier",
+                    "CalloutList": [
+                        {
+                            "Priority": "high",
+                            "LocCode": "P0-C5"
+                        }
+                    ]
+                },
+                {
+                    "System": "ibm,everest",
+                    "CalloutList": [
+                        {
+                            "Priority": "high",
+                            "LocCode": "P0-C0"
+                        }
+                    ]
+                },
+                {
+                    "System": "ibm,bonnell",
+                    "CalloutList": [
+                        {
+                            "Priority": "high",
+                            "LocCode": "P0"
+                        }
+                    ]
+                }
+            ],
+
+            "Documentation": {
+                "Description": "Uncorrectable ECC/other uncorrectable memory error.",
+                "Message": "Uncorrectable ECC/other uncorrectable memory error."
             }
         }
     ]

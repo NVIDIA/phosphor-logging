@@ -26,9 +26,9 @@
 
 #include <sstream>
 #endif
-#include <fmt/format.h>
+#include <phosphor-logging/lg2.hpp>
 
-#include <phosphor-logging/log.hpp>
+#include <format>
 
 namespace openpower
 {
@@ -36,7 +36,6 @@ namespace pels
 {
 namespace pv = openpower::pels::pel_values;
 namespace rg = openpower::pels::message;
-using namespace phosphor::logging;
 using namespace std::string_literals;
 
 constexpr size_t ccinSize = 4;
@@ -169,12 +168,9 @@ std::optional<std::string> getPythonJSON(std::vector<std::string>& hexwords,
         if (!PyDict_Contains(pDict, pKey))
         {
             Py_DECREF(pDict);
-            log<level::ERR>(
-                "Python module error",
-                entry("ERROR=%s",
-                      std::string(funcToCall + " function missing").c_str()),
-                entry("SRC=%s", hexwords.front().c_str()),
-                entry("PARSER_MODULE=%s", module.c_str()));
+            lg2::error(
+                "Python module error.  Function missing: {FUNC}, SRC = {SRC}, module = {MODULE}",
+                "FUNC", funcToCall, "SRC", hexwords.front(), "MODULE", module);
             return std::nullopt;
         }
         PyObject* pFunc = PyDict_GetItemString(pDict, funcToCall.c_str());
@@ -217,10 +213,9 @@ std::optional<std::string> getPythonJSON(std::vector<std::string>& hexwords,
                 }
                 catch (const std::exception& e)
                 {
-                    log<level::ERR>("Bad JSON from parser",
-                                    entry("ERROR=%s", e.what()),
-                                    entry("SRC=%s", hexwords.front().c_str()),
-                                    entry("PARSER_MODULE=%s", module.c_str()));
+                    lg2::error(
+                        "Bad JSON from parser. Error = {ERROR}, SRC = {SRC}, module = {MODULE}",
+                        "ERROR", e, "SRC", hexwords.front(), "MODULE", module);
                     return std::nullopt;
                 }
             }
@@ -251,10 +246,9 @@ std::optional<std::string> getPythonJSON(std::vector<std::string>& hexwords,
     }
     if (!pErrStr.empty())
     {
-        log<level::DEBUG>("Python exception thrown by parser",
-                          entry("ERROR=%s", pErrStr.c_str()),
-                          entry("SRC=%s", hexwords.front().c_str()),
-                          entry("PARSER_MODULE=%s", module.c_str()));
+        lg2::debug("Python exception thrown by parser. Error = {ERROR}, "
+                   "SRC = {SRC}, module = {MODULE}",
+                   "ERROR", pErrStr, "SRC", hexwords.front(), "MODULE", module);
     }
     return std::nullopt;
 }
@@ -306,8 +300,7 @@ SRC::SRC(Stream& pel)
     }
     catch (const std::exception& e)
     {
-        log<level::ERR>(
-            fmt::format("Cannot unflatten SRC: {}", e.what()).c_str());
+        lg2::error("Cannot unflatten SRC, error = {ERROR}", "ERROR", e);
         _valid = false;
     }
 }
@@ -350,6 +343,16 @@ SRC::SRC(const message::Entry& regEntry, const AdditionalData& additionalData,
     setBMCPosition();
     setMotherboardCCIN(dataIface);
 
+    if (regEntry.src.checkstopFlag)
+    {
+        setErrorStatusFlag(ErrorStatusFlags::hwCheckstop);
+    }
+
+    if (regEntry.src.deconfigFlag)
+    {
+        setErrorStatusFlag(ErrorStatusFlags::deconfigured);
+    }
+
     // Fill in the last 4 words from the AdditionalData property contents.
     setUserDefinedHexWords(regEntry, additionalData);
 
@@ -364,10 +367,8 @@ SRC::SRC(const message::Entry& regEntry, const AdditionalData& additionalData,
                                              pel_values::subsystemValues);
         if (subsystem == "invalid")
         {
-            log<level::WARNING>(
-                fmt::format("SRC: Invalid SubSystem value:{:#X}",
-                            eventSubsystem)
-                    .c_str());
+            lg2::warning("SRC: Invalid SubSystem value: {VAL}", "VAL", lg2::hex,
+                         eventSubsystem);
         }
         else
         {
@@ -434,8 +435,8 @@ void SRC::setMotherboardCCIN(const DataInterfaceBase& dataIface)
     }
     catch (const std::exception& e)
     {
-        log<level::WARNING>("Could not convert motherboard CCIN to a number",
-                            entry("CCIN=%s", ccinString.c_str()));
+        lg2::warning("Could not convert motherboard CCIN {CCIN} to a number",
+                     "CCIN", ccinString);
         return;
     }
 
@@ -450,17 +451,15 @@ void SRC::validate()
     if ((header().id != static_cast<uint16_t>(SectionID::primarySRC)) &&
         (header().id != static_cast<uint16_t>(SectionID::secondarySRC)))
     {
-        log<level::ERR>(
-            fmt::format("Invalid SRC section ID: {0:#x}", header().id).c_str());
+        lg2::error("Invalid SRC section ID: {ID}", "ID", lg2::hex, header().id);
         failed = true;
     }
 
     // Check the version in the SRC, not in the header
     if (_version != srcVersion)
     {
-        log<level::ERR>(
-            fmt::format("Invalid SRC version: {0:#x}", header().version)
-                .c_str());
+        lg2::error("Invalid SRC version: {VERSION}", "VERSION", lg2::hex,
+                   header().version);
         failed = true;
     }
 
@@ -475,6 +474,17 @@ bool SRC::isBMCSRC() const
         uint8_t errorType = strtoul(as.substr(0, 2).c_str(), nullptr, 16);
         return (errorType == static_cast<uint8_t>(SRCType::bmcError) ||
                 errorType == static_cast<uint8_t>(SRCType::powerError));
+    }
+    return false;
+}
+
+bool SRC::isHostbootSRC() const
+{
+    auto as = asciiString();
+    if (as.length() >= 2)
+    {
+        uint8_t errorType = strtoul(as.substr(0, 2).c_str(), nullptr, 16);
+        return errorType == static_cast<uint8_t>(SRCType::hostbootError);
     }
     return false;
 }
@@ -591,8 +601,9 @@ std::optional<std::string>
     }
     catch (const std::exception& e)
     {
-        log<level::ERR>("Cannot get error message from registry entry",
-                        entry("ERROR=%s", e.what()));
+        lg2::error(
+            "Cannot get error message from registry entry, error = {ERROR}",
+            "ERROR", e);
     }
     return std::nullopt;
 }
@@ -707,8 +718,8 @@ std::optional<std::string> SRC::getJSON(message::Registry& registry,
     std::vector<std::string> hexwords;
     jsonInsert(ps, pv::sectionVer, getNumberString("%d", _header.version), 1);
     jsonInsert(ps, pv::subSection, getNumberString("%d", _header.subType), 1);
-    jsonInsert(ps, pv::createdBy, getNumberString("0x%X", _header.componentID),
-               1);
+    jsonInsert(ps, pv::createdBy,
+               getComponentName(_header.componentID, creatorID), 1);
     jsonInsert(ps, "SRC Version", getNumberString("0x%02X", _version), 1);
     jsonInsert(ps, "SRC Format", getNumberString("0x%02X", _hexData[0] & 0xFF),
                1);
@@ -736,6 +747,10 @@ std::optional<std::string> SRC::getJSON(message::Registry& registry,
                        _hexData[3] &
                        static_cast<uint32_t>(ErrorStatusFlags::terminateFwErr)),
                    1);
+    }
+
+    if (isBMCSRC() || isHostbootSRC())
+    {
         jsonInsert(ps, "Deconfigured",
                    pv::boolString.at(
                        _hexData[3] &
@@ -952,7 +967,7 @@ std::vector<message::RegistryCallout>
         }
         catch (const std::exception& e)
         {
-            addDebugData(fmt::format(
+            addDebugData(std::format(
                 "Error parsing PEL message registry callout JSON: {}",
                 e.what()));
         }
@@ -1044,7 +1059,7 @@ void SRC::addRegistryCallout(
             catch (const std::exception& e)
             {
                 addDebugData(
-                    fmt::format("Could not get location code for {}: {}",
+                    std::format("Could not get location code for {}: {}",
                                 *trustedSymbolicFRUInvPath, e.what()));
                 locCode.clear();
             }
@@ -1181,7 +1196,7 @@ void SRC::addDevicePathCallouts(const AdditionalData& additionalData,
         }
         catch (const std::exception& e)
         {
-            auto msg = fmt::format("Unable to expand location code {}: {}",
+            auto msg = std::format("Unable to expand location code {}: {}",
                                    callout.locationCode, e.what());
             addDebugData(msg);
         }
@@ -1244,7 +1259,7 @@ void SRC::addJSONCallouts(const nlohmann::json& jsonCallouts,
         }
         catch (const std::exception& e)
         {
-            addDebugData(fmt::format(
+            addDebugData(std::format(
                 "Failed extracting callout data from JSON: {}", e.what()));
         }
     }
@@ -1269,7 +1284,7 @@ void SRC::addJSONCallout(const nlohmann::json& jsonCallout,
         }
         catch (const std::exception& e)
         {
-            addDebugData(fmt::format("Unable to expand location code {}: {}",
+            addDebugData(std::format("Unable to expand location code {}: {}",
                                      unexpandedLocCode, e.what()));
             // Use the value from the JSON so at least there's something
             locCode = unexpandedLocCode;
@@ -1341,7 +1356,7 @@ void SRC::addJSONCallout(const nlohmann::json& jsonCallout,
             catch (const std::exception& e)
             {
                 throw std::runtime_error{
-                    fmt::format("Unable to get inventory path from "
+                    std::format("Unable to get inventory path from "
                                 "location code: {}: {}",
                                 unexpandedLocCode, e.what())};
             }
@@ -1406,7 +1421,7 @@ CalloutPriority SRC::getPriorityFromJSON(const nlohmann::json& json)
     if (priorityIt == pv::calloutPriorityValues.end())
     {
         throw std::runtime_error{
-            fmt::format("Invalid priority '{}' found in JSON callout", p)};
+            std::format("Invalid priority '{}' found in JSON callout", p)};
     }
 
     return priority;
@@ -1442,7 +1457,7 @@ std::vector<src::MRU::MRUCallout>
         }
         catch (const std::exception& e)
         {
-            addDebugData(fmt::format("Invalid MRU entry in JSON: {}: {}",
+            addDebugData(std::format("Invalid MRU entry in JSON: {}: {}",
                                      mruCallout.dump(), e.what()));
         }
     }
@@ -1468,8 +1483,7 @@ void SRC::setDumpStatus(const DataInterfaceBase& dataIface)
     }
     catch (const std::exception& e)
     {
-        log<level::ERR>(
-            fmt::format("Checking dump status failed: {}", e.what()).c_str());
+        lg2::error("Checking dump status failed: {ERROR}", "ERROR", e);
     }
 }
 
@@ -1524,8 +1538,7 @@ void SRC::setProgressCode(const DataInterfaceBase& dataIface)
     }
     catch (const std::exception& e)
     {
-        log<level::ERR>(
-            fmt::format("Error getting progress code: {}", e.what()).c_str());
+        lg2::error("Error getting progress code: {ERROR}", "ERROR", e);
         return;
     }
 
@@ -1553,8 +1566,8 @@ uint32_t SRC::getProgressCode(std::vector<uint8_t>& rawProgressSRC)
 
         if (std::all_of(progressCodeString.begin(), progressCodeString.end(),
                         [](char c) {
-                            return std::isxdigit(static_cast<unsigned char>(c));
-                        }))
+            return std::isxdigit(static_cast<unsigned char>(c));
+        }))
         {
             progressCode = std::stoul(progressCodeString, nullptr, 16);
         }

@@ -36,12 +36,12 @@
 #include "sbe_ffdc_handler.hpp"
 #endif
 
-#include <fmt/format.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include <phosphor-logging/log.hpp>
+#include <phosphor-logging/lg2.hpp>
 
+#include <format>
 #include <iostream>
 
 namespace openpower
@@ -49,7 +49,6 @@ namespace openpower
 namespace pels
 {
 namespace pv = openpower::pels::pel_values;
-using namespace phosphor::logging;
 
 constexpr auto unknownValue = "Unknown";
 
@@ -64,11 +63,11 @@ PEL::PEL(const message::Entry& regEntry, uint32_t obmcLogID, uint64_t timestamp,
 #ifdef PEL_ENABLE_PHAL
     // Add sbe ffdc processed data into ffdcfiles.
     namespace sbe = openpower::pels::sbe;
-    auto processReq =
-        std::any_of(ffdcFiles.begin(), ffdcFiles.end(), [](const auto& file) {
-            return file.format == UserDataFormat::custom &&
-                   file.subType == sbe::sbeFFDCSubType;
-        });
+    auto processReq = std::any_of(ffdcFiles.begin(), ffdcFiles.end(),
+                                  [](const auto& file) {
+        return file.format == UserDataFormat::custom &&
+               file.subType == sbe::sbeFFDCSubType;
+    });
     // sbeFFDC can't be destroyed until the end of the PEL constructor
     // because it needs to keep around the FFDC Files to be used below.
     std::unique_ptr<sbe::SbeFFDC> sbeFFDCPtr;
@@ -189,8 +188,7 @@ PEL::PEL(const message::Entry& regEntry, uint32_t obmcLogID, uint64_t timestamp,
         {
             for (const auto& message : msgs)
             {
-                std::string entry = name + ": " + message;
-                log<level::INFO>(entry.c_str());
+                lg2::info("{NAME}: {MSG}", "NAME", name, "MSG", message);
             }
         }
     }
@@ -266,7 +264,7 @@ void PEL::flatten(std::vector<uint8_t>& pelBuffer) const
 
     if (!valid())
     {
-        log<level::WARNING>("Unflattening an invalid PEL");
+        lg2::warning("Unflattening an invalid PEL");
     }
 
     _ph->flatten(pelData);
@@ -309,11 +307,11 @@ size_t PEL::size() const
 
 std::optional<SRC*> PEL::primarySRC() const
 {
-    auto src = std::find_if(
-        _optionalSections.begin(), _optionalSections.end(), [](auto& section) {
-            return section->header().id ==
-                   static_cast<uint16_t>(SectionID::primarySRC);
-        });
+    auto src = std::find_if(_optionalSections.begin(), _optionalSections.end(),
+                            [](auto& section) {
+        return section->header().id ==
+               static_cast<uint16_t>(SectionID::primarySRC);
+    });
     if (src != _optionalSections.end())
     {
         return static_cast<SRC*>(src->get());
@@ -373,7 +371,7 @@ void PEL::printSectionInJSON(const Section& section, std::string& buf,
         }
         else
         {
-            json = section.getJSON();
+            json = section.getJSON(creatorID);
         }
 
         buf += "\"" + sectionName + "\": {\n";
@@ -447,8 +445,10 @@ void PEL::toJSON(message::Registry& registry,
     auto sections = getPluralSections();
 
     std::string buf = "{\n";
-    printSectionInJSON(*(_ph.get()), buf, sections, registry, plugins);
-    printSectionInJSON(*(_uh.get()), buf, sections, registry, plugins);
+    printSectionInJSON(*(_ph.get()), buf, sections, registry, plugins,
+                       _ph->creatorID());
+    printSectionInJSON(*(_uh.get()), buf, sections, registry, plugins,
+                       _ph->creatorID());
     for (auto& section : this->optionalSections())
     {
         printSectionInJSON(*(section.get()), buf, sections, registry, plugins,
@@ -471,12 +471,13 @@ bool PEL::addUserDataSection(std::unique_ptr<UserData> userData)
         }
         else
         {
-            log<level::WARNING>(
-                "Could not shrink UserData section. Dropping",
-                entry("SECTION_SIZE=%d\n", userData->header().size),
-                entry("COMPONENT_ID=0x%02X", userData->header().componentID),
-                entry("SUBTYPE=0x%X", userData->header().subType),
-                entry("VERSION=0x%X", userData->header().version));
+            lg2::warning("Could not shrink UserData section. Dropping. "
+                         "Section size = {SSIZE}, Component ID = {COMP_ID}, "
+                         "Subtype = {SUBTYPE}, Version = {VERSION}",
+                         "SSIZE", userData->header().size, "COMP_ID",
+                         userData->header().componentID, "SUBTYPE",
+                         userData->header().subType, "VERSION",
+                         userData->header().version);
             return false;
         }
     }
@@ -553,10 +554,9 @@ void PEL::updateSysInfoInExtendedUserDataSection(
         // Get the ED section from PEL
         auto op = std::find_if(_optionalSections.begin(),
                                _optionalSections.end(), [](auto& section) {
-                                   return section->header().id ==
-                                          static_cast<uint16_t>(
-                                              SectionID::extUserData);
-                               });
+            return section->header().id ==
+                   static_cast<uint16_t>(SectionID::extUserData);
+        });
 
         // Check for ED section found and its not the last section of PEL
         if (op != _optionalSections.end())
@@ -581,6 +581,30 @@ void PEL::updateSysInfoInExtendedUserDataSection(
             }
         }
     }
+}
+
+bool PEL::getDeconfigFlag() const
+{
+    auto creator = static_cast<CreatorID>(_ph->creatorID());
+
+    if ((creator == CreatorID::openBMC) || (creator == CreatorID::hostboot))
+    {
+        auto src = primarySRC();
+        return (*src)->getErrorStatusFlag(SRC::ErrorStatusFlags::deconfigured);
+    }
+    return false;
+}
+
+bool PEL::getGuardFlag() const
+{
+    auto creator = static_cast<CreatorID>(_ph->creatorID());
+
+    if ((creator == CreatorID::openBMC) || (creator == CreatorID::hostboot))
+    {
+        auto src = primarySRC();
+        return (*src)->getErrorStatusFlag(SRC::ErrorStatusFlags::guarded);
+    }
+    return false;
 }
 
 void PEL::updateTerminateBitInSRCSection()
@@ -626,9 +650,7 @@ void PEL::addJournalSections(const message::Entry& regEntry,
         }
         catch (const std::exception& e)
         {
-            log<level::ERR>(
-                fmt::format("Failed during journal collection: {}", e.what())
-                    .c_str());
+            lg2::error("Failed during journal collection: {ERROR}", "ERROR", e);
         }
     }
     else if (std::holds_alternative<message::AppCaptureList>(jc))
@@ -647,10 +669,8 @@ void PEL::addJournalSections(const message::Entry& regEntry,
             }
             catch (const std::exception& e)
             {
-                log<level::ERR>(
-                    fmt::format("Failed during journal collection: {}",
-                                e.what())
-                        .c_str());
+                lg2::error("Failed during journal collection: {ERROR}", "ERROR",
+                           e);
             }
         }
     }
@@ -665,11 +685,10 @@ void PEL::addJournalSections(const message::Entry& regEntry,
         // check here.
         if (buffer.size() > _maxPELSize)
         {
-            log<level::WARNING>(
-                "Journal UserData section does not fit in PEL, dropping");
-            log<level::WARNING>(fmt::format("PEL size = {}, data size = {}",
-                                            size(), buffer.size())
-                                    .c_str());
+            lg2::warning(
+                "Journal UserData section does not fit in PEL, dropping. "
+                "PEL size = {PEL_SIZE}, data size = {DATA_SIZE}",
+                "PEL_SIZE", size(), "DATA_SIZE", buffer.size());
             continue;
         }
 
@@ -692,11 +711,10 @@ void PEL::addJournalSections(const message::Entry& regEntry,
         {
             // Don't attempt to shrink here since we'd be dropping the
             // most recent journal entries which would be confusing.
-            log<level::WARNING>(
-                "Journal UserData section does not fit in PEL, dropping");
-            log<level::WARNING>(fmt::format("PEL size = {}, UserData size = {}",
-                                            size(), ud->header().size)
-                                    .c_str());
+            lg2::warning(
+                "Journal UserData section does not fit in PEL, dropping. "
+                "PEL size = {PEL_SIZE}, data size = {DATA_SIZE}",
+                "PEL_SIZE", size(), "DATA_SIZE", buffer.size());
             ud.reset();
             continue;
         }
@@ -799,7 +817,7 @@ void addIMKeyword(nlohmann::json& json, const DataInterfaceBase& dataIface)
     std::string value{};
 
     std::for_each(keyword.begin(), keyword.end(), [&](const auto& byte) {
-        value += fmt::format("{:02X}", byte);
+        value += std::format("{:02X}", byte);
     });
 
     json["System IM"] = value;
@@ -857,14 +875,14 @@ std::vector<uint8_t> readFD(int fd)
     if (r != 0)
     {
         auto e = errno;
-        log<level::ERR>("Could not get FFDC file size from FD",
-                        entry("ERRNO=%d", e));
+        lg2::error("Could not get FFDC file size from FD, errno = {ERRNO}",
+                   "ERRNO", e);
         return data;
     }
 
     if (0 == s.st_size)
     {
-        log<level::ERR>("FFDC file is empty");
+        lg2::error("FFDC file is empty");
         return data;
     }
 
@@ -876,8 +894,8 @@ std::vector<uint8_t> readFD(int fd)
     if (r == -1)
     {
         auto e = errno;
-        log<level::ERR>("Could not seek to beginning of FFDC file",
-                        entry("ERRNO=%d", e));
+        lg2::error("Could not seek to beginning of FFDC file, errno = {ERRNO}",
+                   "ERRNO", e);
         return data;
     }
 
@@ -885,13 +903,13 @@ std::vector<uint8_t> readFD(int fd)
     if (r == -1)
     {
         auto e = errno;
-        log<level::ERR>("Could not read FFDC file", entry("ERRNO=%d", e));
+        lg2::error("Could not read FFDC file, errno = {ERRNO}", "ERRNO", e);
     }
     else if (r != s.st_size)
     {
-        log<level::WARNING>("Could not read full FFDC file",
-                            entry("FILE_SIZE=%d", s.st_size),
-                            entry("SIZE_READ=%d", r));
+        lg2::warning("Could not read full FFDC file. "
+                     "File size = {FSIZE}, Size read = {SIZE_READ}",
+                     "FSIZE", s.st_size, "SIZE_READ", r);
     }
 
     return data;

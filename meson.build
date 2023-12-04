@@ -1,8 +1,8 @@
 project('phosphor-logging', 'cpp',
-    meson_version: '>= 0.57.0',
+    meson_version: '>=1.1.1',
     default_options: [
       'buildtype=debugoptimized',
-      'cpp_std=c++20',
+      'cpp_std=c++23',
       'warning_level=3',
       'werror=true',
       'libonly=' + (meson.is_subproject() ? 'true' : 'false'),
@@ -29,7 +29,7 @@ pdi_dep = dependency('phosphor-dbus-interfaces')
 # by pulling it from the PDI dependency.
 yamldir = get_option('yamldir')
 if yamldir == ''
-    yamldir = pdi_dep.get_variable(pkgconfig: 'yamldir', internal: 'yamldir')
+    yamldir = pdi_dep.get_variable('yamldir')
 endif
 
 subdir('config')

@@ -66,10 +66,11 @@ class Manager : public PELInterface
             createPELEntry(entry.first, true);
         }
 
-        _repo.for_each(
-            std::bind(&Manager::updateResolution, this, std::placeholders::_1));
-
         setupPELDeleteWatch();
+
+        _dataIface->subscribeToFruPresent(
+            "Manager",
+            std::bind(&Manager::hardwarePresent, this, std::placeholders::_1));
     }
 
     /**
@@ -417,6 +418,12 @@ class Manager : public PELInterface
     void updateEventId(std::unique_ptr<openpower::pels::PEL>& pel);
 
     /**
+     * @brief Finds and serializes the log entry for the ID passed in.
+     * @param[in] obmcLogID - The OpenBMC event log ID
+     */
+    void serializeLogEntry(uint32_t obmcLogID);
+
+    /**
      * @brief Sets the FilePath of the specified error log entry to the PEL file
      *        path.
      *
@@ -479,6 +486,30 @@ class Manager : public PELInterface
     void deleteObmcLog(sdeventplus::source::EventBase&, uint32_t obmcLogID);
 
     /**
+     * @brief Clears the deconfig flag in the PEL if necessary.
+     *
+     * If the passed in location code is in a callout and it's a PEL with
+     * the BMC power/thermal or fans component ID, clear the deconfig flag.
+     *
+     * @param[in] locationCode - The location code to look for
+     * @param[inout] pel - The PEL to check and modify.
+     * @return bool - true if the flag was cleared for this PEL
+     */
+    static bool clearPowerThermalDeconfigFlag(const std::string& locationCode,
+                                              openpower::pels::PEL& pel);
+
+    /**
+     * @brief Called by DataInterface when the presence of hotpluggable
+     *        hardware is detected.
+     *
+     * Clears the 'Deconfig' flag in any PEL that has the location code
+     * of the hardware in a callout.
+     *
+     * @param[in] locationCode - The location code of the hardware.
+     */
+    void hardwarePresent(const std::string& locationCode);
+
+    /**
      * @brief Reference to phosphor-logging's Manager class
      */
     phosphor::logging::internal::Manager& _logManager;
@@ -520,7 +551,7 @@ class Manager : public PELInterface
      */
     std::map<std::string,
              std::unique_ptr<
-                 sdbusplus::org::open_power::Logging::PEL::server::Entry>>
+                 sdbusplus::server::org::open_power::logging::pel::Entry>>
         _pelEntries;
 
     /**

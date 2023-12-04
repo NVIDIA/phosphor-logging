@@ -4,12 +4,12 @@
 #include <phosphor-logging/lg2/header.hpp>
 #include <phosphor-logging/lg2/level.hpp>
 #include <phosphor-logging/lg2/logger.hpp>
-#include <phosphor-logging/lg2/source_location.hpp>
 #include <sdbusplus/message/native_types.hpp>
 
 #include <concepts>
 #include <cstddef>
 #include <filesystem>
+#include <source_location>
 #include <string_view>
 #include <tuple>
 #include <type_traits>
@@ -28,9 +28,8 @@ namespace lg2::details
 template <typename T>
 concept string_like_type =
     (std::constructible_from<std::string_view, T> ||
-     std::same_as<std::filesystem::path, std::decay_t<T>>) &&
-    !
-std::same_as<std::nullptr_t, T>;
+     std::same_as<std::filesystem::path,
+                  std::decay_t<T>>)&&!std::same_as<std::nullptr_t, T>;
 
 /** Concept to determine if an item acts like a pointer.
  *
@@ -39,9 +38,7 @@ std::same_as<std::nullptr_t, T>;
  */
 template <typename T>
 concept pointer_type = (std::is_pointer_v<T> ||
-                        std::same_as<std::nullptr_t, T>) &&
-                       !
-string_like_type<T>;
+                        std::same_as<std::nullptr_t, T>)&&!string_like_type<T>;
 
 /** Concept to determine if an item acts like an unsigned_integral.
  *
@@ -49,8 +46,8 @@ string_like_type<T>;
  *  `True` and `False` strings.
  */
 template <typename T>
-concept unsigned_integral_except_bool = !
-std::same_as<T, bool>&& std::unsigned_integral<T>;
+concept unsigned_integral_except_bool = !std::same_as<T, bool> &&
+                                        std::unsigned_integral<T>;
 
 template <typename T>
 concept sdbusplus_enum = sdbusplus::message::has_convert_from_string_v<T>;
@@ -289,7 +286,7 @@ class log_conversion
     /** Conversion and validation is complete.  Pass along to the final
      *  do_log variadic function. */
     template <typename... Ts>
-    static void done(level l, const lg2::source_location& s, const char* m,
+    static void done(level l, const std::source_location& s, const char* m,
                      Ts&&... ts)
     {
         do_log(l, s, m, ts..., nullptr);
@@ -401,7 +398,7 @@ class log_conversion
     /** Start processing a sequence of arguments to `lg2::log` using `step` or
      * `done`. */
     template <typename... Ts>
-    static void start(level l, const lg2::source_location& s, const char* msg,
+    static void start(level l, const std::source_location& s, const char* msg,
                       Ts&&... ts)
     {
         // If there are no arguments (ie. just a message), then skip processing

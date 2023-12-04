@@ -435,10 +435,11 @@ std::string genPELJSON(T itr, bool hidden, bool includeInfo, bool critSysTerm,
             jsonInsert(listStr, "Sev", severity, 2);
 
             // compID
-            jsonInsert(listStr, "CompID",
-                       getNumberString(
-                           "0x%X", pel.privateHeader().header().componentID),
-                       2);
+            jsonInsert(
+                listStr, "CompID",
+                getComponentName(pel.privateHeader().header().componentID,
+                                 pel.privateHeader().creatorID()),
+                2);
 
             auto found = listStr.rfind(",");
             if (found != std::string::npos)
@@ -495,8 +496,8 @@ void printPELs(bool order, bool hidden, bool includeInfo, bool critSysTerm,
     // Sort the pairs based on second time parameter
     std::sort(PELs.begin(), PELs.end(),
               [](const auto& left, const auto& right) {
-                  return left.second < right.second;
-              });
+        return left.second < right.second;
+    });
 
     bool foundPEL = false;
 

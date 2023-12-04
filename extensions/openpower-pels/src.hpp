@@ -62,8 +62,9 @@ class SRC : public Section
      * @brief Enums for the error status bits in hex word 5
      *        of BMC SRCs.
      */
-    enum class ErrorStatusFlags
+    enum class ErrorStatusFlags : uint32_t
     {
+        hwCheckstop = 0x80000000,
         terminateFwErr = 0x20000000,
         deconfigured = 0x02000000,
         guarded = 0x01000000
@@ -283,6 +284,13 @@ class SRC : public Section
     bool isBMCSRC() const;
 
     /**
+     * @brief Says if this SRC was created by Hostboot
+     *
+     * @return bool - If created by Hostboot or not
+     */
+    bool isHostbootSRC() const;
+
+    /**
      * @brief Set the terminate bit in hex data word 3.
      */
     void setTerminateBit()
@@ -307,6 +315,28 @@ class SRC : public Section
      * @return uint32_t - The code, like 0xCC0099EE from "CC0099EE"
      */
     static uint32_t getProgressCode(std::vector<uint8_t>& rawProgressSRC);
+
+    /**
+     * @brief Return the value of the passed in error status flag.
+     *
+     * @param[in] flag - The flag
+     *
+     * @return bool - If the flag is set.
+     */
+    bool getErrorStatusFlag(ErrorStatusFlags flag) const
+    {
+        return _hexData[3] & static_cast<uint32_t>(flag);
+    }
+
+    /**
+     * @brief Clears an error status flag in the SRC.
+     *
+     * @param[in] flag - The flag to set
+     */
+    void clearErrorStatusFlag(ErrorStatusFlags flag)
+    {
+        _hexData[3] &= ~static_cast<uint32_t>(flag);
+    }
 
   private:
     /**

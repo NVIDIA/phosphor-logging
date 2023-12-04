@@ -18,7 +18,13 @@ namespace pels
 class MockDataInterface : public DataInterfaceBase
 {
   public:
-    MockDataInterface() {}
+    MockDataInterface()
+    {
+        ON_CALL(*this, checkDumpStatus)
+            .WillByDefault(
+                ::testing::Return(std::vector<bool>({false, false, false})));
+    }
+
     MOCK_METHOD(std::string, getMachineTypeModel, (), (const override));
     MOCK_METHOD(std::string, getMachineSerialNumber, (), (const override));
     MOCK_METHOD(std::string, getServerFWVersion, (), (const override));
@@ -69,6 +75,11 @@ class MockDataInterface : public DataInterfaceBase
     void setHMCManaged(bool managed)
     {
         _hmcManaged = managed;
+    }
+
+    void fruPresent(const std::string& locationCode)
+    {
+        setFruPresent(locationCode);
     }
 };
 

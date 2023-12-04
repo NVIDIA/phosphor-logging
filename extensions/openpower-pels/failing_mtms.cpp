@@ -19,9 +19,9 @@
 #include "pel_types.hpp"
 #include "pel_values.hpp"
 
-#include <fmt/format.h>
-
 #include <phosphor-logging/log.hpp>
+
+#include <format>
 
 namespace openpower
 {
@@ -54,7 +54,7 @@ FailingMTMS::FailingMTMS(Stream& pel)
     catch (const std::exception& e)
     {
         log<level::ERR>(
-            fmt::format("Cannot unflatten failing MTM section: {}", e.what())
+            std::format("Cannot unflatten failing MTM section: {}", e.what())
                 .c_str());
         _valid = false;
     }
@@ -67,14 +67,14 @@ void FailingMTMS::validate()
     if (header().id != static_cast<uint16_t>(SectionID::failingMTMS))
     {
         log<level::ERR>(
-            fmt::format("Invalid failing MTMS section ID: {0:#x}", header().id)
+            std::format("Invalid failing MTMS section ID: {0:#x}", header().id)
                 .c_str());
         failed = true;
     }
 
     if (header().version != failingMTMSVersion)
     {
-        log<level::ERR>(fmt::format("Invalid failing MTMS version: {0:#x}",
+        log<level::ERR>(std::format("Invalid failing MTMS version: {0:#x}",
                                     header().version)
                             .c_str());
         failed = true;
@@ -93,13 +93,13 @@ void FailingMTMS::unflatten(Stream& stream)
     stream >> _header >> _mtms;
 }
 
-std::optional<std::string> FailingMTMS::getJSON() const
+std::optional<std::string> FailingMTMS::getJSON(uint8_t creatorID) const
 {
     std::string json;
     jsonInsert(json, pv::sectionVer, getNumberString("%d", _header.version), 1);
     jsonInsert(json, pv::subSection, getNumberString("%d", _header.subType), 1);
     jsonInsert(json, pv::createdBy,
-               getNumberString("0x%X", _header.componentID), 1);
+               getComponentName(_header.componentID, creatorID), 1);
     jsonInsert(json, "Machine Type Model", _mtms.machineTypeAndModel(), 1);
     jsonInsert(json, "Serial Number", trimEnd(_mtms.machineSerialNumber()), 1);
     json.erase(json.size() - 2);

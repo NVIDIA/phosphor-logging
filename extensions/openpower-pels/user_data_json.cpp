@@ -25,7 +25,7 @@
 #include <Python.h>
 
 #include <nlohmann/json.hpp>
-#include <phosphor-logging/log.hpp>
+#include <phosphor-logging/lg2.hpp>
 
 #include <iomanip>
 #include <sstream>
@@ -33,7 +33,6 @@
 namespace openpower::pels::user_data
 {
 namespace pv = openpower::pels::pel_values;
-using namespace phosphor::logging;
 using orderedJSON = nlohmann::ordered_json;
 
 void pyDecRef(PyObject* pyObj)
@@ -48,17 +47,19 @@ void pyDecRef(PyObject* pyObj)
  * the outer {}.  If the input JSON isn't a JSON object (dict), then
  * one will be created with the input added to a 'Data' key.
  *
+ * @param[in] creatorID - The creator ID for the PEL
+ *
  * @param[in] json - The JSON to convert to a string
  *
  * @return std::string - The JSON string
  */
 std::string prettyJSON(uint16_t componentID, uint8_t subType, uint8_t version,
-                       const orderedJSON& json)
+                       uint8_t creatorID, const orderedJSON& json)
 {
     orderedJSON output;
     output[pv::sectionVer] = std::to_string(version);
     output[pv::subSection] = std::to_string(subType);
-    output[pv::createdBy] = getNumberString("0x%04X", componentID);
+    output[pv::createdBy] = getComponentName(componentID, creatorID);
 
     if (!json.is_object())
     {
@@ -103,12 +104,13 @@ std::string prettyJSON(uint16_t componentID, uint8_t subType, uint8_t version,
  * @param[in] componentID - The comp ID from the UserData section header
  * @param[in] subType - The subtype from the UserData section header
  * @param[in] version - The version from the UserData section header
+ * @param[in] creatorID - The creator ID for the PEL
  * @param[in] data - The CBOR data
  *
  * @return std::string - The JSON string
  */
 std::string getCBORJSON(uint16_t componentID, uint8_t subType, uint8_t version,
-                        const std::vector<uint8_t>& data)
+                        uint8_t creatorID, const std::vector<uint8_t>& data)
 {
     // The CBOR parser needs the pad bytes added to 4 byte align
     // removed.  The number of bytes added to the pad is on the
@@ -131,7 +133,7 @@ std::string getCBORJSON(uint16_t componentID, uint8_t subType, uint8_t version,
 
     orderedJSON json = orderedJSON::from_cbor(cborData);
 
-    return prettyJSON(componentID, subType, version, json);
+    return prettyJSON(componentID, subType, version, creatorID, json);
 }
 
 /**
@@ -144,12 +146,13 @@ std::string getCBORJSON(uint16_t componentID, uint8_t subType, uint8_t version,
  * @param[in] componentID - The comp ID from the UserData section header
  * @param[in] subType - The subtype from the UserData section header
  * @param[in] version - The version from the UserData section header
+ * @param[in] creatorID - The creator ID for the PEL
  * @param[in] data - The CBOR data
  *
  * @return std::string - The JSON string
  */
 std::string getTextJSON(uint16_t componentID, uint8_t subType, uint8_t version,
-                        const std::vector<uint8_t>& data)
+                        uint8_t creatorID, const std::vector<uint8_t>& data)
 {
     std::vector<std::string> text;
     size_t startPos = 0;
@@ -183,7 +186,7 @@ std::string getTextJSON(uint16_t componentID, uint8_t subType, uint8_t version,
     }
 
     orderedJSON json = text;
-    return prettyJSON(componentID, subType, version, json);
+    return prettyJSON(componentID, subType, version, creatorID, json);
 }
 
 /**
@@ -200,7 +203,7 @@ std::string getTextJSON(uint16_t componentID, uint8_t subType, uint8_t version,
  */
 std::optional<std::string>
     getBuiltinFormatJSON(uint16_t componentID, uint8_t subType, uint8_t version,
-                         const std::vector<uint8_t>& data)
+                         const std::vector<uint8_t>& data, uint8_t creatorID)
 {
     switch (subType)
     {
@@ -210,15 +213,15 @@ std::optional<std::string>
 
             orderedJSON json = orderedJSON::parse(jsonString);
 
-            return prettyJSON(componentID, subType, version, json);
+            return prettyJSON(componentID, subType, version, creatorID, json);
         }
         case static_cast<uint8_t>(UserDataFormat::cbor):
         {
-            return getCBORJSON(componentID, subType, version, data);
+            return getCBORJSON(componentID, subType, version, creatorID, data);
         }
         case static_cast<uint8_t>(UserDataFormat::text):
         {
-            return getTextJSON(componentID, subType, version, data);
+            return getTextJSON(componentID, subType, version, creatorID, data);
         }
         default:
             break;
@@ -298,13 +301,11 @@ std::optional<std::string> getPythonJSON(uint16_t componentID, uint8_t subType,
         if (!PyDict_Contains(pDict, pKey))
         {
             Py_DECREF(pDict);
-            log<level::ERR>(
-                "Python module error",
-                entry("ERROR=%s",
-                      std::string(funcToCall + " function missing").c_str()),
-                entry("PARSER_MODULE=%s", module.c_str()),
-                entry("SUBTYPE=0x%X", subType), entry("VERSION=%d", version),
-                entry("DATA_LENGTH=%lu\n", data.size()));
+            lg2::error("Python module error.  Function missing: {FUNC}, "
+                       "module = {MODULE}, subtype = {SUBTYPE}, "
+                       "version = {VERSION}, data length = {LEN}",
+                       "FUNC", funcToCall, "MODULE", module, "SUBTYPE", subType,
+                       "VERSION", version, "LEN", data.size());
             return std::nullopt;
         }
         PyObject* pFunc = PyDict_GetItemString(pDict, funcToCall.c_str());
@@ -342,17 +343,17 @@ std::optional<std::string> getPythonJSON(uint16_t componentID, uint8_t subType,
                         (json.is_array() && json.size() > 0) ||
                         (json.is_string() && json != ""))
                     {
-                        return prettyJSON(componentID, subType, version, json);
+                        return prettyJSON(componentID, subType, version,
+                                          creatorID, json);
                     }
                 }
                 catch (const std::exception& e)
                 {
-                    log<level::ERR>("Bad JSON from parser",
-                                    entry("ERROR=%s", e.what()),
-                                    entry("PARSER_MODULE=%s", module.c_str()),
-                                    entry("SUBTYPE=0x%X", subType),
-                                    entry("VERSION=%d", version),
-                                    entry("DATA_LENGTH=%lu\n", data.size()));
+                    lg2::error("Bad JSON from parser.  Error = {ERROR}, "
+                               "module = {MODULE}, subtype = {SUBTYPE}, "
+                               "version = {VERSION}, data length = {LEN}",
+                               "ERROR", e, "MODULE", module, "SUBTYPE", subType,
+                               "VERSION", version, "LEN", data.size());
                     return std::nullopt;
                 }
             }
@@ -383,12 +384,11 @@ std::optional<std::string> getPythonJSON(uint16_t componentID, uint8_t subType,
     }
     if (!pErrStr.empty())
     {
-        log<level::DEBUG>("Python exception thrown by parser",
-                          entry("ERROR=%s", pErrStr.c_str()),
-                          entry("PARSER_MODULE=%s", module.c_str()),
-                          entry("SUBTYPE=0x%X", subType),
-                          entry("VERSION=%d", version),
-                          entry("DATA_LENGTH=%lu\n", data.size()));
+        lg2::debug("Python exception thrown by parser.  Error = {ERROR}, "
+                   "module = {MODULE}, subtype = {SUBTYPE}, "
+                   "version = {VERSION}, data length = {LEN}",
+                   "ERROR", pErrStr, "MODULE", module, "SUBTYPE", subType,
+                   "VERSION", version, "LEN", data.size());
     }
     return std::nullopt;
 }
@@ -406,7 +406,8 @@ std::optional<std::string> getJSON(uint16_t componentID, uint8_t subType,
         if (pv::creatorIDs.at(getNumberString("%c", creatorID)) == "BMC" &&
             componentID == static_cast<uint16_t>(ComponentID::phosphorLogging))
         {
-            return getBuiltinFormatJSON(componentID, subType, version, data);
+            return getBuiltinFormatJSON(componentID, subType, version, data,
+                                        creatorID);
         }
         else if (std::find(plugins.begin(), plugins.end(),
                            subsystem + component) != plugins.end())
@@ -417,11 +418,11 @@ std::optional<std::string> getJSON(uint16_t componentID, uint8_t subType,
     }
     catch (const std::exception& e)
     {
-        log<level::ERR>("Failed parsing UserData", entry("ERROR=%s", e.what()),
-                        entry("COMP_ID=0x%X", componentID),
-                        entry("SUBTYPE=0x%X", subType),
-                        entry("VERSION=%d", version),
-                        entry("DATA_LENGTH=%lu\n", data.size()));
+        lg2::error("Failed parsing UserData.  Error = {ERROR}, "
+                   "component ID = {COMP_ID}, subtype = {SUBTYPE}, "
+                   "version = {VERSION}, data length = {LEN}",
+                   "ERROR", e, "COMP_ID", componentID, "SUBTYPE", subType,
+                   "VERSION", version, "LEN", data.size());
     }
 
     return std::nullopt;

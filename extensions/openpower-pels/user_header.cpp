@@ -20,10 +20,9 @@
 #include "pel_values.hpp"
 #include "severity.hpp"
 
-#include <fmt/format.h>
-
 #include <phosphor-logging/log.hpp>
 
+#include <format>
 #include <iostream>
 
 namespace openpower
@@ -71,7 +70,7 @@ UserHeader::UserHeader(const message::Entry& entry,
         if (subsystemString == "invalid")
         {
             log<level::WARNING>(
-                fmt::format(
+                std::format(
                     "UH: Invalid SubSystem value in PEL_SUBSYSTEM: {:#X}",
                     eventSubsystem)
                     .c_str());
@@ -230,7 +229,7 @@ UserHeader::UserHeader(Stream& pel)
     catch (const std::exception& e)
     {
         log<level::ERR>(
-            fmt::format("Cannot unflatten user header: {}", e.what()).c_str());
+            std::format("Cannot unflatten user header: {}", e.what()).c_str());
         _valid = false;
     }
 }
@@ -241,7 +240,7 @@ void UserHeader::validate()
     if (header().id != static_cast<uint16_t>(SectionID::userHeader))
     {
         log<level::ERR>(
-            fmt::format("Invalid user header section ID: {0:#x}", header().id)
+            std::format("Invalid user header section ID: {0:#x}", header().id)
                 .c_str());
         failed = true;
     }
@@ -249,7 +248,7 @@ void UserHeader::validate()
     if (header().version != userHeaderVersion)
     {
         log<level::ERR>(
-            fmt::format("Invalid user header version: {0:#x}", header().version)
+            std::format("Invalid user header version: {0:#x}", header().version)
                 .c_str());
         failed = true;
     }
@@ -257,7 +256,7 @@ void UserHeader::validate()
     _valid = (failed) ? false : true;
 }
 
-std::optional<std::string> UserHeader::getJSON() const
+std::optional<std::string> UserHeader::getJSON(uint8_t creatorID) const
 {
     std::string severity;
     std::string subsystem;
@@ -290,7 +289,7 @@ std::optional<std::string> UserHeader::getJSON() const
     jsonInsert(uh, pv::sectionVer, getNumberString("%d", userHeaderVersion), 1);
     jsonInsert(uh, pv::subSection, getNumberString("%d", _header.subType), 1);
     jsonInsert(uh, "Log Committed by",
-               getNumberString("0x%X", _header.componentID), 1);
+               getComponentName(_header.componentID, creatorID), 1);
     jsonInsert(uh, "Subsystem", subsystem, 1);
     jsonInsert(uh, "Event Scope", eventScope, 1);
     jsonInsert(uh, "Event Severity", severity, 1);
