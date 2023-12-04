@@ -41,4 +41,7 @@ static constexpr auto FIRST_CEREAL_CLASS_VERSION_WITH_EVENTID = "4";
 static constexpr auto FIRST_CEREAL_CLASS_VERSION_WITH_RESOLUTION = "5";
 static constexpr size_t CLASS_VERSION = 5;
 
+static constexpr auto RW_CONFIG_FILE_PATH = "@rw_config_file_path@";
+static constexpr auto LOG_PURGE_POLICY_DEFAULT = @log_purge_policy_default@;
+
 // vim: ft=cpp

@@ -13,6 +13,7 @@
 #include <phosphor-logging/lg2.hpp>
 #include <phosphor-logging/log.hpp>
 #include <sdbusplus/bus.hpp>
+#include <sdeventplus/source/time.hpp>
 
 #include <fstream>
 #include <list>
@@ -22,6 +23,8 @@ namespace phosphor
 {
 namespace logging
 {
+
+namespace fs = std::filesystem;
 
 extern const std::map<std::string, std::vector<std::string>> g_errMetaMap;
 extern const std::map<std::string, level> g_errLevelMap;
@@ -200,6 +203,82 @@ class Manager : public details::ServerObject<details::ManagerIface>
         return 0;
     }
 
+    uint32_t parseRWConfigJson(const std::string& jsonPath)
+    {
+        lg2::info("parseRWConfigJson {PATH}", "PATH", jsonPath);
+        this->rwConfigJsonPath = jsonPath;
+
+        std::ifstream jsonStream;
+        nlohmann::json data;
+        try
+        {
+            jsonStream.open(jsonPath);
+            if (jsonStream.is_open())
+            {
+                data = nlohmann::json::parse(jsonStream, nullptr);
+                jsonStream.close();
+                if (!data.is_object())
+                {
+                    throw std::invalid_argument("R/W config parse result is "
+                                                "not an object");
+                }
+            }
+            else
+            {
+                lg2::info("Persistent R/W config file {FILE} doesn't exist. "
+                          "Using default values.", "FILE", jsonPath);
+                return 0;  // It's not an error for this file to not exist
+            }
+        }
+        catch (const std::exception& e)
+        {
+            lg2::error("Failed to open/parse JSON file: {ERROR}", "ERROR",
+                       e.what());
+            std::error_code ec{};
+            fs::remove(jsonPath, ec);
+            if (ec.value() != 0)
+            {
+                lg2::error("Also failed to delete malformed JSON file!");
+            }
+            throw;  // rethrow to parseErrHandler
+        }
+        bool logPurgePolicy = data.value("LogPurgePolicy", false);
+        lg2::info("Set log purge policy enabled state from R/W config to {STATE}",
+                  "STATE", logPurgePolicy);
+        this->_autoPurgeResolved = logPurgePolicy;
+        return 0;
+    }
+
+    uint32_t updateRWConfigJson()
+    {
+        nlohmann::json data({
+            {"LogPurgePolicy", this->_autoPurgeResolved}
+        });
+        std::ofstream jsonStream;
+        try
+        {
+            jsonStream.open(this->rwConfigJsonPath);
+            if (jsonStream.is_open())
+            {
+                jsonStream << data;
+                jsonStream.close();
+            }
+            else
+            {
+                lg2::error("Persistent R/W config file {FILE} could not be"
+                           "opened for writing.", "FILE", this->rwConfigJsonPath);
+                return 1;
+            }
+        }
+        catch (const std::exception& e)
+        {
+            lg2::error("Failed to open/write JSON file: {ERROR}", "ERROR",
+                       e.what());
+            return 2;
+        }
+        return 0;
+    }
+
     /* @fn getSelPolicy()
      * @brief retrive current sel policy from Settingsd.
      */
@@ -247,6 +326,7 @@ class Manager : public details::ServerObject<details::ManagerIface>
      */
     void eraseAll()
     {
+        this->cancelPendingLogDeletion();
         auto iter = entries.begin();
         while (iter != entries.end())
         {
@@ -357,6 +437,48 @@ class Manager : public details::ServerObject<details::ManagerIface>
      *
      */
     std::tuple<uint32_t, uint64_t> getStats(const std::string& nspace);
+
+    /**
+     * @brief Gets the configuration about purging Resolved Logs
+     * @return true if Resolved Logs are currently purged, false otherwise
+     */
+    bool getAutoPurgeResolved();
+
+    /**
+     * @brief Sets a new configuration for purging or not Resolved Logs
+     * @param [in] confPurgeResolvedLogs, if true Resolved Logs will be purged
+     *             otherwise kept
+     */
+    void setAutoPurgeResolved(bool confPurgeResolvedLogs);
+
+    /**
+     * @brief Adds a entry ID to the list of logs to be deleted asynchronously
+     *
+     * @param [in] entryId - entry ID of log to delete
+    */
+    void addPendingLogDelete(uint32_t entryId);
+
+    /**
+     * @brief Get the number of log entries pending deletion (for unit tests)
+    */
+    size_t getPendingLogDeleteCount()
+    {
+        return _pendingPurgeEvents.size();
+    }
+
+    /**
+     * @brief called from event loop to delete pending logs (one log per call)
+    */
+    void pendingLogDeleteCallback();
+
+    /**
+     * @brief called when pending deletions should be cancelled
+     *
+     * This occurs in the following situations:
+     * - Log purge policy setting is disabled
+     * - eraseAll is called
+    */
+    void cancelPendingLogDeletion();
 
     /** @brief Creates an event log
      *
@@ -522,6 +644,22 @@ class Manager : public details::ServerObject<details::ManagerIface>
     /** @brief Map of entry id to call back object on properties changed */
     std::map<uint32_t, std::unique_ptr<sdbusplus::bus::match_t>>
         propChangedEntryCallback;
+
+    /** @brief Path to persistent R/W config (for log purge policy setting) */
+    std::string rwConfigJsonPath;
+
+    /** @brief Current value of the log purge policy setting */
+    bool _autoPurgeResolved;
+
+    /** @brief Stack containing resolved log entry IDs awaiting deletion */
+    std::vector<uint32_t> _pendingPurgeEvents;
+
+    /** @brief Event source used to trigger log deletion
+     *
+     * Time is used instead of Defer so it can round-robin with D-Bus
+     * (Defer is always prioritized ahead of epoll-based sources)
+    */
+    sdeventplus::source::Time<sdeventplus::ClockId::Monotonic> _autoPurgeEventSource;
 };
 
 } // namespace internal
@@ -578,6 +716,17 @@ class Manager : public details::ServerObject<DeleteAllIface, CreateIface, Namesp
         }
 
         return manager.getAll(nspace, rfilter);
+    }
+
+    bool autoClearResolvedLogEnabled() const
+    {
+        return manager.getAutoPurgeResolved();
+    }
+
+    bool autoClearResolvedLogEnabled(bool purgeResolvedLogs)
+    {
+        manager.setAutoPurgeResolved(purgeResolvedLogs);
+        return purgeResolvedLogs;
     }
 
     /** @brief getStats method call implementation to get Phosphor Logging Stats

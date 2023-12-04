@@ -27,24 +27,30 @@ int main(int argc, char* argv[])
     phosphor::logging::internal::Manager iMgr(bus, OBJ_INTERNAL);
     phosphor::logging::Manager mgr(bus, OBJ_LOGGING, iMgr);
 
-    if (argc == 2)
+    auto parseErrHandler = [argv] (std::function<uint32_t(const std::string&)> const& fn, const char* path)
     {
         int res = 0;
         try
         {
-            res = iMgr.parseJson(argv[1]);
+            res = fn(path);
         }
         catch (const std::exception& e)
         {
-            lg2::info("Unable to parse argument. JSON file ignored: {ERROR}", 
-                      "ERROR", e);
+            lg2::info("Unable to parse argument. JSON file {FILE} ignored: {ERROR}",
+                      "FILE", path, "ERROR", e);
         }
-        
 
         if (res)
         {
-            lg2::info("Unable to parse argument. JSON file ignored.");
+            lg2::info("Unable to parse argument. JSON file {FILE} ignored.",
+                      "FILE", path);
         }
+    };
+
+    if (argc == 2)
+    {
+        parseErrHandler([&iMgr] (auto path) {return iMgr.parseJson(path);}, argv[1]);
+        parseErrHandler([&iMgr] (auto path) {return iMgr.parseRWConfigJson(path);}, RW_CONFIG_FILE_PATH);
     }
 
     // Restore all errors
