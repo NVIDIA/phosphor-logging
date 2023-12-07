@@ -895,7 +895,16 @@ void Manager::restore()
         }
 
         auto id = file.path().filename().c_str();
-        auto idNum = std::stol(id);
+        long idNum;
+        try
+        {
+            idNum = std::stol(id);
+        }
+        catch (const std::exception& ec)
+        {
+            lg2::error("Exception occured while converting filename to long. File name is {ID}.","ID", id);
+            continue;
+        }
 
         auto parentPath = std::string(file.path().parent_path());
         eraseSubStr(parentPath, std::string(ERRLOG_PERSIST_PATH) + "/");
