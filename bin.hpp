@@ -2,6 +2,7 @@
 
 #include "config.h"
 
+#include <cstdint>
 #include <set>
 #include <string>
 
