@@ -851,9 +851,9 @@ class Manager : public details::ServerObject<DeleteAllIface, CreateIface, Namesp
      *
      * @param[in] infoLogCapacity - capacity of info event
      */
-    size_t infoLogCapacity(size_t infoLogCapacity) override
+    void setInfoLogCapacity(size_t infoLogCapacity) override
     {
-        return manager.setInfoLogCapacity(infoLogCapacity);
+        manager.setInfoLogCapacity(infoLogCapacity);
     }
 
     /** @brief D-Bus method call implementation to get the info capacity.
