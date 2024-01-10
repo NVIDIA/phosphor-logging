@@ -1529,12 +1529,20 @@ size_t Manager::setInfoLogCapacity(size_t infoLogCapacity)
     }
     catch (const std::exception& e)
     {
+        lg2::error("Can not update the config file to update the SEL capacity.");
         throw sdbusplus::xyz::openbmc_project::Common::File::Error::Open();
     }
     entryBin->errorInfoCap = infoLogCapacity;
-    while (entryBin->infoEntries.size() > entryBin->errorInfoCap)
-    {
-        erase(*(entryBin->infoEntries.begin()));
+    if (infoLogCapacity < entries.size()) {
+        size_t toDelete = entries.size() - infoLogCapacity;
+        this->cancelPendingLogDeletion();
+        auto iter = entries.begin();
+        while (toDelete-- > 0)
+        {
+            auto e = iter->first;
+            ++iter;
+            erase(e);
+        }
     }
     return infoLogCapacity;
 }
