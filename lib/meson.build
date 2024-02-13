@@ -18,6 +18,7 @@ phosphor_logging_lib = library(
     'elog.cpp',
     'lg2_logger.cpp',
     'sdjournal.cpp',
+    'redfish_event_log.cpp',
     phosphor_logging_gen,
     implicit_include_directories: false,
     include_directories: phosphor_logging_includes,
