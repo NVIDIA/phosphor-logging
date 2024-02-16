@@ -728,7 +728,7 @@ class Manager : public details::ServerObject<details::ManagerIface>
             REDFISH_ORIGIN_OF_CONDITION
      */
     void rfSendEvent(std::string rfMessage, Entry::Level rfSeverity,
-                  std::map<std::string, std::string> rfAdditionalData) /*override*/;
+                  std::map<std::string, std::string> rfAdditionalData) override;
     /** @brief Persistent sdbusplus DBus bus connection. */
     sdbusplus::bus_t& busLog;
 
