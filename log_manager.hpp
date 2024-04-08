@@ -9,6 +9,7 @@
 #include "xyz/openbmc_project/Logging/Capacity/server.hpp"
 #include "xyz/openbmc_project/Logging/Namespace/server.hpp"
 #include "xyz/openbmc_project/Logging/Internal/Manager/server.hpp"
+#include "xyz/openbmc_project/Logging/error.hpp"
 
 #include <nlohmann/json.hpp>
 #include <phosphor-logging/lg2.hpp>
@@ -37,6 +38,10 @@ using DeleteAllIface =
 using NamespaceIface =
     sdbusplus::xyz::openbmc_project::Logging::server::Namespace;
 using CapacityIface = sdbusplus::xyz::openbmc_project::Logging::server::Capacity;
+
+using Severity = sdbusplus::xyz::openbmc_project::Logging::server::Entry::Level;
+using LogsCleared =
+    sdbusplus::xyz::openbmc_project::Logging::Error::LogsCleared;
 
 namespace details
 {
@@ -396,10 +401,12 @@ class Manager : public details::ServerObject<details::ManagerIface>
 
     /** @brief  Erase all error log entries
      *
+     *  @return size_t - count of erased entries
      */
-    void eraseAll()
+    size_t eraseAll()
     {
         this->cancelPendingLogDeletion();
+        size_t entriesSize = entries.size();
         auto iter = entries.begin();
         while (iter != entries.end())
         {
@@ -409,6 +416,8 @@ class Manager : public details::ServerObject<details::ManagerIface>
         }
         entryId = 0;
         lastCreatedTimeStamp = 0;
+
+        return entriesSize;
     }
 
     /** @brief Returns the count of high severity errors
@@ -563,10 +572,8 @@ class Manager : public details::ServerObject<details::ManagerIface>
      * @param[in] severity - level of the error
      * @param[in] additionalData - The AdditionalData property for the error
      */
-    void create(
-        const std::string& message,
-        sdbusplus::server::xyz::openbmc_project::logging::Entry::Level severity,
-        const std::map<std::string, std::string>& additionalData);
+    void create(const std::string& message, Severity severity,
+                const std::map<std::string, std::string>& additionalData);
 
     /** @brief Configure the error info capacity.
      *
@@ -595,11 +602,10 @@ class Manager : public details::ServerObject<details::ManagerIface>
      * @param[in] additionalData - The AdditionalData property for the error
      * @param[in] ffdc - A vector of FFDC file info
      */
-    void createWithFFDC(
-        const std::string& message,
-        sdbusplus::server::xyz::openbmc_project::logging::Entry::Level severity,
-        const std::map<std::string, std::string>& additionalData,
-        const FFDCEntries& ffdc);
+    void
+        createWithFFDC(const std::string& message, Severity severity,
+                       const std::map<std::string, std::string>& additionalData,
+                       const FFDCEntries& ffdc);
 
     /** @brief Common wrapper for creating an Entry object
      *
@@ -808,7 +814,11 @@ class Manager : public details::ServerObject<DeleteAllIface, CreateIface, Namesp
     void deleteAll() override
     {
         log<level::INFO>("Deleting all log entries");
-        manager.eraseAll();
+        auto numbersOfLogs = manager.eraseAll();
+        std::map<std::string, std::string> additionalData;
+        additionalData.emplace("NUM_LOGS", std::to_string(numbersOfLogs));
+        manager.create(LogsCleared::errName, Severity::Informational,
+                       additionalData);
     }
 
     /** @brief getAll method call implementation to get event logs
@@ -858,10 +868,8 @@ class Manager : public details::ServerObject<DeleteAllIface, CreateIface, Namesp
      * @param[in] severity - Level of the error
      * @param[in] additionalData - The AdditionalData property for the error
      */
-    void create(
-        std::string message,
-        sdbusplus::server::xyz::openbmc_project::logging::Entry::Level severity,
-        std::map<std::string, std::string> additionalData) override
+    void create(std::string message, Severity severity,
+                std::map<std::string, std::string> additionalData) override
     {
         manager.create(message, severity, additionalData);
     }
@@ -895,8 +903,7 @@ class Manager : public details::ServerObject<DeleteAllIface, CreateIface, Namesp
      * @param[in] ffdc - A vector of FFDC file info
      */
     void createWithFFDCFiles(
-        std::string message,
-        sdbusplus::server::xyz::openbmc_project::logging::Entry::Level severity,
+        std::string message, Severity severity,
         std::map<std::string, std::string> additionalData,
         std::vector<std::tuple<CreateIface::FFDCFormat, uint8_t, uint8_t,
                                sdbusplus::message::unix_fd>>

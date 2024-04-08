@@ -237,7 +237,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -267,7 +267,7 @@
                     "CalloutList": [
                         {
                             "Priority": "high",
-                            "Procedure": "next_level_support"
+                            "Procedure": "BMC0002"
                         }
                     ]
                 }
@@ -276,6 +276,78 @@
             "Documentation": {
                 "Description": "Certificate verification failed",
                 "Message": "Certificate verification failed"
+            }
+        },
+
+        {
+            "Name": "xyz.openbmc_project.Common.File.Error.Open",
+            "Subsystem": "bmc_firmware",
+            "ComponentID": "0x1000",
+            "SRC": {
+                "ReasonCode": "0x100D",
+                "Words6To9": {}
+            },
+
+            "Callouts": [
+                {
+                    "CalloutList": [
+                        { "Priority": "high", "Procedure": "BMC0001" }
+                    ]
+                }
+            ],
+
+            "Documentation": {
+                "Description": "Failed to open a file",
+                "Message": "Failed to open a file",
+                "Notes": ["The file name is in a UserData section."]
+            }
+        },
+
+        {
+            "Name": "xyz.openbmc_project.Common.File.Error.Read",
+            "Subsystem": "bmc_firmware",
+            "ComponentID": "0x1000",
+            "SRC": {
+                "ReasonCode": "0x100E",
+                "Words6To9": {}
+            },
+
+            "Callouts": [
+                {
+                    "CalloutList": [
+                        { "Priority": "high", "Procedure": "BMC0001" }
+                    ]
+                }
+            ],
+
+            "Documentation": {
+                "Description": "Failed to read a file",
+                "Message": "Failed to read a file",
+                "Notes": ["The file name is in a UserData section."]
+            }
+        },
+
+        {
+            "Name": "xyz.openbmc_project.Common.File.Error.Seek",
+            "Subsystem": "bmc_firmware",
+            "ComponentID": "0x1000",
+            "SRC": {
+                "ReasonCode": "0x100F",
+                "Words6To9": {}
+            },
+
+            "Callouts": [
+                {
+                    "CalloutList": [
+                        { "Priority": "high", "Procedure": "BMC0001" }
+                    ]
+                }
+            ],
+
+            "Documentation": {
+                "Description": "Failed to seek in a file",
+                "Message": "Failed to seek in a file",
+                "Notes": ["The file name is in a UserData section."]
             }
         },
 
@@ -340,7 +412,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -382,7 +454,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" },
+                        { "Priority": "high", "Procedure": "BMC0001" },
                         { "Priority": "medium", "SymbolicFRU": "service_docs" }
                     ]
                 }
@@ -406,7 +478,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -475,6 +547,40 @@
                 "Notes": [
                     "This error is not created by BMC code and is ",
                     "only used for error injection tests."
+                ]
+            }
+        },
+
+        {
+            "Name": "xyz.openbmc_project.Logging.Error.LogsCleared",
+            "Subsystem": "bmc_firmware",
+            "Severity": "non_error",
+
+            "SRC": {
+                "ReasonCode": "0x2007",
+                "Words6To9": {
+                    "6": {
+                        "Description": "Number of logs deleted",
+                        "AdditionalDataPropSource": "NUM_LOGS"
+                    }
+                }
+            },
+
+            "Documentation": {
+                "Description": "All event logs were deleted",
+                "Message": "All event logs were deleted",
+                "Notes": [
+                    "This is an informational error noting that ",
+                    "someone deleted all of the event logs."
+                ]
+            },
+
+            "JournalCapture": {
+                "Sections": [
+                    {
+                        "SyslogID": "systemd",
+                        "NumLines": 10
+                    }
                 ]
             }
         },
@@ -632,7 +738,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -658,7 +764,7 @@
 
             "Callouts": [
                 {
-                    "System": "ibm,rainier",
+                    "System": "com.ibm.Hardware.Chassis.Model.Rainier",
                     "CalloutList": [
                         {
                             "Priority": "high",
@@ -671,7 +777,7 @@
                     ]
                 },
                 {
-                    "System": "ibm,everest",
+                    "System": "com.ibm.Hardware.Chassis.Model.Everest",
                     "CalloutList": [
                         {
                             "Priority": "high",
@@ -730,7 +836,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -770,7 +876,7 @@
         },
 
         {
-            "Name": "org.open_power.OCC.Firmware.PresenceMismatch",
+            "Name": "org.open_power.OCC.Firmware.Error.PresenceMismatch",
             "Subsystem": "bmc_firmware",
             "ComponentID": "0x2600",
             "Severity": "predictive",
@@ -783,7 +889,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "medium", "Procedure": "bmc_code" }
+                        { "Priority": "medium", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -799,7 +905,7 @@
         },
 
         {
-            "Name": "org.open_power.OCC.Device.SafeState",
+            "Name": "org.open_power.OCC.Device.Error.SafeState",
             "Subsystem": "processor_chip",
             "ComponentID": "0x2600",
             "Severity": "non_error",
@@ -820,7 +926,7 @@
         },
 
         {
-            "Name": "org.open_power.OCC.Device.ReadFailure",
+            "Name": "org.open_power.OCC.Device.Error.ReadFailure",
             "Subsystem": "cec_chip_iface",
             "ComponentID": "0x2600",
             "Severity": "predictive",
@@ -836,6 +942,26 @@
                 "Notes": [
                     "The BMC failed to communicate with the OCC and retried three times.",
                     "The BMC requests that the OCC reset."
+                ]
+            }
+        },
+
+        {
+            "Name": "org.open_power.OCC.Device.Error.OpenFailure",
+            "Subsystem": "cec_chip_iface",
+            "ComponentID": "0x2600",
+            "Severity": "predictive",
+
+            "SRC": {
+                "ReasonCode": "0x2684",
+                "Words6To9": {}
+            },
+
+            "Documentation": {
+                "Description": "OCC communication failure",
+                "Message": "BMC failed to communicate with the OCC",
+                "Notes": [
+                    "There was a failure trying to open an OCC device driver file"
                 ]
             }
         },
@@ -923,7 +1049,7 @@
                     "CalloutList": [
                         {
                             "Priority": "high",
-                            "Procedure": "detected_issue_need_service"
+                            "Procedure": "BMC0008"
                         }
                     ]
                 }
@@ -978,7 +1104,7 @@
                     "CalloutList": [
                         {
                             "Priority": "high",
-                            "Procedure": "next_level_support"
+                            "Procedure": "BMC0002"
                         }
                     ]
                 }
@@ -1030,7 +1156,7 @@
                     "CalloutList": [
                         {
                             "Priority": "high",
-                            "Procedure": "next_level_support"
+                            "Procedure": "BMC0002"
                         }
                     ]
                 }
@@ -1065,7 +1191,7 @@
                     "CalloutList": [
                         {
                             "Priority": "high",
-                            "Procedure": "next_level_support"
+                            "Procedure": "BMC0002"
                         }
                     ]
                 }
@@ -1095,7 +1221,7 @@
                     "CalloutList": [
                         {
                             "Priority": "high",
-                            "Procedure": "next_level_support"
+                            "Procedure": "BMC0002"
                         }
                     ]
                 }
@@ -1129,7 +1255,7 @@
                     "CalloutList": [
                         {
                             "Priority": "high",
-                            "Procedure": "next_level_support"
+                            "Procedure": "BMC0002"
                         }
                     ]
                 }
@@ -1163,7 +1289,7 @@
                     "CalloutList": [
                         {
                             "Priority": "high",
-                            "Procedure": "next_level_support"
+                            "Procedure": "BMC0002"
                         }
                     ]
                 }
@@ -1197,7 +1323,7 @@
                     "CalloutList": [
                         {
                             "Priority": "high",
-                            "Procedure": "next_level_support"
+                            "Procedure": "BMC0002"
                         }
                     ]
                 }
@@ -1231,7 +1357,7 @@
                     "CalloutList": [
                         {
                             "Priority": "high",
-                            "Procedure": "next_level_support"
+                            "Procedure": "BMC0002"
                         }
                     ]
                 }
@@ -1265,7 +1391,7 @@
                     "CalloutList": [
                         {
                             "Priority": "high",
-                            "Procedure": "next_level_support"
+                            "Procedure": "BMC0002"
                         }
                     ]
                 }
@@ -1299,7 +1425,7 @@
                     "CalloutList": [
                         {
                             "Priority": "high",
-                            "Procedure": "next_level_support"
+                            "Procedure": "BMC0002"
                         }
                     ]
                 }
@@ -1333,7 +1459,7 @@
                     "CalloutList": [
                         {
                             "Priority": "high",
-                            "Procedure": "next_level_support"
+                            "Procedure": "BMC0002"
                         }
                     ]
                 }
@@ -1367,7 +1493,7 @@
                     "CalloutList": [
                         {
                             "Priority": "high",
-                            "Procedure": "next_level_support"
+                            "Procedure": "BMC0002"
                         }
                     ]
                 }
@@ -1400,7 +1526,7 @@
                     "CalloutList": [
                         {
                             "Priority": "high",
-                            "Procedure": "next_level_support"
+                            "Procedure": "BMC0002"
                         }
                     ]
                 }
@@ -1484,7 +1610,7 @@
                     "CalloutList": [
                         {
                             "Priority": "high",
-                            "Procedure": "next_level_support"
+                            "Procedure": "BMC0002"
                         }
                     ]
                 }
@@ -1566,7 +1692,7 @@
 
             "Callouts": [
                 {
-                    "System": "ibm,rainier",
+                    "System": "com.ibm.Hardware.Chassis.Model.Rainier",
                     "CalloutList": [
                         {
                             "Priority": "low",
@@ -1579,7 +1705,7 @@
                     ]
                 },
                 {
-                    "System": "ibm,everest",
+                    "System": "com.ibm.Hardware.Chassis.Model.Everest",
                     "CalloutList": [
                         {
                             "Priority": "low",
@@ -1592,7 +1718,7 @@
                     ]
                 },
                 {
-                    "System": "ibm,bonnell",
+                    "System": "com.ibm.Hardware.Chassis.Model.Bonnell",
                     "CalloutList": [
                         {
                             "Priority": "low",
@@ -2161,7 +2287,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "power_overcurrent" }
+                        { "Priority": "high", "Procedure": "BMC0005" }
                     ]
                 }
             ],
@@ -2259,7 +2385,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "power_overcurrent" }
+                        { "Priority": "high", "Procedure": "BMC0005" }
                     ]
                 }
             ],
@@ -2357,7 +2483,7 @@
 
             "Callouts": [
                 {
-                    "System": "ibm,rainier",
+                    "System": "com.ibm.Hardware.Chassis.Model.Rainier",
                     "CalloutList": [
                         {
                             "Priority": "high",
@@ -2370,7 +2496,7 @@
                     ]
                 },
                 {
-                    "System": "ibm,everest",
+                    "System": "com.ibm.Hardware.Chassis.Model.Everest",
                     "CalloutList": [
                         {
                             "Priority": "high",
@@ -2383,11 +2509,11 @@
                     ]
                 },
                 {
-                    "System": "ibm,bonnell",
+                    "System": "com.ibm.Hardware.Chassis.Model.Bonnell",
                     "CalloutList": [
                         {
                             "Priority": "high",
-                            "LocCode": "P0"
+                            "SymbolicFRU": "pgood_part"
                         }
                     ]
                 }
@@ -4168,7 +4294,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -4198,7 +4324,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -4378,7 +4504,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -4457,7 +4583,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -4510,7 +4636,7 @@
 
             "Callouts": [
                 {
-                    "System": "ibm,rainier",
+                    "System": "com.ibm.Hardware.Chassis.Model.Rainier",
                     "CalloutList": [
                         {
                             "Priority": "high",
@@ -4524,7 +4650,7 @@
                     ]
                 },
                 {
-                    "System": "ibm,everest",
+                    "System": "com.ibm.Hardware.Chassis.Model.Everest",
                     "CalloutList": [
                         {
                             "Priority": "high",
@@ -4538,7 +4664,7 @@
                     ]
                 },
                 {
-                    "System": "ibm,bonnell",
+                    "System": "com.ibm.Hardware.Chassis.Model.Bonnell",
                     "CalloutList": [
                         {
                             "Priority": "high",
@@ -4584,15 +4710,15 @@
 
             "Callouts": [
                 {
-                    "System": "ibm,rainier",
+                    "System": "com.ibm.Hardware.Chassis.Model.Rainier",
                     "CalloutList": [{ "Priority": "medium", "LocCode": "P0" }]
                 },
                 {
-                    "System": "ibm,everest",
+                    "System": "com.ibm.Hardware.Chassis.Model.Everest",
                     "CalloutList": [{ "Priority": "medium", "LocCode": "P1" }]
                 },
                 {
-                    "System": "ibm,bonnell",
+                    "System": "com.ibm.Hardware.Chassis.Model.Bonnell",
                     "CalloutList": [{ "Priority": "medium", "LocCode": "P0" }]
                 }
             ],
@@ -4626,7 +4752,7 @@
 
             "Callouts": [
                 {
-                    "System": "ibm,rainier",
+                    "System": "com.ibm.Hardware.Chassis.Model.Rainier",
                     "CalloutList": [
                         { "Priority": "high", "LocCode": "P0-C5" },
                         {
@@ -4643,7 +4769,7 @@
                     ]
                 },
                 {
-                    "System": "ibm,everest",
+                    "System": "com.ibm.Hardware.Chassis.Model.Everest",
                     "CalloutList": [
                         { "Priority": "high", "LocCode": "P0-C0" },
                         { "Priority": "medium", "LocCode": "P1" },
@@ -4651,7 +4777,7 @@
                     ]
                 },
                 {
-                    "System": "ibm,bonnell",
+                    "System": "com.ibm.Hardware.Chassis.Model.Bonnell",
                     "CalloutList": [{ "Priority": "high", "LocCode": "P0" }]
                 }
             ],
@@ -4683,7 +4809,7 @@
 
             "Callouts": [
                 {
-                    "System": "ibm,rainier",
+                    "System": "com.ibm.Hardware.Chassis.Model.Rainier",
                     "CalloutList": [
                         { "Priority": "high", "LocCode": "P0-C5" },
                         {
@@ -4700,7 +4826,7 @@
                     ]
                 },
                 {
-                    "System": "ibm,everest",
+                    "System": "com.ibm.Hardware.Chassis.Model.Everest",
                     "CalloutList": [
                         { "Priority": "high", "LocCode": "P0-C0" },
                         { "Priority": "medium", "LocCode": "P1" },
@@ -4708,7 +4834,7 @@
                     ]
                 },
                 {
-                    "System": "ibm,bonnell",
+                    "System": "com.ibm.Hardware.Chassis.Model.Bonnell",
                     "CalloutList": [{ "Priority": "high", "LocCode": "P0" }]
                 }
             ],
@@ -4916,7 +5042,7 @@
             "Name": "xyz.openbmc_project.Sensor.Threshold.Error.TemperatureCriticalHigh",
             "Subsystem": "power",
             "ComponentID": "0x2800",
-            "Severity": "predictive",
+            "Severity": "unrecoverable",
             "ActionFlags": ["service_action", "report"],
 
             "SRC": {
@@ -5170,7 +5296,7 @@
             "Name": "xyz.openbmc_project.Sensor.Threshold.Error.VoltageCriticalLow",
             "Subsystem": "cec_tod",
             "ComponentID": "0x2800",
-            "Severity": "predictive",
+            "Severity": "unrecoverable",
             "ActionFlags": ["service_action", "report"],
 
             "SRC": {
@@ -5250,7 +5376,7 @@
             "Name": "xyz.openbmc_project.Sensor.Threshold.Error.TemperatureCriticalLow",
             "Subsystem": "power",
             "ComponentID": "0x2800",
-            "Severity": "predictive",
+            "Severity": "unrecoverable",
             "ActionFlags": ["service_action", "report"],
 
             "SRC": {
@@ -5372,7 +5498,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -5404,7 +5530,7 @@
                     "CalloutList": [
                         {
                             "Priority": "high",
-                            "Procedure": "system_vpd_correction"
+                            "Procedure": "BMC0007"
                         }
                     ]
                 }
@@ -5433,7 +5559,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -5489,7 +5615,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -5520,7 +5646,7 @@
                     "CalloutList": [
                         {
                             "Priority": "high",
-                            "Procedure": "system_vpd_correction"
+                            "Procedure": "BMC0007"
                         }
                     ]
                 }
@@ -5611,7 +5737,7 @@
                     "CalloutList": [
                         {
                             "Priority": "high",
-                            "Procedure": "bmc_code"
+                            "Procedure": "BMC0001"
                         }
                     ]
                 }
@@ -5639,7 +5765,7 @@
                     "CalloutList": [
                         {
                             "Priority": "high",
-                            "Procedure": "bmc_code"
+                            "Procedure": "BMC0001"
                         }
                     ]
                 }
@@ -5711,7 +5837,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -5737,7 +5863,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -5760,7 +5886,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -5784,7 +5910,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -5807,7 +5933,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -5830,7 +5956,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -5853,7 +5979,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -5876,7 +6002,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -5899,7 +6025,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -5922,7 +6048,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -5954,7 +6080,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -5981,7 +6107,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -6003,7 +6129,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -6024,7 +6150,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -6045,7 +6171,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "medium", "Procedure": "bmc_code" }
+                        { "Priority": "medium", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -6066,7 +6192,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -6087,7 +6213,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -6108,7 +6234,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -6129,7 +6255,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -6150,7 +6276,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -6171,7 +6297,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "medium", "Procedure": "bmc_code" }
+                        { "Priority": "medium", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -6192,7 +6318,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -6213,7 +6339,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -6234,7 +6360,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -6255,7 +6381,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -6276,7 +6402,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -6297,7 +6423,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -6319,7 +6445,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -6340,7 +6466,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -6361,7 +6487,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -6382,7 +6508,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -6403,7 +6529,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -6424,7 +6550,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -6445,7 +6571,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -6466,7 +6592,7 @@
             "Callouts": [
                 {
                     "CalloutList": [
-                        { "Priority": "high", "Procedure": "bmc_code" }
+                        { "Priority": "high", "Procedure": "BMC0001" }
                     ]
                 }
             ],
@@ -6501,7 +6627,7 @@
 
             "Callouts": [
                 {
-                    "System": "ibm,rainier",
+                    "System": "com.ibm.Hardware.Chassis.Model.Rainier",
                     "CalloutList": [
                         {
                             "Priority": "high",
@@ -6510,7 +6636,7 @@
                     ]
                 },
                 {
-                    "System": "ibm,everest",
+                    "System": "com.ibm.Hardware.Chassis.Model.Everest",
                     "CalloutList": [
                         {
                             "Priority": "high",
@@ -6519,7 +6645,7 @@
                     ]
                 },
                 {
-                    "System": "ibm,bonnell",
+                    "System": "com.ibm.Hardware.Chassis.Model.Bonnell",
                     "CalloutList": [
                         {
                             "Priority": "high",
@@ -6563,7 +6689,7 @@
 
             "Callouts": [
                 {
-                    "System": "ibm,rainier",
+                    "System": "com.ibm.Hardware.Chassis.Model.Rainier",
                     "CalloutList": [
                         {
                             "Priority": "high",
@@ -6572,7 +6698,7 @@
                     ]
                 },
                 {
-                    "System": "ibm,everest",
+                    "System": "com.ibm.Hardware.Chassis.Model.Everest",
                     "CalloutList": [
                         {
                             "Priority": "high",
@@ -6581,7 +6707,7 @@
                     ]
                 },
                 {
-                    "System": "ibm,bonnell",
+                    "System": "com.ibm.Hardware.Chassis.Model.Bonnell",
                     "CalloutList": [
                         {
                             "Priority": "high",
@@ -6594,6 +6720,77 @@
             "Documentation": {
                 "Description": "Uncorrectable ECC/other uncorrectable memory error.",
                 "Message": "Uncorrectable ECC/other uncorrectable memory error."
+            }
+        },
+
+        {
+            "Name": "org.open_power.OCMB.Error.SbeChipOpFailure",
+            "Subsystem": "memory",
+            "ComponentID": "0x4500",
+
+            "SRC": {
+                "ReasonCode": "0x4501",
+                "Words6To9": {
+                    "6": {
+                        "Description": "[0:15] chip position, [16:23] command class, [24:31] command type",
+                        "AdditionalDataPropSource": "SRC6"
+                    },
+                    "7": {
+                        "Description": "Chip Type",
+                        "AdditionalDataPropSource": "CHIP_TYPE"
+                    }
+                }
+            },
+
+            "Documentation": {
+                "Description": "chipop failure with OCMB SBE provided FFDC",
+                "Message": "chipop request failure reported by OCMB SBE",
+                "Notes": [
+                    "The severity is set by the creator.",
+                    "Callouts added based on OCMB SBE provided FFDC.",
+                    "OCMB SBE provided additional debug data included as part of the",
+                    "additional user data section."
+                ]
+            }
+        },
+
+        {
+            "Name": "org.open_power.OCMB.Error.SbeChipOpTimeout",
+            "Subsystem": "memory",
+            "ComponentID": "0x4500",
+
+            "SRC": {
+                "ReasonCode": "0x4502",
+                "Words6To9": {
+                    "6": {
+                        "Description": "[0:15] chip position, [16:23] command class, [24:31] command type",
+                        "AdditionalDataPropSource": "SRC6"
+                    },
+                    "7": {
+                        "Description": "Chip Type",
+                        "AdditionalDataPropSource": "CHIP_TYPE"
+                    }
+                }
+            },
+
+            "Callouts": [
+                {
+                    "CalloutList": [
+                        {
+                            "Priority": "high",
+                            "Procedure": "next_level_support"
+                        }
+                    ]
+                }
+            ],
+
+            "Documentation": {
+                "Description": "OCMB SBE chipop timeout",
+                "Message": "OCMB chipop timeout reported during SBE communication",
+                "Notes": [
+                    "The severity is set by the creator.",
+                    "Check OCMB SBE Dump associated to this error to debug the failure."
+                ]
             }
         }
     ]
