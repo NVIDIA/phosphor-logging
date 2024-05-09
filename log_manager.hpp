@@ -568,23 +568,6 @@ class Manager : public details::ServerObject<details::ManagerIface>
     */
     void cancelPendingLogDeletion();
 
-    /** @brief Creates an event log
-     *
-     *  This is an alternative to the _commit() API.  It doesn't use
-     *  the journal to look up event log metadata like _commit does.
-     *
-     * @param[in] errMsg - The error exception message associated with the
-     *                     error log to be committed.
-     * @param[in] severity - level of the error
-     * @param[in] additionalData - The AdditionalData property for the error
-     * @param[in] ffdc - A vector of tuples that allows one to pass in file
-     *                   descriptors for files that contain FFDC (First
-     *                   Failure Data Capture). These will be passed to any
-     *                   event logging extensions.
-     */
-    void create(const std::string& message, Severity severity,
-                const std::map<std::string, std::string>& additionalData);
-
     /** @brief Configure the error info capacity.
      *
      * @param[in] infoLogCapacity - capacity of error info event
@@ -610,12 +593,15 @@ class Manager : public details::ServerObject<details::ManagerIface>
      *                     error log to be committed.
      * @param[in] severity - level of the error
      * @param[in] additionalData - The AdditionalData property for the error
-     * @param[in] ffdc - A vector of FFDC file info
+     * @param[in] ffdc - A vector of tuples that allows one to pass in file
+     *                   descriptors for files that contain FFDC (First
+     *                   Failure Data Capture). These will be passed to any
+     *                   event logging extensions.
      */
-    void
-        createWithFFDC(const std::string& message, Severity severity,
-                       const std::map<std::string, std::string>& additionalData,
-                       const FFDCEntries& ffdc);
+    void create(const std::string& message, Severity severity,
+                const std::map<std::string, std::string>& additionalData,
+                const FFDCEntries& ffdc = FFDCEntries{});
+
 
     /** @brief Common wrapper for creating an Entry object
      *

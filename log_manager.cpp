@@ -1370,13 +1370,14 @@ std::tuple<uint32_t, uint64_t> Manager::getStats(const std::string& nspace)
 }
 
 void Manager::create(const std::string& message, Entry::Level severity,
-                     const std::map<std::string, std::string>& additionalData)
+                     const std::map<std::string, std::string>& additionalData,
+                     const FFDCEntries& ffdc)
 {
     // Convert the map into a vector of "key=value" strings
     std::vector<std::string> ad;
     metadata::associations::combine(additionalData, ad);
 
-    createEntry(message, severity, ad);
+    createEntry(message, severity, ad, ffdc);
 }
 
 size_t Manager::getInfoLogCapacity()
@@ -1414,18 +1415,6 @@ size_t Manager::setInfoLogCapacity(size_t infoLogCapacity)
         }
     }
     return infoLogCapacity;
-}
-
-void Manager::createWithFFDC(
-    const std::string& message, Entry::Level severity,
-    const std::map<std::string, std::string>& additionalData,
-    const FFDCEntries& ffdc)
-{
-    // Convert the map into a vector of "key=value" strings
-    std::vector<std::string> ad;
-    metadata::associations::combine(additionalData, ad);
-
-    createEntry(message, severity, ad, ffdc);
 }
 
 void Manager::rfSendEvent(std::string rfMessage, Entry::Level rfSeverity,
