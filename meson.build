@@ -10,6 +10,14 @@ project('phosphor-logging', 'cpp',
     ],
     version: '1.0.0',
 )
+
+enable_rsyslog_fwd_actions_conf = get_option('enable_rsyslog_fwd_actions_conf')
+
+# Define a preprocessor macro if the option is enabled
+if enable_rsyslog_fwd_actions_conf
+    add_project_arguments('-DENABLE_RSYSLOG_FWD_ACTIONS_CONF', language: 'cpp')
+endif
+
 cpp = meson.get_compiler('cpp')
 
 python_prog = find_program('python3', native: true)

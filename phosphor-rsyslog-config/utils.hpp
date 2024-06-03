@@ -13,7 +13,7 @@ namespace rsyslog_utils
  *         Ensures that it is restarted even if the start limit was
  *         hit in systemd.
  */
-void restart()
+inline void restart()
 {
     auto bus = sdbusplus::bus::new_default();
     constexpr char service[] = "rsyslog.service";

@@ -43,6 +43,13 @@ option(
 )
 
 option(
+    'rsyslog_fwd_actions_conf_dir_path',
+    type: 'string',
+    value: '/etc/rsyslog.d',
+    description: 'Path to rsyslog fwd actions conf files',
+)
+
+option(
     'rw_config_file_path',
     type: 'string',
     value: '/etc/phosphor-logging/conf/rw-config.json',
@@ -54,4 +61,11 @@ option(
     type: 'boolean',
     value: false,
     description: 'Default value of log purge policy enabled state',
+)
+
+option(
+    'enable_rsyslog_fwd_actions_conf',
+    type: 'boolean',
+    value: false,
+    description: 'Enable the creation of fwd actions conf files by phosphor-rsyslog-config'
 )

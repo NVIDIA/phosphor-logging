@@ -11,8 +11,12 @@
 #define BMC_VERSION_FILE "/etc/os-release"
 #define BUSNAME_LOGGING "xyz.openbmc_project.Logging"
 #define BUSNAME_SYSLOG_CONFIG "xyz.openbmc_project.Syslog.Config"
+#define BUSPATH_LOGGING_CONFIG                                                 \
+    "/xyz/openbmc_project/logging/config"
 #define BUSPATH_REMOTE_LOGGING_CONFIG                                          \
     "/xyz/openbmc_project/logging/config/remote"
+#define BUSPATH_FWD_LOGGING_CONFIG_PREFIX                                      \
+    "/xyz/openbmc_project/logging/config/fwd_"
 #define CALLOUT_FWD_ASSOCIATION "callout"
 #define CALLOUT_REV_ASSOCIATION "fault"
 #define INVENTORY_ROOT "/xyz/openbmc_project/inventory"
@@ -24,6 +28,7 @@
 #define SYSTEMD_PATH "/org/freedesktop/systemd1"
 
 #define RSYSLOG_SERVER_CONFIG_FILE "@rsyslog_server_conf@"
+#define RSYSLOG_FWD_ACTIONS_CONF_DIR_PATH "@rsyslog_fwd_actions_conf_dir_path@"
 
 #define DEFAULT_BIN_NAME "default"
 #define DEFAULT_BIN_KEY "namespace"
