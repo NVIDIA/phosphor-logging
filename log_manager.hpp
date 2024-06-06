@@ -3,6 +3,9 @@
 #include "bin.hpp"
 #include "elog_block.hpp"
 #include "elog_entry.hpp"
+#ifdef ENABLE_LOG_STREAMING
+#include "log_streamer.hpp"
+#endif
 #include "xyz/openbmc_project/Collection/DeleteAll/server.hpp"
 #include "xyz/openbmc_project/Logging/Create/server.hpp"
 #include "xyz/openbmc_project/Logging/Entry/server.hpp"
@@ -93,6 +96,9 @@ class Manager : public details::ServerObject<details::ManagerIface>
     Manager& operator=(Manager&&) = delete;
     virtual ~Manager()
     {
+#ifdef ENABLE_LOG_STREAMING
+        logSocket.stop();
+#endif
     }
 
     /** @brief Constructor to put object onto bus at a dbus path.
@@ -638,6 +644,13 @@ class Manager : public details::ServerObject<details::ManagerIface>
 
     /** @brief Persistent map of entry id to bin Name */
     std::map<uint32_t, std::string> binEntryMap;
+#ifdef ENABLE_LOG_STREAMING
+    /** @brief Starts SEL streaming */
+    bool startLogSocket()
+    {
+        return logSocket.start();
+    }
+#endif
 
   private:
     /** @brief Persistent map of namespaces structure and their strings */
@@ -748,7 +761,10 @@ class Manager : public details::ServerObject<details::ManagerIface>
     const std::string fwVersion;
 
     phosphor::logging::internal::Bin defaultBin;
-
+#ifdef ENABLE_LOG_STREAMING
+    /** @brief Socket for SEL logging */
+    LogStreamer logSocket;
+#endif
     /** @brief Array of blocking errors */
     std::vector<std::unique_ptr<Block>> blockingErrors;
 

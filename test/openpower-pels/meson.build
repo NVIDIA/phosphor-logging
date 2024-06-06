@@ -28,6 +28,7 @@ openpower_pels = {
             '../../elog_serialize.cpp',
             '../../extensions.cpp',
             '../../log_manager.cpp',
+            '../../log_streamer.cpp',
             elog_lookup_gen,
             elog_process_gen,
             generated_sources,

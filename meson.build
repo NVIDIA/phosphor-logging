@@ -12,10 +12,14 @@ project('phosphor-logging', 'cpp',
 )
 
 enable_rsyslog_fwd_actions_conf = get_option('enable_rsyslog_fwd_actions_conf')
+enable_log_streaming = get_option('enable_log_streaming')
 
 # Define a preprocessor macro if the option is enabled
 if enable_rsyslog_fwd_actions_conf
     add_project_arguments('-DENABLE_RSYSLOG_FWD_ACTIONS_CONF', language: 'cpp')
+endif
+if enable_log_streaming
+    add_project_arguments('-DENABLE_LOG_STREAMING', language: 'cpp')
 endif
 
 cpp = meson.get_compiler('cpp')
@@ -126,6 +130,13 @@ log_manager_ext_args = []
 subdir('extensions')
 subdir('phosphor-rsyslog-config')
 
+log_sources = []
+if enable_log_streaming
+    log_sources = [
+        'log_streamer.cpp',
+    ]
+endif
+
 # Generate daemon.
 log_manager_sources = [
     generated_sources,
@@ -151,6 +162,7 @@ log_manager_deps = [
     nlohmann_json_dep,
 ]
 executable('phosphor-log-manager',
+    log_sources,
     log_manager_sources,
     log_manager_ext_sources,
     'log_manager_main.cpp',

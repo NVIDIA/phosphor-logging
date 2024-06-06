@@ -88,6 +88,9 @@ Manager::Manager(sdbusplus::bus::bus& bus, const std::string& objPath) :
     fwVersion(readFWVersion()),
     defaultBin(DEFAULT_BIN_NAME, ERROR_CAP, ERROR_INFO_CAP, ERRLOG_PERSIST_PATH,
                true),
+#ifdef ENABLE_LOG_STREAMING
+    logSocket(LOG_STREAMER_SOCKET_PATH),
+#endif
     _autoPurgeResolved(LOG_PURGE_POLICY_DEFAULT),
     _autoPurgeEventSource(sdeventplus::Event::get_default(),
                           sdeventplus::Clock<sdeventplus::ClockId::Monotonic>(sdeventplus::Event::get_default()).now(),
@@ -518,6 +521,18 @@ void Manager::createEntry(std::string errMsg, Entry::Level errLvl,
     }
 
     serialize(*e);
+
+#ifdef ENABLE_LOG_STREAMING
+    if (entryBinName == "/SEL")
+    {
+        std::string filePath = entryPath + "/" + std::to_string(entryId);
+        /* Stream SEL binary data */
+        if (!logSocket.sendFile(filePath))
+        {
+            lg2::error("Failed to stream SEL data");
+        }
+    }
+#endif
 
     if (isQuiesceOnErrorEnabled() && (errLvl < Entry::sevLowerLimit) &&
         isCalloutPresent(*e))

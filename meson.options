@@ -69,3 +69,17 @@ option(
     value: false,
     description: 'Enable the creation of fwd actions conf files by phosphor-rsyslog-config'
 )
+
+option(
+    'enable_log_streaming',
+    type: 'boolean',
+    value: false,
+    description: 'Enable log socket'
+)
+
+option(
+    'log_streamer_socket_path',
+    type: 'string',
+    value: '/run/rsyslog/log_streamer_console_input',
+    description: 'Path to rsyslog socket',
+)
