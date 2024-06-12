@@ -7,6 +7,13 @@ option(
     value: 'disabled'
 )
 
+option(
+    'nvbmc-logging-extension',
+    type: 'feature',
+    description: 'Enable NVBMC Device Event Log Extensions for BootEntryID support',
+    value: 'disabled'
+)
+
 option('yamldir', type: 'string', description: 'Path to YAML')
 option(
     'callout_yaml',
