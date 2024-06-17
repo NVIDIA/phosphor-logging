@@ -525,9 +525,12 @@ void Manager::createEntry(std::string errMsg, Entry::Level errLvl,
 #ifdef ENABLE_LOG_STREAMING
     if (entryBinName == "/SEL")
     {
-        std::string filePath = entryPath + "/" + std::to_string(entryId);
-        /* Stream SEL binary data */
-        if (!logSocket.sendFile(filePath))
+        /* Creates SEL data for streaming */
+        std::string msg = " EntryId:" + std::to_string(entryId);
+
+        /* Stream SEL data */
+        std::vector<uint8_t> msgVec(msg.begin(), msg.end());
+        if (!logSocket.sendMessage(msgVec))
         {
             lg2::error("Failed to stream SEL data");
         }
