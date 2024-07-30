@@ -285,9 +285,9 @@ bool Conf::overrideConfigFile(RsyslogFwd::LogType logType)
             }
             configFile << "  action(type=\"omfwd\" target=\"" << fwdActionPtr->address()
                         << "\" protocol=\"" << enumToString(fwdActionPtr->transportProtocol(), transportProtocolStringMap)
-                        << "\" addressFamily=\"" << enumToString(fwdActionPtr->networkProtocol(), networkProtocolStringMap)
                         << "\" port=\"" << fwdActionPtr->port()
-                        << "\" template=\"ConsoleTemplate\") # index=" << fwdActionPtr->index() << "\n";
+                        << "\" template=\"ConsoleTemplate\") # index=" << fwdActionPtr->index()
+                        << " addressFamily=\"" << enumToString(fwdActionPtr->networkProtocol(), networkProtocolStringMap) << "\"\n";
         }
     }
     configFile << "}\n";
@@ -299,7 +299,7 @@ bool Conf::overrideConfigFile(RsyslogFwd::LogType logType)
 
 bool Conf::createObjectsFromConfigFiles()
 {
-    std::regex actionRegex(R"(^\s*(#)?  action\(type=\"omfwd\" target=\"([^"]+)\" protocol=\"([^"]+)\" addressFamily=\"([^"]+)\" port=\"(\d+)\" template=\"ConsoleTemplate\"\)\s*#\s*index=(\d+)\s*$)");
+    std::regex actionRegex(R"(^\s*(#)?  action\(type=\"omfwd\" target=\"([^"]+)\" protocol=\"([^"]+)\" port=\"(\d+)\" template=\"ConsoleTemplate\"\)\s*#\s*index=(\d+)\s*addressFamily=\"([^"]+)\"\s*$)");
 
     for (const auto& entry : std::filesystem::directory_iterator(RSYSLOG_FWD_ACTIONS_CONF_DIR_PATH))
     {
@@ -328,9 +328,9 @@ bool Conf::createObjectsFromConfigFiles()
                     bool enabled = (match[1].str() != "#");
                     std::string address = match[2].str();
                     RsyslogFwd::TransportProtocol transportProtocol = stringToEnum(match[3].str(), transportProtocolStringMap);
-                    RsyslogFwd::NetworkProtocol networkProtocol = stringToEnum(match[4].str(), networkProtocolStringMap);
-                    uint16_t port = static_cast<uint16_t>(std::stoi(match[5].str()));
-                    size_t index = static_cast<size_t>(std::stoi(match[6].str()));
+                    uint16_t port = static_cast<uint16_t>(std::stoi(match[4].str()));
+                    size_t index = static_cast<size_t>(std::stoi(match[5].str()));
+                    RsyslogFwd::NetworkProtocol networkProtocol = stringToEnum(match[6].str(), networkProtocolStringMap);
 
                     if (index < MAX_ENTRIES)
                     {
