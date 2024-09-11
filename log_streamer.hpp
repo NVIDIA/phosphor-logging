@@ -15,11 +15,12 @@
  * limitations under the License.
  */
 
-#include <string>
 #include <sys/socket.h>
 #include <sys/un.h>
-#include <vector>
 #include <unistd.h>
+
+#include <string>
+#include <vector>
 
 #ifndef LOG_STREAMER_H
 #define LOG_STREAMER_H
@@ -31,8 +32,10 @@ namespace logging
 
 class LogStreamer
 {
-public:
-    LogStreamer(const std::string& socketPath) : socketPath(socketPath), sockfd(-1) {}
+  public:
+    LogStreamer(const std::string& socketPath) :
+        socketPath(socketPath), sockfd(-1)
+    {}
 
     LogStreamer(const LogStreamer&) = delete;
     LogStreamer& operator=(const LogStreamer&) = delete;
@@ -52,7 +55,7 @@ public:
     bool sendMessage(const std::vector<uint8_t>& message);
     bool sendFile(const std::string& filePath);
 
-private:
+  private:
     std::string socketPath;
     int sockfd;
     struct sockaddr_un serverAddr;

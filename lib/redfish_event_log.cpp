@@ -1,6 +1,6 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: Apache-2.0
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2024 NVIDIA CORPORATION &
+ * AFFILIATES. All rights reserved. SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,11 @@
  */
 #include "config.h"
 
-#include <map>
 #include <phosphor-logging/asio_connection.hpp>
 #include <phosphor-logging/log.hpp>
 #include <phosphor-logging/redfish_event_log.hpp>
+
+#include <map>
 namespace phosphor
 {
 
@@ -79,15 +80,15 @@ void sendEvent(const std::shared_ptr<sdbusplus::asio::connection>& connObject,
     addData["REDFISH_ORIGIN_OF_CONDITION"] = dbusObjectPath;
     connObject->async_method_call(
         [](boost::system::error_code ec) {
-            if (ec)
-            {
-                log<level::ERR>("Failed to create RF event log ");
-            }
-            else
-            {
-                log<level::INFO>("Successfully created RF event log ");
-            }
-        },
+        if (ec)
+        {
+            log<level::ERR>("Failed to create RF event log ");
+        }
+        else
+        {
+            log<level::INFO>("Successfully created RF event log ");
+        }
+    },
         BUSNAME_LOGGING, OBJ_INTERNAL, IFACE_INTERNAL, "RFSendEvent",
         messageMap[message], severityMap[severity], addData);
 }
@@ -127,15 +128,15 @@ void sendEvent(MESSAGE_TYPE message, Entry::Level severity,
     addData["REDFISH_ORIGIN_OF_CONDITION"] = dbusObjectPath;
     connObject->async_method_call(
         [](boost::system::error_code ec) {
-            if (ec)
-            {
-                log<level::ERR>("Failed to create RF event log ");
-            }
-            else
-            {
-                log<level::INFO>("Successfully created RF event log ");
-            }
-        },
+        if (ec)
+        {
+            log<level::ERR>("Failed to create RF event log ");
+        }
+        else
+        {
+            log<level::INFO>("Successfully created RF event log ");
+        }
+    },
         BUSNAME_LOGGING, OBJ_INTERNAL, IFACE_INTERNAL, "RFSendEvent",
         messageMap[message], severityMap[severity], addData);
 }

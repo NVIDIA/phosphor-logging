@@ -253,7 +253,8 @@ int main(int argc, char* argv[])
                 {
                     commitError(optarg);
                 }
-                catch (const sdbusplus::exception::SdBusError& e){
+                catch (const sdbusplus::exception::SdBusError& e)
+                {
                     std::cout << "Exception caught: " << e.what() << std::endl;
                     return 1;
                 }
@@ -267,4 +268,3 @@ int main(int argc, char* argv[])
 
     return 0;
 }
-

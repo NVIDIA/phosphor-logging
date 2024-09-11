@@ -1,6 +1,6 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: Apache-2.0
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2024 NVIDIA CORPORATION &
+ * AFFILIATES. All rights reserved. SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,9 +20,10 @@
 
 #include <sys/stat.h>
 
-#include <filesystem>
 #include <sdbusplus/bus.hpp>
 #include <sdbusplus/test/sdbus_mock.hpp>
+
+#include <filesystem>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -41,13 +42,12 @@ class TestLogPurgePolicy : public testing::Test
   public:
     sdbusplus::SdBusMock sdbusMock;
     sdbusplus::bus::bus mockedBus = sdbusplus::get_mocked_new(&sdbusMock);
-    std::string rwConfigJsonPath = fs::temp_directory_path() / ("test_log_purge_json_" + std::to_string(std::rand()));
+    std::string rwConfigJsonPath =
+        fs::temp_directory_path() /
+        ("test_log_purge_json_" + std::to_string(std::rand()));
     phosphor::logging::internal::Manager manager;
 
-    TestLogPurgePolicy() :
-        manager(mockedBus, OBJ_INTERNAL)
-    {
-    };
+    TestLogPurgePolicy() : manager(mockedBus, OBJ_INTERNAL){};
 
     ~TestLogPurgePolicy()
     {
@@ -56,14 +56,14 @@ class TestLogPurgePolicy : public testing::Test
             fs::remove(rwConfigJsonPath);
         }
         catch (const std::exception& e)
-        {
-        }
+        {}
     }
 };
 
 std::string getTempJsonPath()
 {
-    return fs::temp_directory_path() / ("test_log_purge_json_" + std::to_string(std::rand()));
+    return fs::temp_directory_path() /
+           ("test_log_purge_json_" + std::to_string(std::rand()));
 }
 
 TEST(TestLogPurgePolicy, testSettingAndPersistence)
@@ -150,17 +150,19 @@ TEST(TestLogPurgePolicy, testRWJsonWriteError)
         manager1.setAutoPurgeResolved(false);
 
         chmod(rwConfigJsonPath.c_str(), S_IRUSR);
-        // Test 1: there is an error opening the file for writing when storing "enabled"
+        // Test 1: there is an error opening the file for writing when storing
+        // "enabled"
         EXPECT_NO_THROW(manager1.setAutoPurgeResolved(true));
 
-        // Test 2: there is an error opening the file for writing when storing "disabled"
+        // Test 2: there is an error opening the file for writing when storing
+        // "disabled"
         EXPECT_NO_THROW(manager1.setAutoPurgeResolved(false));
 
         fs::remove(rwConfigJsonPath);
     }
     {
         auto dir = fs::temp_directory_path() /
-            ("testRWJsonWriteError" + std::to_string(std::rand()));
+                   ("testRWJsonWriteError" + std::to_string(std::rand()));
         std::string restrictedFile = dir / std::to_string(std::rand());
         chmod(dir.c_str(), S_IRUSR);
         phosphor::logging::internal::Manager manager2(mockedBus, OBJ_INTERNAL);
@@ -185,11 +187,11 @@ TEST(TestLogPurgePolicy, testEnableThenDisableImmediate)
 
     // Create 3 log entries, 2 resolved, 1 not
     manager.create("Test Error Event", Entry::Level::Error,
-                    {{DEFAULT_BIN_KEY, DEFAULT_BIN_NAME}});
+                   {{DEFAULT_BIN_KEY, DEFAULT_BIN_NAME}});
     manager.create("Test Error Event 2", Entry::Level::Error,
-                    {{DEFAULT_BIN_KEY, DEFAULT_BIN_NAME}});
+                   {{DEFAULT_BIN_KEY, DEFAULT_BIN_NAME}});
     manager.create("Test Error Event 3", Entry::Level::Error,
-                    {{DEFAULT_BIN_KEY, DEFAULT_BIN_NAME}});
+                   {{DEFAULT_BIN_KEY, DEFAULT_BIN_NAME}});
     EXPECT_TRUE(manager.entries.at(1));
     EXPECT_TRUE(manager.entries.at(2));
     EXPECT_TRUE(manager.entries.at(3));
@@ -233,11 +235,11 @@ TEST(TestLogPurgePolicy, testRuntimeEnable)
 
     // Create 3 log entries, 2 resolved, 1 not
     manager.create("Test Error Event", Entry::Level::Error,
-                    {{DEFAULT_BIN_KEY, DEFAULT_BIN_NAME}});
+                   {{DEFAULT_BIN_KEY, DEFAULT_BIN_NAME}});
     manager.create("Test Error Event 2", Entry::Level::Error,
-                    {{DEFAULT_BIN_KEY, DEFAULT_BIN_NAME}});
+                   {{DEFAULT_BIN_KEY, DEFAULT_BIN_NAME}});
     manager.create("Test Error Event 3", Entry::Level::Error,
-                    {{DEFAULT_BIN_KEY, DEFAULT_BIN_NAME}});
+                   {{DEFAULT_BIN_KEY, DEFAULT_BIN_NAME}});
     EXPECT_TRUE(manager.entries.at(1));
     EXPECT_TRUE(manager.entries.at(2));
     EXPECT_TRUE(manager.entries.at(3));
@@ -246,9 +248,9 @@ TEST(TestLogPurgePolicy, testRuntimeEnable)
 
     manager.setAutoPurgeResolved(true);
 
-    // TODO: run event loop and test for 
+    // TODO: run event loop and test for
     auto event = sdeventplus::Event::get_default();
-    constexpr int MAX_LOOPS = 3;  // we expect 2 dispatches, 3rd should time out
+    constexpr int MAX_LOOPS = 3; // we expect 2 dispatches, 3rd should time out
     int loop_ret = -1;
     for (int i = 0; i < MAX_LOOPS; i++)
     {

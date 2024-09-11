@@ -8,6 +8,7 @@
 
 #ifdef ENABLE_RSYSLOG_FWD_ACTIONS_CONF
 #include "conf.hpp"
+
 #include <sdbusplus/server/manager.hpp>
 #endif
 

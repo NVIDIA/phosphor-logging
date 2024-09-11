@@ -92,10 +92,13 @@ Manager::Manager(sdbusplus::bus::bus& bus, const std::string& objPath) :
     logSocket(LOG_STREAMER_SOCKET_PATH),
 #endif
     _autoPurgeResolved(LOG_PURGE_POLICY_DEFAULT),
-    _autoPurgeEventSource(sdeventplus::Event::get_default(),
-                          sdeventplus::Clock<sdeventplus::ClockId::Monotonic>(sdeventplus::Event::get_default()).now(),
-                          std::chrono::seconds{0},
-                          std::bind(std::mem_fn(&Manager::pendingLogDeleteCallback), this))
+    _autoPurgeEventSource(
+        sdeventplus::Event::get_default(),
+        sdeventplus::Clock<sdeventplus::ClockId::Monotonic>(
+            sdeventplus::Event::get_default())
+            .now(),
+        std::chrono::seconds{0},
+        std::bind(std::mem_fn(&Manager::pendingLogDeleteCallback), this))
 {
     this->addBin(this->defaultBin);
     this->_autoPurgeEventSource.set_enabled(sdeventplus::source::Enabled::Off);
@@ -113,7 +116,8 @@ int Manager::getInfoErrSize(const std::string& binName)
 
 bool Manager::getAutoPurgeResolved()
 {
-    //lg2::debug("getting property, value is {VAL}", "VAL", this->_autoPurgeResolved);
+    // lg2::debug("getting property, value is {VAL}", "VAL",
+    // this->_autoPurgeResolved);
     return this->_autoPurgeResolved;
 }
 
@@ -138,7 +142,8 @@ void Manager::setAutoPurgeResolved(bool confPurgeResolvedLogs)
             ++iter;
         }
         lg2::info("finish scan for resolved entries, {COUNT} will be resolved"
-                  " in the background", "COUNT", resolvedCount);
+                  " in the background",
+                  "COUNT", resolvedCount);
     }
     else if (this->_autoPurgeResolved && !confPurgeResolvedLogs)
     {
@@ -161,13 +166,13 @@ void Manager::pendingLogDeleteCallback()
     // because this is O(n) overall instead of O(n log n)
     // This LIFO behavior is also needed to satisfy the usecase of
     // a log being manually resolved - that needs to be handled first.
-    //lg2::debug("pendingLogDeleteCallback");
+    // lg2::debug("pendingLogDeleteCallback");
     if (this->_pendingPurgeEvents.size() > 0)
     {
         // This is guaranteed to not run off the beginning because size > 0
         auto it = this->_pendingPurgeEvents.end() - 1;
         auto entryId = *it;
-        //lg2::info("pendingLogDeleteCallback: delete {EID}", "EID", entryId);
+        // lg2::info("pendingLogDeleteCallback: delete {EID}", "EID", entryId);
         this->erase(entryId);
         this->_pendingPurgeEvents.erase(it);
     }
@@ -175,7 +180,8 @@ void Manager::pendingLogDeleteCallback()
     {
         // Deactivate event source iff no more pending deletes
         lg2::info("pendingLogDeleteCallback: deactivate event source");
-        this->_autoPurgeEventSource.set_enabled(sdeventplus::source::Enabled::Off);
+        this->_autoPurgeEventSource.set_enabled(
+            sdeventplus::source::Enabled::Off);
     }
 }
 
@@ -482,8 +488,8 @@ void Manager::createEntry(std::string errMsg, Entry::Level errLvl,
         fnMap;
     fnMap.insert(std::make_pair(std::string(FQPN_PREFIX) + "Resolution",
                                 [](Entry& entry, std::string& s) {
-                                    return entry.resolution(s, true);
-                                }));
+        return entry.resolution(s, true);
+    }));
     fnMap.insert(std::make_pair(
         std::string(FQPN_PREFIX) + "EventId",
         [](Entry& entry, std::string& s) { return entry.eventId(s, true); }));
@@ -923,7 +929,9 @@ void Manager::restore()
         }
         catch (const std::exception& ec)
         {
-            lg2::error("Exception occured while converting filename to long. File name is {ID}.","ID", id);
+            lg2::error(
+                "Exception occured while converting filename to long. File name is {ID}.",
+                "ID", id);
             continue;
         }
 
@@ -969,8 +977,8 @@ void Manager::restore()
                 if (this->_autoPurgeResolved && e->resolved())
                 {
                     // lg2::error(
-                    //     "Log entry {ID_NUM} is resolved, so purging it at bootup.",
-                    //     "ID_NUM", idNum);
+                    //     "Log entry {ID_NUM} is resolved, so purging it at
+                    //     bootup.", "ID_NUM", idNum);
                     fs::remove(file.path());
                     continue;
                 }
@@ -1043,7 +1051,9 @@ std::string Manager::readFWVersion()
     return version.value_or("");
 }
 
-bool Manager::deleteAll(const std::string& nspace, sdbusplus::xyz::openbmc_project::Logging::server::Entry::Level severity)
+bool Manager::deleteAll(
+    const std::string& nspace,
+    sdbusplus::xyz::openbmc_project::Logging::server::Entry::Level severity)
 {
     auto binPresent = false;
     Bin* thisBin;
@@ -1058,21 +1068,24 @@ bool Manager::deleteAll(const std::string& nspace, sdbusplus::xyz::openbmc_proje
     }
 
     // If bin is not present then return error
-    if (!binPresent) {
+    if (!binPresent)
+    {
         throw sdbusplus::xyz::openbmc_project::Common::Error::
             ResourceNotFound();
     }
 
     // Info Errors
-    if (severity >= Entry::sevLowerLimit) {
-        while(getInfoErrSize(nspace) != 0)
+    if (severity >= Entry::sevLowerLimit)
+    {
+        while (getInfoErrSize(nspace) != 0)
         {
             erase(*(thisBin->infoEntries.begin()));
         }
     }
     // Real Errors
-    else {
-        while(getRealErrSize(nspace) != 0)
+    else
+    {
+        while (getRealErrSize(nspace) != 0)
         {
             erase(*(thisBin->errorEntries.begin()));
         }
@@ -1085,7 +1098,8 @@ bool Manager::deleteAll(const std::string& nspace, sdbusplus::xyz::openbmc_proje
 // std::map<std::string, std::variant<std::vector<std::string>,
 // bool, std::string, std::vector<uint8_t>, int64_t, uint32_t>>>>;
 // This function will return filtered URI
-phosphor::logging::ManagedObject Manager::getAll(NamespaceIface::ResolvedFilterType rfilter)
+phosphor::logging::ManagedObject
+    Manager::getAll(NamespaceIface::ResolvedFilterType rfilter)
 {
     phosphor::logging::ManagedObject ret_obj;
 
@@ -1093,22 +1107,21 @@ phosphor::logging::ManagedObject Manager::getAll(NamespaceIface::ResolvedFilterT
     auto iter = entries.begin();
     while (iter != entries.end())
     {
-
         // If looking for Resolved, but entry is not resolved then skip entry
-        if (rfilter == NamespaceIface::ResolvedFilterType::Resolved
-            && !(iter->second->resolved()))
-            {
-                ++iter;
-                continue;
-            }
+        if (rfilter == NamespaceIface::ResolvedFilterType::Resolved &&
+            !(iter->second->resolved()))
+        {
+            ++iter;
+            continue;
+        }
 
         // If looking for Unresolved, but entry is resolved then skip entry
-        if (rfilter == NamespaceIface::ResolvedFilterType::Unresolved
-            && (iter->second->resolved()))
-            {
-                ++iter;
-                continue;
-            }
+        if (rfilter == NamespaceIface::ResolvedFilterType::Unresolved &&
+            (iter->second->resolved()))
+        {
+            ++iter;
+            continue;
+        }
 
         varType v;
         propMap prop;
@@ -1143,16 +1156,14 @@ phosphor::logging::ManagedObject Manager::getAll(NamespaceIface::ResolvedFilterT
         prop["Resolved"] = v;
 
         // ServiceProviderNotify
-        v = Entry::convertNotifyToString(
-            iter->second->serviceProviderNotify());
+        v = Entry::convertNotifyToString(iter->second->serviceProviderNotify());
         prop["ServiceProviderNotify"] = v;
 
         // UpdateTimeStamp
         v = iter->second->updateTimestamp();
         prop["UpdateTimeStamp"] = v;
-            obj.insert(
-                obj.begin(),
-                std::make_pair("xyz.openbmc_project.Logging.Entry", prop));
+        obj.insert(obj.begin(),
+                   std::make_pair("xyz.openbmc_project.Logging.Entry", prop));
 
         ret_obj[sdbusplus::message::object_path(
             std::string(OBJ_ENTRY) + '/' +
@@ -1168,7 +1179,9 @@ phosphor::logging::ManagedObject Manager::getAll(NamespaceIface::ResolvedFilterT
 // std::map<std::string, std::variant<std::vector<std::string>,
 // bool, std::string, std::vector<uint8_t>, int64_t, uint32_t>>>>;
 
-phosphor::logging::ManagedObject Manager::getAll(const std::string& nspace, NamespaceIface::ResolvedFilterType rfilter)
+phosphor::logging::ManagedObject
+    Manager::getAll(const std::string& nspace,
+                    NamespaceIface::ResolvedFilterType rfilter)
 {
     std::string entryBinName = DEFAULT_BIN_NAME;
     Bin* thisBin = &(binNameMap[entryBinName]);
@@ -1191,18 +1204,18 @@ phosphor::logging::ManagedObject Manager::getAll(const std::string& nspace, Name
         auto entryFound = entries.find(*iter);
 
         // If looking for Resolved, but entry is not resolved then skip entry
-        if (rfilter == NamespaceIface::ResolvedFilterType::Resolved
-            && !(entryFound->second->resolved()))
-            {
-                continue;
-            }
+        if (rfilter == NamespaceIface::ResolvedFilterType::Resolved &&
+            !(entryFound->second->resolved()))
+        {
+            continue;
+        }
 
         // If looking for Unresolved, but entry is resolved then skip entry
-        if (rfilter == NamespaceIface::ResolvedFilterType::Unresolved
-            && (entryFound->second->resolved()))
-            {
-                continue;
-            }
+        if (rfilter == NamespaceIface::ResolvedFilterType::Unresolved &&
+            (entryFound->second->resolved()))
+        {
+            continue;
+        }
 
         if (entries.end() != entryFound)
         {
@@ -1246,15 +1259,14 @@ phosphor::logging::ManagedObject Manager::getAll(const std::string& nspace, Name
             // UpdateTimeStamp
             v = entryFound->second->updateTimestamp();
             prop["UpdateTimeStamp"] = v;
-                obj.insert(
-                    obj.begin(),
-                    std::make_pair("xyz.openbmc_project.Logging.Entry", prop));
+            obj.insert(
+                obj.begin(),
+                std::make_pair("xyz.openbmc_project.Logging.Entry", prop));
 
-                ret_obj[sdbusplus::message::object_path(
-                    std::string(OBJ_ENTRY) + '/' +
-                    std::to_string(entryFound->second->id()))] = obj;
+            ret_obj[sdbusplus::message::object_path(
+                std::string(OBJ_ENTRY) + '/' +
+                std::to_string(entryFound->second->id()))] = obj;
         }
-
     }
 
     // Go over infoEntries
@@ -1264,18 +1276,18 @@ phosphor::logging::ManagedObject Manager::getAll(const std::string& nspace, Name
         auto entryFound = entries.find(*iter);
 
         // If looking for Resolved, but entry is not resolved then skip entry
-        if (rfilter == NamespaceIface::ResolvedFilterType::Resolved
-            && !(entryFound->second->resolved()))
-            {
-                continue;
-            }
+        if (rfilter == NamespaceIface::ResolvedFilterType::Resolved &&
+            !(entryFound->second->resolved()))
+        {
+            continue;
+        }
 
         // If looking for Unresolved, but entry is resolved then skip entry
-        if (rfilter == NamespaceIface::ResolvedFilterType::Unresolved
-            && (entryFound->second->resolved()))
-            {
-                continue;
-            }
+        if (rfilter == NamespaceIface::ResolvedFilterType::Unresolved &&
+            (entryFound->second->resolved()))
+        {
+            continue;
+        }
 
         if (entries.end() != entryFound)
         {
@@ -1320,29 +1332,34 @@ phosphor::logging::ManagedObject Manager::getAll(const std::string& nspace, Name
             v = entryFound->second->updateTimestamp();
             prop["UpdateTimeStamp"] = v;
 
-            obj.insert(obj.begin(), std::make_pair("xyz.openbmc_project.Logging.Entry", prop));
+            obj.insert(
+                obj.begin(),
+                std::make_pair("xyz.openbmc_project.Logging.Entry", prop));
 
-            ret_obj[sdbusplus::message::object_path(std::string(OBJ_ENTRY) + '/' + std::to_string(entryFound->second->id()))] = obj;
-
+            ret_obj[sdbusplus::message::object_path(
+                std::string(OBJ_ENTRY) + '/' +
+                std::to_string(entryFound->second->id()))] = obj;
         }
-
     }
-
 
     return ret_obj;
 }
 
 std::tuple<uint32_t, uint64_t> Manager::getStats(const std::string& nspace)
 {
-    if (nspace == "all"){
+    if (nspace == "all")
+    {
         return (std::make_tuple(Manager::lastEntryID(),
-                        Manager::lastEntryTimestamp()));
+                                Manager::lastEntryTimestamp()));
     }
 
-    if (binNameMap.find(nspace) == binNameMap.end()) {
+    if (binNameMap.find(nspace) == binNameMap.end())
+    {
         throw sdbusplus::xyz::openbmc_project::Common::Error::
             ResourceNotFound();
-    } else {
+    }
+    else
+    {
         Bin* thisBin = &(binNameMap[nspace]);
 
         uint32_t maxErr = 0;
@@ -1350,22 +1367,25 @@ std::tuple<uint32_t, uint64_t> Manager::getStats(const std::string& nspace)
 
         if (!thisBin->errorEntries.empty())
         {
-            maxErr = *(std::max_element(thisBin->errorEntries.begin(), thisBin->errorEntries.end()));
+            maxErr = *(std::max_element(thisBin->errorEntries.begin(),
+                                        thisBin->errorEntries.end()));
         }
 
         if (!thisBin->infoEntries.empty())
         {
-            maxInfo = *(std::max_element(thisBin->infoEntries.begin(), thisBin->infoEntries.end()));
+            maxInfo = *(std::max_element(thisBin->infoEntries.begin(),
+                                         thisBin->infoEntries.end()));
         }
 
         uint32_t maxEntry = maxErr > maxInfo ? maxErr : maxInfo;
 
         if (maxEntry == 0)
         {
-            return (std::make_tuple(0,0));
+            return (std::make_tuple(0, 0));
         }
 
-        return (std::make_tuple(maxEntry, entries.find(maxEntry)->second->timestamp()));
+        return (std::make_tuple(maxEntry,
+                                entries.find(maxEntry)->second->timestamp()));
     }
 }
 
@@ -1390,20 +1410,24 @@ size_t Manager::setInfoLogCapacity(size_t infoLogCapacity)
 {
     Bin* entryBin = &(binNameMap["SEL"]);
 
-    if (infoLogCapacity > ERROR_INFO_CAP) {
-        throw sdbusplus::xyz::openbmc_project::Common::Error::
-            InvalidArgument();
+    if (infoLogCapacity > ERROR_INFO_CAP)
+    {
+        throw sdbusplus::xyz::openbmc_project::Common::Error::InvalidArgument();
     }
-    try{
-        this->updateConfigJsonWithSelCapacity(entryBin->jsonPath, infoLogCapacity);
+    try
+    {
+        this->updateConfigJsonWithSelCapacity(entryBin->jsonPath,
+                                              infoLogCapacity);
     }
     catch (const std::exception& e)
     {
-        lg2::error("Can not update the config file to update the SEL capacity.");
+        lg2::error(
+            "Can not update the config file to update the SEL capacity.");
         throw sdbusplus::xyz::openbmc_project::Common::File::Error::Open();
     }
     entryBin->errorInfoCap = infoLogCapacity;
-    if (infoLogCapacity < entries.size()) {
+    if (infoLogCapacity < entries.size())
+    {
         size_t toDelete = entries.size() - infoLogCapacity;
         this->cancelPendingLogDeletion();
         auto iter = entries.begin();
@@ -1418,7 +1442,7 @@ size_t Manager::setInfoLogCapacity(size_t infoLogCapacity)
 }
 
 void Manager::rfSendEvent(std::string rfMessage, Entry::Level rfSeverity,
-                  std::map<std::string, std::string> rfAdditionalData)
+                          std::map<std::string, std::string> rfAdditionalData)
 {
     std::vector<std::string> ad;
     if (rfAdditionalData.find("REDFISH_MESSAGE_ID") == rfAdditionalData.end() ||
@@ -1450,4 +1474,3 @@ void Manager::rfSendEvent(std::string rfMessage, Entry::Level rfSeverity,
 } // namespace internal
 } // namespace logging
 } // namespace phosphor
-

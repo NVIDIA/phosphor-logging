@@ -1,6 +1,6 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: Apache-2.0
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2024 NVIDIA CORPORATION &
+ * AFFILIATES. All rights reserved. SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,10 @@
 
 #include "log_manager.hpp"
 
-#include <filesystem>
 #include <sdbusplus/bus.hpp>
 #include <sdbusplus/test/sdbus_mock.hpp>
+
+#include <filesystem>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -34,8 +35,7 @@ namespace test
 
 namespace fs = std::filesystem;
 class TestPolicy : public testing::Test
-{
-};
+{};
 
 class MockPolicy : public phosphor::logging::internal::Manager
 {
@@ -48,9 +48,7 @@ class MockPolicy : public phosphor::logging::internal::Manager
         return "xyz.openbmc_project.Logging.Settings.Policy.Linear";
     }
 
-    ~MockPolicy()
-    {
-    }
+    ~MockPolicy() {}
 };
 
 std::size_t countFilesinDirectory(std::filesystem::path path)
@@ -89,7 +87,6 @@ TEST_F(TestPolicy, testLinearPolicy)
         manager.create("Create Error Event", Entry::Level::Error,
                        {{DEFAULT_BIN_KEY, binName}});
     }
-
 
     // Test 1: Test  Information size
     // As max capacity is 20, 'Informational Size' must be 20.

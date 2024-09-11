@@ -15,15 +15,16 @@
  * limitations under the License.
  */
 
-#include <xyz/openbmc_project/Common/error.hpp>
-#include <phosphor-logging/lg2.hpp>
 #include "log_streamer.hpp"
 
-#include <fstream>
-#include <iostream>
-#include <cstring>
+#include <phosphor-logging/lg2.hpp>
+#include <xyz/openbmc_project/Common/error.hpp>
+
 #include <csignal>
 #include <cstdint>
+#include <cstring>
+#include <fstream>
+#include <iostream>
 
 namespace phosphor
 {
@@ -58,12 +59,14 @@ bool LogStreamer::sendMessage(const std::vector<uint8_t>& message)
 
     if (message.size() > MAX_MESSAGE_SIZE)
     {
-        lg2::error("Message size exceeds 64K limit: {SIZE}", "SIZE", message.size());
+        lg2::error("Message size exceeds 64K limit: {SIZE}", "SIZE",
+                   message.size());
         return false;
     }
 
     ssize_t bytesSent = sendto(sockfd, message.data(), message.size(), 0,
-                               (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+                               (struct sockaddr*)&serverAddr,
+                               sizeof(serverAddr));
     if (bytesSent == -1)
     {
         lg2::error("Failed to send message: {ERROR}", "ERROR", strerror(errno));
@@ -108,13 +111,15 @@ int LogStreamer::createSocket()
     int sockfd = socket(AF_UNIX, SOCK_DGRAM, 0);
     if (sockfd == -1)
     {
-        lg2::error("Failed to create socket: {ERROR}", "ERROR", strerror(errno));
+        lg2::error("Failed to create socket: {ERROR}", "ERROR",
+                   strerror(errno));
         return -1;
     }
 
     memset(&serverAddr, 0, sizeof(serverAddr));
     serverAddr.sun_family = AF_UNIX;
-    strncpy(serverAddr.sun_path, socketPath.c_str(), sizeof(serverAddr.sun_path) - 1);
+    strncpy(serverAddr.sun_path, socketPath.c_str(),
+            sizeof(serverAddr.sun_path) - 1);
 
     return sockfd;
 }

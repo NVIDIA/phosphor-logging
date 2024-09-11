@@ -1,9 +1,9 @@
-#include <xyz/openbmc_project/Common/error.hpp>
-#include <phosphor-logging/elog-errors.hpp>
-#include <phosphor-logging/log.hpp>
-
 #include "conf.hpp"
 #include "utils.hpp"
+
+#include <phosphor-logging/elog-errors.hpp>
+#include <phosphor-logging/log.hpp>
+#include <xyz/openbmc_project/Common/error.hpp>
 
 namespace phosphor
 {
@@ -33,8 +33,8 @@ bool RsyslogFwdAction::enabled(bool value)
     return ret;
 }
 
-RsyslogFwd::TransportProtocol RsyslogFwdAction::transportProtocol(
-                                        RsyslogFwd::TransportProtocol value)
+RsyslogFwd::TransportProtocol
+    RsyslogFwdAction::transportProtocol(RsyslogFwd::TransportProtocol value)
 {
     auto ret = RsyslogFwd::transportProtocol(value);
     if (parent->overrideConfigFile(logType()))
@@ -44,8 +44,8 @@ RsyslogFwd::TransportProtocol RsyslogFwdAction::transportProtocol(
     return ret;
 }
 
-RsyslogFwd::NetworkProtocol RsyslogFwdAction::networkProtocol(
-                                        RsyslogFwd::NetworkProtocol value)
+RsyslogFwd::NetworkProtocol
+    RsyslogFwdAction::networkProtocol(RsyslogFwd::NetworkProtocol value)
 {
     auto ret = RsyslogFwd::networkProtocol(value);
     if (parent->overrideConfigFile(logType()))

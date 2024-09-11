@@ -1,17 +1,19 @@
 #pragma once
 
-#include <xyz/openbmc_project/Logging/RsyslogActionsManager/server.hpp>
-#include <sdbusplus/server/object.hpp>
-#include <sdbusplus/bus.hpp>
-#include <string>
-
 #include "fwd-actions.hpp"
+
+#include <sdbusplus/bus.hpp>
+#include <sdbusplus/server/object.hpp>
+#include <xyz/openbmc_project/Logging/RsyslogActionsManager/server.hpp>
+
+#include <string>
 
 namespace phosphor
 {
 namespace rsyslog_config
 {
-using RsyslogActionsManager = sdbusplus::xyz::openbmc_project::Logging::server::RsyslogActionsManager;
+using RsyslogActionsManager =
+    sdbusplus::xyz::openbmc_project::Logging::server::RsyslogActionsManager;
 using ConfInherit = sdbusplus::server::object_t<RsyslogActionsManager>;
 
 /** @class Conf
@@ -35,7 +37,7 @@ class Conf : public ConfInherit
      *  @param[in] path - Path to attach at.
      */
     Conf(sdbusplus::bus_t& bus, const std::string& path) :
-          ConfInherit(bus, path.c_str()), bus(bus)
+        ConfInherit(bus, path.c_str()), bus(bus)
     {
         emit_object_added();
         createObjectsFromConfigFiles();
@@ -59,13 +61,11 @@ class Conf : public ConfInherit
      * @param[in] Port - The port number which is used for the transport.
      **/
 
-    void createRsyslogFwdIndex(size_t index,
-                               RsyslogFwd::LogType logType,
+    void createRsyslogFwdIndex(size_t index, RsyslogFwd::LogType logType,
                                bool enabled,
                                RsyslogFwd::TransportProtocol transportProtocol,
                                RsyslogFwd::NetworkProtocol networkProtocol,
-                               std::string address,
-                               uint16_t port) override;
+                               std::string address, uint16_t port) override;
 
     /**
      * @brief Creates a new RsyslogFwd object fwd_<LogType>_<Index>
@@ -80,16 +80,15 @@ class Conf : public ConfInherit
      * @param[in] Address - The IP address used by the new fwd action
      *                      in IPv4 or IPv6 format.
      * @param[in] Port - The port number which is used for the transport.
-     * @returns index which is used as the object identifier within fwd_<LogType>.
-     * The function set the index to the first available value from 0 to 9.
+     * @returns index which is used as the object identifier within
+     *fwd_<LogType>. The function set the index to the first available value
+     *from 0 to 9.
      **/
 
-    size_t createRsyslogFwd(RsyslogFwd::LogType logType,
-                            bool enabled,
+    size_t createRsyslogFwd(RsyslogFwd::LogType logType, bool enabled,
                             RsyslogFwd::TransportProtocol transportProtocol,
                             RsyslogFwd::NetworkProtocol networkProtocol,
-                            std::string address,
-                            uint16_t port) override;
+                            std::string address, uint16_t port) override;
 
     /** @brief Removes a RsyslogFwd object.
      *  @param[in] Index - The index of the action.
@@ -127,13 +126,11 @@ class Conf : public ConfInherit
      * @param[in] Port - The port number which is used for the transport.
      * @returns true for success, otherwise false.
      **/
-    bool addRsyslogFwdObject(size_t index,
-                            RsyslogFwd::LogType logType,
-                            bool enabled,
-                            RsyslogFwd::TransportProtocol transportProtocol,
-                            RsyslogFwd::NetworkProtocol networkProtocol,
-                            std::string address,
-                            uint16_t port);
+    bool addRsyslogFwdObject(size_t index, RsyslogFwd::LogType logType,
+                             bool enabled,
+                             RsyslogFwd::TransportProtocol transportProtocol,
+                             RsyslogFwd::NetworkProtocol networkProtocol,
+                             std::string address, uint16_t port);
 
     /** @brief Generates RsyslogFwd objects according to the conf files.
      *  @returns true for success, otherwise false.

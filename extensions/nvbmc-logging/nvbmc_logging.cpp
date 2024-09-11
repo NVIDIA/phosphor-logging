@@ -31,8 +31,7 @@ void nvlogStartup(internal::Manager& logManager)
 
     std::map<std::string, std::string> additionalData;
     lg2::error("Creating BMC boot up log.");
-    logManager.create("BMC Boot", Severity::Informational,
-        additionalData);
+    logManager.create("BMC Boot", Severity::Informational, additionalData);
 
     // This LastEntryId is the BootEntryId
     auto bootEntryId = logManager.lastEntryID();
@@ -44,8 +43,8 @@ void nvlogStartup(internal::Manager& logManager)
 
     if (!fp.is_open())
     {
-        lg2::error("Couldn't open/create file {FILE}.",
-            "FILE", BOOTENTRYID_FILE);
+        lg2::error("Couldn't open/create file {FILE}.", "FILE",
+                   BOOTENTRYID_FILE);
         return;
     }
 
@@ -54,5 +53,5 @@ void nvlogStartup(internal::Manager& logManager)
     return;
 }
 REGISTER_EXTENSION_FUNCTION(nvlogStartup)
-}
-}
+} // namespace logging
+} // namespace nvidia

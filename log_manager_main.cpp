@@ -1,8 +1,8 @@
 #include "config.h"
 
-#include "bin.hpp"
 #include "config_main.h"
 
+#include "bin.hpp"
 #include "extensions.hpp"
 #include "log_manager.hpp"
 
@@ -27,8 +27,9 @@ int main(int argc, char* argv[])
     phosphor::logging::internal::Manager iMgr(bus, OBJ_INTERNAL);
     phosphor::logging::Manager mgr(bus, OBJ_LOGGING, iMgr);
 
-    auto parseErrHandler = [argv] (std::function<uint32_t(const std::string&)> const& fn, const char* path)
-    {
+    auto parseErrHandler =
+        [argv](const std::function<uint32_t(const std::string&)>& fn,
+               const char* path) {
         int res = 0;
         try
         {
@@ -36,8 +37,9 @@ int main(int argc, char* argv[])
         }
         catch (const std::exception& e)
         {
-            lg2::info("Unable to parse argument. JSON file {FILE} ignored: {ERROR}",
-                      "FILE", path, "ERROR", e);
+            lg2::info(
+                "Unable to parse argument. JSON file {FILE} ignored: {ERROR}",
+                "FILE", path, "ERROR", e);
         }
 
         if (res)
@@ -49,8 +51,11 @@ int main(int argc, char* argv[])
 
     if (argc == 2)
     {
-        parseErrHandler([&iMgr] (auto path) {return iMgr.parseJson(path);}, argv[1]);
-        parseErrHandler([&iMgr] (auto path) {return iMgr.parseRWConfigJson(path);}, RW_CONFIG_FILE_PATH);
+        parseErrHandler([&iMgr](auto path) { return iMgr.parseJson(path); },
+                        argv[1]);
+        parseErrHandler(
+            [&iMgr](auto path) { return iMgr.parseRWConfigJson(path); },
+            RW_CONFIG_FILE_PATH);
     }
 
     // Restore all errors
@@ -74,7 +79,8 @@ int main(int argc, char* argv[])
     {
         bus.request_name(BUSNAME_LOGGING);
     }
-    catch (const sdbusplus::exception::SdBusError& e){
+    catch (const sdbusplus::exception::SdBusError& e)
+    {
         error("Unable to request bus name: "
               "{ERROR}",
               "ERROR", e);

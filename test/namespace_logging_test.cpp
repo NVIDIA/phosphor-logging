@@ -1,6 +1,6 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: Apache-2.0
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2024 NVIDIA CORPORATION &
+ * AFFILIATES. All rights reserved. SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,10 @@
 
 #include "log_manager.hpp"
 
-#include <filesystem>
 #include <sdbusplus/bus.hpp>
 #include <sdbusplus/test/sdbus_mock.hpp>
+
+#include <filesystem>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -43,9 +44,7 @@ class TestNamespaceLogging : public testing::Test
 
     TestNamespaceLogging() : manager(mockedBus, OBJ_INTERNAL){};
 
-    ~TestNamespaceLogging()
-    {
-    }
+    ~TestNamespaceLogging() {}
 };
 
 std::size_t countFilesinDirectory(std::filesystem::path path)
@@ -92,7 +91,6 @@ TEST_F(TestNamespaceLogging, testBinCreation)
     EXPECT_EQ(countFilesinDirectory(
                   fs::path(std::string(ERRLOG_PERSIST_PATH) + "/" + binName)),
               0);
-
 }
 
 TEST_F(TestNamespaceLogging, testEraseAll)
