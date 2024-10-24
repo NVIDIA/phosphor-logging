@@ -464,6 +464,12 @@ void Manager::createEntry(std::string errMsg, Entry::Level errLvl,
     }
 
     entryId++;
+    if ((entryBinName.compare("SEL") == 0) &&
+        (entryId >= std::numeric_limits<uint16_t>::max()))
+    {
+        // The SEL ID should be from 0x1 to 0xfffe
+        entryId = entryId % std::numeric_limits<uint16_t>::max() + 1;
+    }
     if (errLvl >= Entry::sevLowerLimit)
     {
         entryBin->infoEntries.insert(entryId);
