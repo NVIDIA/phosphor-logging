@@ -70,6 +70,12 @@
             "ErrorCapacity": 30,
             "InfoErrorCapacity": 200,
             "PersistInfoLog": false
+        },
+        {
+            "ID": "Manager",
+            "ErrorCapacity": 30,
+            "InfoErrorCapacity": 200,
+            "PersistInfoLog": false
         }
     ]
 }
