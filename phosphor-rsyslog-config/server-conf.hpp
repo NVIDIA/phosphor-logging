@@ -5,6 +5,7 @@
 #include <phosphor-logging/log.hpp>
 #include <sdbusplus/bus.hpp>
 #include <sdbusplus/server/object.hpp>
+#include <xyz/openbmc_project/Logging/RsyslogClient/server.hpp>
 
 #include <string>
 
@@ -15,7 +16,9 @@ namespace rsyslog_config
 
 using namespace phosphor::logging;
 using NetworkClient = sdbusplus::xyz::openbmc_project::Network::server::Client;
-using Iface = sdbusplus::server::object_t<NetworkClient>;
+using RsyslogClient =
+    sdbusplus::xyz::openbmc_project::Logging::server::RsyslogClient;
+using Iface = sdbusplus::server::object_t<NetworkClient, RsyslogClient>;
 namespace sdbusRule = sdbusplus::bus::match::rules;
 
 /** @class Server
@@ -65,6 +68,10 @@ class Server : public Iface
     using NetworkClient::address;
     using NetworkClient::port;
     using NetworkClient::transportProtocol;
+    using RsyslogClient::enabled;
+    using RsyslogClient::facility;
+    using RsyslogClient::severity;
+    using RsyslogClient::tls;
 
     /** @brief Override that updates rsyslog config file as well
      *  @param[in] value - remote server address
@@ -89,6 +96,19 @@ class Server : public Iface
     virtual TransportProtocol
         transportProtocol(TransportProtocol protocol) override;
 
+    /** Set value of Enabled */
+    virtual bool enabled(bool value) override;
+
+    /** Set value of Tls */
+    virtual bool tls(bool value) override;
+
+    /** Set value of Severity */
+    virtual SeverityType severity(SeverityType value) override;
+
+    /** Set value of Facility */
+    virtual std::vector<FacilityType>
+        facility(std::vector<FacilityType> value) override;
+
   private:
     /** @brief Update remote server address and port in
      *         rsyslog config file.
@@ -98,7 +118,9 @@ class Server : public Iface
      *  @param[in] filePath - rsyslog config file path
      */
     void writeConfig(const std::string& serverAddress, uint16_t serverPort,
-                     TransportProtocol protocol, const char* filePath);
+                     TransportProtocol protocol, bool tls, bool enabled,
+                     SeverityType severity, std::vector<FacilityType> facility,
+                     const char* filePath);
 
     /** @brief Checks if input IP address is valid (uses getaddrinfo)
      *  @param[in] address - server address

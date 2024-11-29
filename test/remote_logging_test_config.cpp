@@ -8,8 +8,9 @@ namespace phosphor
 
 namespace rsyslog_config::internal
 {
-extern std::optional<
-    std::tuple<std::string, uint32_t, NetworkClient::TransportProtocol>>
+extern std::optional<std::tuple<
+    std::string, uint32_t, NetworkClient::TransportProtocol, bool, bool,
+    std::vector<RsyslogClient::FacilityType>, RsyslogClient::SeverityType>>
     parseConfig(std::istream& ss);
 }
 
@@ -28,18 +29,24 @@ std::string getConfig(const char* filePath)
 
 TEST_F(TestRemoteLogging, testOnlyAddress)
 {
+    config->enabled(true);
+    config->severity(RsyslogClient::SeverityType::All);
     config->address("1.1.1.1");
     EXPECT_EQ(getConfig(configFilePath.c_str()), "*.* /dev/null");
 }
 
 TEST_F(TestRemoteLogging, testOnlyPort)
 {
+    config->enabled(true);
+    config->severity(RsyslogClient::SeverityType::All);
     config->port(100);
     EXPECT_EQ(getConfig(configFilePath.c_str()), "*.* /dev/null");
 }
 
 TEST_F(TestRemoteLogging, testGoodConfig)
 {
+    config->enabled(true);
+    config->severity(RsyslogClient::SeverityType::All);
     config->address("1.1.1.1");
     config->port(100);
     EXPECT_EQ(getConfig(configFilePath.c_str()), "*.* @@1.1.1.1:100");
@@ -47,6 +54,8 @@ TEST_F(TestRemoteLogging, testGoodConfig)
 
 TEST_F(TestRemoteLogging, testClearAddress)
 {
+    config->enabled(true);
+    config->severity(RsyslogClient::SeverityType::All);
     config->address("1.1.1.1");
     config->port(100);
     EXPECT_EQ(getConfig(configFilePath.c_str()), "*.* @@1.1.1.1:100");
@@ -56,6 +65,8 @@ TEST_F(TestRemoteLogging, testClearAddress)
 
 TEST_F(TestRemoteLogging, testClearPort)
 {
+    config->enabled(true);
+    config->severity(RsyslogClient::SeverityType::All);
     config->address("1.1.1.1");
     config->port(100);
     EXPECT_EQ(getConfig(configFilePath.c_str()), "*.* @@1.1.1.1:100");
@@ -65,6 +76,8 @@ TEST_F(TestRemoteLogging, testClearPort)
 
 TEST_F(TestRemoteLogging, testGoodIPv6Config)
 {
+    config->enabled(true);
+    config->severity(RsyslogClient::SeverityType::All);
     config->address("abcd:ef01::01");
     config->port(50000);
     EXPECT_EQ(getConfig(configFilePath.c_str()), "*.* @@[abcd:ef01::01]:50000");
