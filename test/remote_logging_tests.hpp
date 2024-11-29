@@ -3,6 +3,7 @@
 #include "phosphor-rsyslog-config/server-conf.hpp"
 
 #include <sdbusplus/bus.hpp>
+#include <xyz/openbmc_project/Logging/RsyslogClient/server.hpp>
 
 #include <filesystem>
 
@@ -21,6 +22,8 @@ namespace fs = std::filesystem;
 char tmplt[] = "/tmp/logging_test.XXXXXX";
 auto bus = sdbusplus::bus::new_default();
 fs::path dir(fs::path(mkdtemp(tmplt)));
+using RsyslogClient =
+    sdbusplus::xyz::openbmc_project::Logging::server::RsyslogClient;
 
 class MockServer : public phosphor::rsyslog_config::Server
 {
