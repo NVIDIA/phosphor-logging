@@ -121,7 +121,7 @@ std::optional<std::tuple<
         auto start = line.find('@');
         if (start == std::string::npos)
         {
-            return {};
+            continue;
         }
 
         // Split the line by space and extract the first part
@@ -475,6 +475,11 @@ void Server::writeConfig(
 
     if (serverPort && !serverAddress.empty())
     {
+        if (!enabled)
+        {
+            stream << "*.* /dev/null" << std::endl;
+        }
+
         if (tls)
         {
             writeLine("$DefaultNetstreamDriver gtls");
