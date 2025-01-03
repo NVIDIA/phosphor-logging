@@ -477,6 +477,7 @@ void Server::writeConfig(
     {
         if (!enabled)
         {
+            // dummy action to avoid error 2103 on startup
             stream << "*.* /dev/null" << std::endl;
         }
 
@@ -550,7 +551,7 @@ void Server::writeConfig(
     else // this is a disable request
     {
         // dummy action to avoid error 2103 on startup
-        writeLine("*.* /dev/null");
+        stream << "*.* /dev/null" << std::endl;
     }
 
     stream << std::endl;
