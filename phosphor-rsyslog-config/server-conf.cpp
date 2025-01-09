@@ -512,7 +512,7 @@ void Server::writeConfig(
         }
 
         // Convert facilities to a comma-separated string
-        std::string facilityStr = "*";
+        std::string facilityStr;
         for (const auto& facility : facilities)
         {
             switch (facility)
@@ -535,6 +535,11 @@ void Server::writeConfig(
             {
                 break;
             }
+        }
+        // Assign '*' if facilityStr is empty
+        if (facilityStr.empty())
+        {
+            facilityStr = "*";
         }
 
         if (internal::isIPv6Address(serverAddress))
