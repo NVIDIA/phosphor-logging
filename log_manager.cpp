@@ -526,8 +526,6 @@ void Manager::createEntry(std::string errMsg, Entry::Level errLvl,
         e->path(path);
     }
 
-    serialize(*e);
-
 #ifdef ENABLE_LOG_STREAMING
     if (entryBinName == "/SEL")
     {
