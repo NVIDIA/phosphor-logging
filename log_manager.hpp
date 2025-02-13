@@ -5,6 +5,7 @@
 #include "elog_block.hpp"
 #include "elog_entry.hpp"
 #include "xyz/openbmc_project/Logging/Internal/Manager/server.hpp"
+#include "util.hpp"
 #ifdef ENABLE_LOG_STREAMING
 #include "log_streamer.hpp"
 #endif
@@ -14,6 +15,8 @@
 #include "xyz/openbmc_project/Logging/Entry/server.hpp"
 #include "xyz/openbmc_project/Logging/Namespace/server.hpp"
 #include "xyz/openbmc_project/Logging/event.hpp"
+
+#include <unistd.h>
 
 #include <nlohmann/json.hpp>
 #include <phosphor-logging/lg2.hpp>
@@ -401,13 +404,67 @@ class Manager : public details::ServerObject<details::ManagerIface>
     /** @brief Erase specified entry d-bus object
      *
      * @param[in] entryId - unique identifier of the entry
+     * @param[in] removePersistentFiles - remove the persistent files
      */
-    void erase(uint32_t entryId);
+    void erase(uint32_t entryId, bool removePersistentFiles = true);
 
     /** @brief Construct error d-bus objects from their persisted
      *         representations.
      */
     void restore();
+
+#ifdef ENABLE_ERASE_WITH_MULTIPLE_PROCESS
+    /** @brief Erase logs with multiple processes, erase logs from dbus with
+     *         parent process and erase logs from disk with child process.
+     */
+    void eraseAllInChildProcess(const std::string& binName = DEFAULT_BIN_NAME)
+    {
+        util::eraseAllInChildProcess(binName, binNameMap);
+
+        if (binName == DEFAULT_BIN_NAME)
+        {
+            auto iter = entries.begin();
+            while (iter != entries.end())
+            {
+                auto e = iter->first;
+                ++iter;
+                erase(e, false);
+            }
+            entryId = 0;
+            lastCreatedTimeStamp = 0;
+        }
+        else
+        {
+            auto binPresent = false;
+            Bin* thisBin;
+            for (auto& pair : binNameMap)
+            {
+                if (pair.first == binName)
+                {
+                    binPresent = true;
+                    thisBin = &(pair.second);
+                    break;
+                }
+            }
+            // If bin is not present then return error
+            if (!binPresent)
+            {
+                throw sdbusplus::xyz::openbmc_project::Common::Error::
+                    ResourceNotFound();
+            }
+            // Info Errors
+            while (getInfoErrSize(binName) != 0)
+            {
+                erase(*(thisBin->infoEntries.begin()), false);
+            }
+            // Real Errors
+            while (getRealErrSize(binName) != 0)
+            {
+                erase(*(thisBin->errorEntries.begin()), false);
+            }
+        }
+    }
+#endif
 
     /** @brief  Erase all error log entries
      *
@@ -488,16 +545,19 @@ class Manager : public details::ServerObject<details::ManagerIface>
         return binNameMap[binName];
     }
 
-    /** @brief Delete logs per namespace
+    /** @brief Delete logs of serverity per namespace
      *
      * Some description
      *
      * @param[in] nspace - Namespace String
+     * @param[in] severity - Log Severity
      */
-    bool deleteAll(
-        const std::string& nspace,
-        sdbusplus::xyz::openbmc_project::Logging::server::Entry::Level
-            severity);
+    bool
+        deleteAll(const std::string& nspace,
+                  sdbusplus::xyz::openbmc_project::Logging::server::Entry::Level
+                      severity);
+
+    bool deleteAllTypes(const std::string& nspace);
 
     /** @brief Get logs per namespace
      *
@@ -877,6 +937,15 @@ class Manager :
         override
     {
         return manager.deleteAll(nspace, severity);
+    }
+
+    /** @brief deleteAll method call implementation to delete all logs per
+     * namespace
+     *
+     */
+    bool deleteAllTypes(std::string nspace) override
+    {
+        return manager.deleteAllTypes(nspace);
     }
 
     /** @brief D-Bus method call implementation to create an event log.

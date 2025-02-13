@@ -85,6 +85,13 @@ option(
 )
 
 option(
+    'enable_erase_with_multiple_process',
+    type: 'boolean',
+    value: false,
+    description: 'Enable erase persistent log files with multiple processes'
+)
+
+option(
     'log_streamer_socket_path',
     type: 'string',
     value: '/run/rsyslog/log_streamer_console_input',
