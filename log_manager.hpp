@@ -401,13 +401,87 @@ class Manager : public details::ServerObject<details::ManagerIface>
     /** @brief Erase specified entry d-bus object
      *
      * @param[in] entryId - unique identifier of the entry
+     * @param[in] removePersistentFiles - remove the persistent files
      */
-    void erase(uint32_t entryId);
+    void erase(uint32_t entryId, bool removePersistentFiles = true);
 
     /** @brief Construct error d-bus objects from their persisted
      *         representations.
      */
     void restore();
+
+#ifdef ENABLE_ERASE_WITH_MULTIPLE_PROCESS
+    /** @brief Check and remove the temporary files for deletion.
+     */
+    void removeStagedForEraseEntries()
+    {
+        std::string tempPath = std::string(ERRLOG_PERSIST_PATH) + "_temp";
+        fs::path errorToRemovePath(tempPath);
+        std::error_code ec;
+        if (fs::exists(errorToRemovePath))
+        {
+            int maxRetry = 3;
+            int i = 0;
+            do
+            {
+                fs::remove_all(errorToRemovePath, ec);
+            } while (ec.value() && fs::exists(errorToRemovePath) &&
+                     i++ < maxRetry);
+        }
+    }
+
+    /** @brief Erase logs with multiple processes, erase logs from dbus with
+     *         parent process and erase logs from disk with child process.
+     */
+    void eraseAllInChildProcess()
+    {
+        try
+        {
+            std::string deletePath = ERRLOG_PERSIST_PATH;
+            fs::path errorPath(deletePath);
+            std::string tempPath = std::string(ERRLOG_PERSIST_PATH) + "_temp";
+            fs::path errorToRemovePath(tempPath);
+            removeStagedForEraseEntries();
+            fs::rename(errorPath, errorToRemovePath);
+            fs::create_directories(errorPath);
+            std::error_code ec;
+            for (const auto& entry : binNameMap)
+            {
+                if (entry.first.compare(DEFAULT_BIN_NAME) != 0)
+                {
+                    fs::create_directories(std::string(ERRLOG_PERSIST_PATH) +
+                                           "/" + entry.first);
+                }
+            }
+            pid_t pid = fork();
+            if (pid == 0)
+            {
+                removeStagedForEraseEntries();
+            }
+            else if (pid > 0)
+            {
+                auto iter = entries.begin();
+                while (iter != entries.end())
+                {
+                    auto e = iter->first;
+                    ++iter;
+                    erase(e, false);
+                }
+                entryId = 0;
+                lastCreatedTimeStamp = 0;
+            }
+            else
+            {
+                lg2::error("Failed to create child process");
+            }
+        }
+        catch (const std::exception& e)
+        {
+            lg2::error("Failed to erase all logs: {ERROR}", "ERROR", e.what());
+            throw;
+        }
+    }
+#endif
 
     /** @brief  Erase all error log entries
      *
@@ -417,6 +491,7 @@ class Manager : public details::ServerObject<details::ManagerIface>
     {
         this->cancelPendingLogDeletion();
         size_t entriesSize = entries.size();
+#ifndef ENABLE_ERASE_WITH_MULTIPLE_PROCESS
         auto iter = entries.begin();
         while (iter != entries.end())
         {
@@ -426,7 +501,9 @@ class Manager : public details::ServerObject<details::ManagerIface>
         }
         entryId = 0;
         lastCreatedTimeStamp = 0;
-
+#else
+        eraseAllInChildProcess();
+#endif
         return entriesSize;
     }
 

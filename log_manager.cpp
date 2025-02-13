@@ -811,7 +811,7 @@ void Manager::checkAndRemoveBlockingError(uint32_t entryId)
     return;
 }
 
-void Manager::erase(uint32_t entryId)
+void Manager::erase(uint32_t entryId, bool removePersistentFiles)
 {
     auto entryFound = entries.find(entryId);
 
@@ -840,19 +840,23 @@ void Manager::erase(uint32_t entryId)
             }
         }
 
-        if (!(binName.compare(DEFAULT_BIN_NAME) == 0))
+        if (removePersistentFiles)
         {
-            deletePath = std::string(ERRLOG_PERSIST_PATH) + "/" + binName;
+            if (!(binName.compare(DEFAULT_BIN_NAME) == 0))
+            {
+                deletePath = std::string(ERRLOG_PERSIST_PATH) + "/" + binName;
+            }
+
+            // lg2::info("Deleting Entry of Bin: {BIN_NAME}", "BIN_NAME",
+            // binName);
+            // lg2::info("Bin of Incoming Entry: {DELETE_PATH}",
+            // "DELETE_PATH", deletePath);
+
+            // Delete the persistent representation of this error.
+            fs::path errorPath(deletePath);
+            errorPath /= std::to_string(entryId);
+            fs::remove(errorPath);
         }
-
-        // lg2::info("Deleting Entry of Bin: {BIN_NAME}", "BIN_NAME", binName);
-        // lg2::info("Bin of Incoming Entry: {DELETE_PATH}", "DELETE_PATH",
-        //           deletePath);
-
-        // Delete the persistent representation of this error.
-        fs::path errorPath(deletePath);
-        errorPath /= std::to_string(entryId);
-        fs::remove(errorPath);
 
         auto removeId = [](std::set<uint32_t>& ids, uint32_t id) {
             auto it = std::find(ids.begin(), ids.end(), id);
@@ -916,6 +920,11 @@ void Manager::restore()
     {
         return;
     }
+
+#ifdef ENABLE_ERASE_WITH_MULTIPLE_PROCESS
+    // Check and remove the temporary files for deletion.
+    removeStagedForEraseEntries();
+#endif
 
     // using recursive_directory_iterator to get every directory
     for (const auto& file : std::filesystem::recursive_directory_iterator(dir))
