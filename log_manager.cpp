@@ -1404,15 +1404,16 @@ void Manager::create(const std::string& message, Entry::Level severity,
     createEntry(message, severity, ad, ffdc);
 }
 
-size_t Manager::getInfoLogCapacity()
+size_t Manager::getInfoLogCapacity(const std::string& binName)
 {
-    Bin* entryBin = &(binNameMap["SEL"]);
+    Bin* entryBin = &(binNameMap[binName]);
     return entryBin->errorInfoCap;
 }
 
-size_t Manager::setInfoLogCapacity(size_t infoLogCapacity)
+size_t Manager::setInfoLogCapacity(size_t infoLogCapacity,
+                                   const std::string& binName)
 {
-    Bin* entryBin = &(binNameMap["SEL"]);
+    Bin* entryBin = &(binNameMap[binName]);
 
     if (infoLogCapacity > ERROR_INFO_CAP)
     {
@@ -1430,16 +1431,13 @@ size_t Manager::setInfoLogCapacity(size_t infoLogCapacity)
         throw sdbusplus::xyz::openbmc_project::Common::File::Error::Open();
     }
     entryBin->errorInfoCap = infoLogCapacity;
-    if (infoLogCapacity < entries.size())
+    if (infoLogCapacity < entryBin->infoEntries.size())
     {
-        size_t toDelete = entries.size() - infoLogCapacity;
+        size_t toDelete = entryBin->infoEntries.size() - infoLogCapacity;
         this->cancelPendingLogDeletion();
-        auto iter = entries.begin();
         while (toDelete-- > 0)
         {
-            auto e = iter->first;
-            ++iter;
-            erase(e);
+            erase(*(entryBin->infoEntries.begin()));
         }
     }
     return infoLogCapacity;

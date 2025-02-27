@@ -578,15 +578,18 @@ class Manager : public details::ServerObject<details::ManagerIface>
     /** @brief Configure the error info capacity.
      *
      * @param[in] infoLogCapacity - capacity of error info event
+     * @param[in] binName - name space of the event
      * @return the error info capacity
      */
-    size_t setInfoLogCapacity(size_t infoLogCapacity);
+    size_t setInfoLogCapacity(size_t infoLogCapacity,
+                              const std::string& binName);
 
     /** @brief Get the error info capacity.
      *
+     * @param[in] binName - name space of the event
      * @return the error info capacity
      */
-    size_t getInfoLogCapacity();
+    size_t getInfoLogCapacity(const std::string& binName);
 
     /** @brief Creates an event log, and accepts FFDC files
      *
@@ -903,7 +906,8 @@ class Manager :
      */
     void setInfoLogCapacity(size_t infoLogCapacity) override
     {
-        manager.setInfoLogCapacity(infoLogCapacity);
+        const std::string& binName = "SEL";
+        manager.setInfoLogCapacity(infoLogCapacity, binName);
     }
 
     /** @brief D-Bus method call implementation to get the info capacity.
@@ -912,7 +916,8 @@ class Manager :
      */
     size_t infoLogCapacity() const override
     {
-        return manager.getInfoLogCapacity();
+        const std::string& binName = "SEL";
+        return manager.getInfoLogCapacity(binName);
     }
 
     /** @brief D-Bus method call implementation to create an event log with FFDC
