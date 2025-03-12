@@ -31,6 +31,7 @@ namespace fs = std::filesystem;
 
 using ::testing::NiceMock;
 using ::testing::Return;
+using json = nlohmann::json;
 
 class TestLogger
 {
@@ -154,8 +155,8 @@ TEST_F(ManagerTest, TestCreateWithPEL)
     pelFile.write(reinterpret_cast<const char*>(data.data()), data.size());
     pelFile.close();
 
-    std::string adItem = "RAWPEL=" + pelFilename.string();
-    std::vector<std::string> additionalData{adItem};
+    std::map<std::string, std::string> additionalData{
+        {"RAWPEL", pelFilename.string()}};
     std::vector<std::string> associations;
 
     manager.create("error message", 42, 0,
@@ -200,8 +201,8 @@ TEST_F(ManagerTest, TestCreateWithInvalidPEL)
     pelFile.write(reinterpret_cast<const char*>(data.data()), data.size());
     pelFile.close();
 
-    std::string adItem = "RAWPEL=" + pelFilename.string();
-    std::vector<std::string> additionalData{adItem};
+    std::map<std::string, std::string> additionalData{
+        {"RAWPEL", pelFilename.string()}};
     std::vector<std::string> associations;
 
     manager.create("error message", 42, 0,
@@ -290,7 +291,7 @@ TEST_F(ManagerTest, TestCreateWithMessageRegistry)
                   std::placeholders::_2, std::placeholders::_3),
         std::move(journal)};
 
-    std::vector<std::string> additionalData{"FOO=BAR"};
+    std::map<std::string, std::string> additionalData{{"FOO", "BAR"}};
     std::vector<std::string> associations;
 
     // Create the event log to create the PEL from.
@@ -392,11 +393,11 @@ TEST_F(ManagerTest, TestDBusMethods)
 
     std::unique_ptr<JournalBase> journal = std::make_unique<MockJournal>();
 
-    Manager manager{logManager, std::move(dataIface),
-                    std::bind(std::mem_fn(&TestLogger::log), &logger,
-                              std::placeholders::_1, std::placeholders::_2,
-                              std::placeholders::_3),
-                    std::move(journal)};
+    Manager manager{
+        logManager, std::move(dataIface),
+        std::bind(std::mem_fn(&TestLogger::log), &logger, std::placeholders::_1,
+                  std::placeholders::_2, std::placeholders::_3),
+        std::move(journal)};
 
     // Create a PEL, write it to a file, and pass that filename into
     // the create function so there's one in the repo.
@@ -407,8 +408,8 @@ TEST_F(ManagerTest, TestDBusMethods)
     pelFile.write(reinterpret_cast<const char*>(data.data()), data.size());
     pelFile.close();
 
-    std::string adItem = "RAWPEL=" + pelFilename.string();
-    std::vector<std::string> additionalData{adItem};
+    std::map<std::string, std::string> additionalData{
+        {"RAWPEL", pelFilename.string()}};
     std::vector<std::string> associations;
 
     manager.create("error message", 42, 0,
@@ -623,8 +624,7 @@ TEST_F(ManagerTest, TestCreateWithESEL)
         std::move(journal)};
 
     {
-        std::string adItem = "ESEL=" + esel;
-        std::vector<std::string> additionalData{adItem};
+        std::map<std::string, std::string> additionalData{{"ESEL", esel}};
         std::vector<std::string> associations;
 
         manager.create("error message", 37, 0,
@@ -638,12 +638,12 @@ TEST_F(ManagerTest, TestCreateWithESEL)
 
     // Now an invalid one
     {
-        std::string adItem = "ESEL=" + esel;
+        std::string adItem = esel;
 
         // Crop it
         adItem.resize(adItem.size() - 300);
 
-        std::vector<std::string> additionalData{adItem};
+        std::map<std::string, std::string> additionalData{{"ESEL", adItem}};
         std::vector<std::string> associations;
 
         manager.create("error message", 38, 0,
@@ -679,11 +679,11 @@ TEST_F(ManagerTest, TestPruning)
                   std::placeholders::_2, std::placeholders::_3),
         std::move(journal)};
 
-    // Create 25 1000B (4096B on disk each, which is what is used for pruning)
-    // BMC non-informational PELs in the 100KB repository.  After the 24th one,
-    // the repo will be 96% full and a prune should be triggered to remove all
-    // but 7 to get under 30% full.  Then when the 25th is added there will be
-    // 8 left.
+    // Create 25 1000B (4096B on disk each, which is what is used for
+    // pruning) BMC non-informational PELs in the 100KB repository.  After
+    // the 24th one, the repo will be 96% full and a prune should be
+    // triggered to remove all but 7 to get under 30% full.  Then when the
+    // 25th is added there will be 8 left.
 
     auto dir = makeTempDir();
     for (int i = 1; i <= 25; i++)
@@ -695,8 +695,8 @@ TEST_F(ManagerTest, TestPruning)
         pelFile.write(reinterpret_cast<const char*>(data.data()), data.size());
         pelFile.close();
 
-        std::string adItem = "RAWPEL=" + pelFilename.string();
-        std::vector<std::string> additionalData{adItem};
+        std::map<std::string, std::string> additionalData{
+            {"RAWPEL", pelFilename.string()}};
         std::vector<std::string> associations;
 
         manager.create("error message", 42, 0,
@@ -758,8 +758,8 @@ TEST_F(ManagerTest, TestPELManualDelete)
     auto dir = makeTempDir();
     fs::path pelFilename = dir / "rawpel";
 
-    std::string adItem = "RAWPEL=" + pelFilename.string();
-    std::vector<std::string> additionalData{adItem};
+    std::map<std::string, std::string> additionalData{
+        {"RAWPEL", pelFilename.string()}};
     std::vector<std::string> associations;
 
     // Add 20 PELs, they will get incrementing IDs like
@@ -835,8 +835,8 @@ TEST_F(ManagerTest, TestPELManualDeleteAll)
     auto dir = makeTempDir();
     fs::path pelFilename = dir / "rawpel";
 
-    std::string adItem = "RAWPEL=" + pelFilename.string();
-    std::vector<std::string> additionalData{adItem};
+    std::map<std::string, std::string> additionalData{
+        {"RAWPEL", pelFilename.string()}};
     std::vector<std::string> associations;
 
     // Add 200 PELs, they will get incrementing IDs like
@@ -921,8 +921,8 @@ TEST_F(ManagerTest, TestServiceIndicators)
         pelFile.write(reinterpret_cast<const char*>(data.data()), data.size());
         pelFile.close();
 
-        std::string adItem = "RAWPEL=" + pelFilename.string();
-        std::vector<std::string> additionalData{adItem};
+        std::map<std::string, std::string> additionalData{
+            {"RAWPEL", pelFilename.string()}};
         std::vector<std::string> associations;
 
         manager.create("error message", 42, 0,
@@ -990,7 +990,7 @@ TEST_F(ManagerTest, TestServiceIndicators)
         registryFile << registry;
         registryFile.close();
 
-        std::vector<std::string> additionalData;
+        std::map<std::string, std::string> additionalData;
         std::vector<std::string> associations;
 
         manager.create("xyz.openbmc_project.Error.Test", 42, 0,
@@ -1026,8 +1026,8 @@ TEST_F(ManagerTest, TestDuplicatePEL)
         pelFile.write(reinterpret_cast<const char*>(data.data()), data.size());
         pelFile.close();
 
-        std::string adItem = "RAWPEL=" + pelFilename.string();
-        std::vector<std::string> additionalData{adItem};
+        std::map<std::string, std::string> additionalData{
+            {"RAWPEL", pelFilename.string()}};
         std::vector<std::string> associations;
 
         manager.create("error message", 42, 0,
@@ -1051,7 +1051,8 @@ TEST_F(ManagerTest, TestDuplicatePEL)
     EXPECT_EQ(count, 1);
 }
 
-// Test termination bit set for pel with critical system termination severity
+// Test termination bit set for pel with critical system termination
+// severity
 TEST_F(ManagerTest, TestTerminateBitWithPELSevCriticalSysTerminate)
 {
     const auto registry = R"(
@@ -1096,7 +1097,7 @@ TEST_F(ManagerTest, TestTerminateBitWithPELSevCriticalSysTerminate)
                   std::placeholders::_2, std::placeholders::_3),
         std::move(journal)};
 
-    std::vector<std::string> additionalData{"FOO=BAR"};
+    std::map<std::string, std::string> additionalData{{"FOO", "BAR"}};
     std::vector<std::string> associations;
 
     // Create the event log to create the PEL from.
@@ -1199,7 +1200,7 @@ TEST_F(ManagerTest, TestFruPlug)
                   std::placeholders::_2, std::placeholders::_3),
         std::move(journal)};
 
-    std::vector<std::string> additionalData;
+    std::map<std::string, std::string> additionalData;
     std::vector<std::string> associations;
 
     auto checkDeconfigured = [](bool deconfigured) {
@@ -1234,4 +1235,243 @@ TEST_F(ManagerTest, TestFruPlug)
     checkDeconfigured(true);
     mockIface->fruPresent("U1234-A4");
     checkDeconfigured(true);
+}
+
+int createHWIsolatedCalloutFile()
+{
+    json jsonCalloutDataList(nlohmann::json::value_t::array);
+    json jsonDimmCallout;
+
+    jsonDimmCallout["LocationCode"] = "Ufcs-DIMM0";
+    jsonDimmCallout["EntityPath"] = {35, 1, 0, 2, 0, 3, 0, 0, 0, 0, 0,
+                                     0,  0, 0, 0, 0, 0, 0, 0, 0, 0};
+    jsonDimmCallout["GuardType"] = "GARD_Predictive";
+    jsonDimmCallout["Deconfigured"] = false;
+    jsonDimmCallout["Guarded"] = true;
+    jsonDimmCallout["Priority"] = "M";
+    jsonCalloutDataList.emplace_back(std::move(jsonDimmCallout));
+
+    std::string calloutData(jsonCalloutDataList.dump());
+    std::string calloutFile("/tmp/phalPELCalloutsJson.XXXXXX");
+    int fileFD = -1;
+
+    fileFD = mkostemp(calloutFile.data(), O_RDWR);
+    if (fileFD == -1)
+    {
+        perror("Failed to create PELCallouts file");
+        return -1;
+    }
+
+    ssize_t rc = write(fileFD, calloutData.c_str(), calloutData.size());
+    if (rc == -1)
+    {
+        perror("Failed to write PELCallouts file");
+        close(fileFD);
+        return -1;
+    }
+
+    // Ensure we seek to the beginning of the file
+    rc = lseek(fileFD, 0, SEEK_SET);
+    if (rc == -1)
+    {
+        perror("Failed to set SEEK_SET for PELCallouts file");
+        close(fileFD);
+        return -1;
+    }
+    return fileFD;
+}
+
+void appendFFDCEntry(int fd, uint8_t subTypeJson, uint8_t version,
+                     phosphor::logging::FFDCEntries& ffdcEntries)
+{
+    phosphor::logging::FFDCEntry ffdcEntry =
+        std::make_tuple(sdbusplus::xyz::openbmc_project::Logging::server::
+                            Create::FFDCFormat::JSON,
+                        subTypeJson, version, fd);
+    ffdcEntries.push_back(ffdcEntry);
+}
+
+TEST_F(ManagerTest, TestPELDeleteWithoutHWIsolation)
+{
+    const auto registry = R"(
+    {
+        "PELs":
+        [{
+            "Name": "xyz.openbmc_project.Error.Test",
+            "SRC":
+            {
+                "ReasonCode": "0x2030"
+            },
+            "Documentation": {
+                "Description": "Test Error",
+                "Message": "Test Error"
+            }
+        }]
+    }
+    )";
+
+    auto path = getPELReadOnlyDataPath();
+    fs::create_directories(path);
+    path /= "message_registry.json";
+
+    std::ofstream registryFile{path};
+    registryFile << registry;
+    registryFile.close();
+
+    std::unique_ptr<DataInterfaceBase> dataIface =
+        std::make_unique<MockDataInterface>();
+
+    MockDataInterface* mockIface =
+        reinterpret_cast<MockDataInterface*>(dataIface.get());
+
+    EXPECT_CALL(*mockIface, getInventoryFromLocCode("Ufcs-DIMM0", 0, false))
+        .WillOnce(Return(std::vector<std::string>{
+            "/xyz/openbmc_project/inventory/system/chassis/motherboard/dimm0"}));
+
+    // Mock the scenario where the hardware isolation guard is flagged
+    // but is not associated, resulting in an empty list being returned.
+    EXPECT_CALL(
+        *mockIface,
+        getAssociatedPaths(
+            ::testing::StrEq(
+                "/xyz/openbmc_project/logging/entry/42/isolated_hw_entry"),
+            ::testing::StrEq("/"), 0,
+            ::testing::ElementsAre(
+                "xyz.openbmc_project.HardwareIsolation.Entry")))
+        .WillRepeatedly(Return(std::vector<std::string>{}));
+
+    std::unique_ptr<JournalBase> journal = std::make_unique<MockJournal>();
+    openpower::pels::Manager manager{
+        logManager, std::move(dataIface),
+        std::bind(std::mem_fn(&TestLogger::log), &logger, std::placeholders::_1,
+                  std::placeholders::_2, std::placeholders::_3),
+        std::move(journal)};
+    std::map<std::string, std::string> additionalData;
+    std::vector<std::string> associations;
+
+    // Check when there's no PEL with given id.
+    {
+        EXPECT_FALSE(manager.isDeleteProhibited(42));
+    }
+    // creating without ffdcEntries
+    manager.create("xyz.openbmc_project.Error.Test", 42, 0,
+                   phosphor::logging::Entry::Level::Error, additionalData,
+                   associations);
+    auto pelFile = findAnyPELInRepo();
+    auto data = readPELFile(*pelFile);
+    PEL pel_unguarded(*data);
+    {
+        // Verify that the guard flag is false.
+        EXPECT_FALSE(pel_unguarded.getGuardFlag());
+        // Check that `isDeleteProhibited` returns false when the guard flag
+        // is false.
+        EXPECT_FALSE(manager.isDeleteProhibited(42));
+    }
+    manager.erase(42);
+    EXPECT_FALSE(findAnyPELInRepo());
+
+    int fd = createHWIsolatedCalloutFile();
+    ASSERT_NE(fd, -1);
+    uint8_t subTypeJson = 0xCA;
+    uint8_t version = 0x01;
+    phosphor::logging::FFDCEntries ffdcEntries;
+    appendFFDCEntry(fd, subTypeJson, version, ffdcEntries);
+    manager.create("xyz.openbmc_project.Error.Test", 42, 0,
+                   phosphor::logging::Entry::Level::Error, additionalData,
+                   associations, ffdcEntries);
+    close(fd);
+
+    auto pelPathInRepo = findAnyPELInRepo();
+    auto unguardedData = readPELFile(*pelPathInRepo);
+    PEL pel(*unguardedData);
+    {
+        // Verify guard flag set to true
+        EXPECT_TRUE(pel.getGuardFlag());
+        // Check even if guard flag is true, if dbus call returns empty
+        // array list then `isDeleteProhibited` returns false
+        EXPECT_FALSE(manager.isDeleteProhibited(42));
+    }
+    manager.erase(42);
+}
+
+TEST_F(ManagerTest, TestPELDeleteWithHWIsolation)
+{
+    const auto registry = R"(
+    {
+        "PELs":
+        [{
+            "Name": "xyz.openbmc_project.Error.Test",
+            "Severity": "critical_system_term",
+            "SRC":
+            {
+                "ReasonCode": "0x2030"
+            },
+            "Documentation": {
+                "Description": "Test Error",
+                "Message": "Test Error"
+            }
+        }]
+    }
+    )";
+
+    auto path = getPELReadOnlyDataPath();
+    fs::create_directories(path);
+    path /= "message_registry.json";
+
+    std::ofstream registryFile{path};
+    registryFile << registry;
+    registryFile.close();
+
+    std::unique_ptr<DataInterfaceBase> dataIface =
+        std::make_unique<MockDataInterface>();
+
+    MockDataInterface* mockIface =
+        reinterpret_cast<MockDataInterface*>(dataIface.get());
+
+    EXPECT_CALL(*mockIface, getInventoryFromLocCode("Ufcs-DIMM0", 0, false))
+        .WillOnce(Return(std::vector<std::string>{
+            "/xyz/openbmc_project/inventory/system/chassis/motherboard/dimm0"}));
+
+    EXPECT_CALL(
+        *mockIface,
+        getAssociatedPaths(
+            ::testing::StrEq(
+                "/xyz/openbmc_project/logging/entry/42/isolated_hw_entry"),
+            ::testing::StrEq("/"), 0,
+            ::testing::ElementsAre(
+                "xyz.openbmc_project.HardwareIsolation.Entry")))
+        .WillRepeatedly(Return(std::vector<std::string>{
+            "/xyz/openbmc_project/hardware_isolation/entry/1"}));
+
+    std::unique_ptr<JournalBase> journal = std::make_unique<MockJournal>();
+    openpower::pels::Manager manager{
+        logManager, std::move(dataIface),
+        std::bind(std::mem_fn(&TestLogger::log), &logger, std::placeholders::_1,
+                  std::placeholders::_2, std::placeholders::_3),
+        std::move(journal)};
+    std::map<std::string, std::string> additionalData;
+    std::vector<std::string> associations;
+
+    int fd = createHWIsolatedCalloutFile();
+    ASSERT_NE(fd, -1);
+    uint8_t subTypeJson = 0xCA;
+    uint8_t version = 0x01;
+    phosphor::logging::FFDCEntries ffdcEntries;
+    appendFFDCEntry(fd, subTypeJson, version, ffdcEntries);
+    manager.create("xyz.openbmc_project.Error.Test", 42, 0,
+                   phosphor::logging::Entry::Level::Error, additionalData,
+                   associations, ffdcEntries);
+    close(fd);
+
+    auto pelFile = findAnyPELInRepo();
+    EXPECT_TRUE(pelFile);
+    auto data = readPELFile(*pelFile);
+    PEL pel(*data);
+    EXPECT_TRUE(pel.valid());
+    // Test case where the guard flag is set to true and the hardware
+    // isolation guard is associated, which should result in
+    // `isDeleteProhibited` returning true as expected.
+    EXPECT_TRUE(pel.getGuardFlag());
+    EXPECT_TRUE(manager.isDeleteProhibited(42));
+    manager.erase(42);
 }

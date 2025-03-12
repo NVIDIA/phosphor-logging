@@ -13,7 +13,8 @@ TEST_F(TestSerialization, testProperties)
 {
     auto id = 99;
     phosphor::logging::AssociationList assocations{};
-    std::vector<std::string> testData{"additional", "data"};
+    std::map<std::string, std::string> testData = {{"additional", "1"},
+                                                   {"data", "yes"}};
     uint64_t timestamp{100};
     std::string message{"test error"};
     std::string fwLevel{"level42"};
@@ -36,6 +37,7 @@ TEST_F(TestSerialization, testProperties)
     EXPECT_EQ(input->timestamp(), output->timestamp());
     EXPECT_EQ(input->message(), output->message());
     EXPECT_EQ(input->additionalData(), output->additionalData());
+    EXPECT_EQ(input->additionalData2(), output->additionalData2());
     EXPECT_EQ(input->resolved(), output->resolved());
     EXPECT_EQ(input->associations(), output->associations());
     EXPECT_EQ(input->version(), output->version());

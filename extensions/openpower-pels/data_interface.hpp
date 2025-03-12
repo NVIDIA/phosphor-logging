@@ -3,12 +3,24 @@
 #include "dbus_types.hpp"
 #include "dbus_watcher.hpp"
 
+#ifdef PEL_ENABLE_PHAL
+#include <libguard/guard_interface.hpp>
+#include <libguard/include/guard_record.hpp>
+#endif
+
 #include <phosphor-logging/lg2.hpp>
 #include <sdbusplus/bus.hpp>
 #include <sdbusplus/bus/match.hpp>
 
+#include <expected>
 #include <filesystem>
 #include <fstream>
+#include <unordered_map>
+
+#ifdef PEL_ENABLE_PHAL
+using GardType = openpower::guard::GardType;
+namespace libguard = openpower::guard;
+#endif
 
 namespace openpower
 {
@@ -201,11 +213,11 @@ class DataInterfaceBase
         time_t t(seconds);
         tm* p = gmtime(&t);
 
-        std::string uptime = std::to_string(p->tm_year - 70) + "y " +
-                             std::to_string(p->tm_yday) + "d " +
-                             std::to_string(p->tm_hour) + "h " +
-                             std::to_string(p->tm_min) + "m " +
-                             std::to_string(p->tm_sec) + "s";
+        std::string uptime =
+            std::to_string(p->tm_year - 70) + "y " +
+            std::to_string(p->tm_yday) + "d " + std::to_string(p->tm_hour) +
+            "h " + std::to_string(p->tm_min) + "m " +
+            std::to_string(p->tm_sec) + "s";
 
         return uptime;
     }
@@ -332,10 +344,9 @@ class DataInterfaceBase
      * @param[out] ccin - Filled in with the VINI/CC keyword
      * @param[out] serialNumber - Filled in with the VINI/SN keyword
      */
-    virtual void getHWCalloutFields(const std::string& inventoryPath,
-                                    std::string& fruPartNumber,
-                                    std::string& ccin,
-                                    std::string& serialNumber) const = 0;
+    virtual void getHWCalloutFields(
+        const std::string& inventoryPath, std::string& fruPartNumber,
+        std::string& ccin, std::string& serialNumber) const = 0;
 
     /**
      * @brief Get the location code for an inventory item.
@@ -344,8 +355,8 @@ class DataInterfaceBase
      *
      * @return std::string - The location code
      */
-    virtual std::string
-        getLocationCode(const std::string& inventoryPath) const = 0;
+    virtual std::string getLocationCode(
+        const std::string& inventoryPath) const = 0;
 
     /**
      * @brief Get the list of system type names the system is called.
@@ -387,9 +398,9 @@ class DataInterfaceBase
      *
      * @return std::vector<std::string> - The inventory D-Bus objects
      */
-    virtual std::vector<std::string>
-        getInventoryFromLocCode(const std::string& LocationCode, uint16_t node,
-                                bool expanded) const = 0;
+    virtual std::vector<std::string> getInventoryFromLocCode(
+        const std::string& LocationCode, uint16_t node,
+        bool expanded) const = 0;
 
     /**
      * @brief Sets the Asserted property on the LED group passed in.
@@ -415,8 +426,8 @@ class DataInterfaceBase
      *
      * @param[in] objectPath - The D-Bus object path
      */
-    virtual void
-        setCriticalAssociation(const std::string& objectPath) const = 0;
+    virtual void setCriticalAssociation(
+        const std::string& objectPath) const = 0;
 
     /**
      * @brief Returns the manufacturing QuiesceOnError property
@@ -439,27 +450,20 @@ class DataInterfaceBase
      * @param[in] locationCode - location code to split
      * @return pair<string, string> - The base and connector segments
      */
-    static std::pair<std::string, std::string>
-        extractConnectorFromLocCode(const std::string& locationCode);
+    static std::pair<std::string, std::string> extractConnectorFromLocCode(
+        const std::string& locationCode);
 
-    /**
-     * @brief Returns the dump status
-     *
-     * @return bool dump status
-     */
-    virtual std::vector<bool>
-        checkDumpStatus(const std::vector<std::string>& type) const = 0;
-
+#ifdef PEL_ENABLE_PHAL
     /**
      * @brief Create guard record
      *
      *  @param[in] binPath: phal devtree binary path used as key
-     *  @param[in] type: Guard type
-     *  @param[in] logPath: error log entry object path
+     *  @param[in] eGardType: Guard type enum value
+     *  @param[in] plid: Pel ID
      */
     virtual void createGuardRecord(const std::vector<uint8_t>& binPath,
-                                   const std::string& type,
-                                   const std::string& logPath) const = 0;
+                                   GardType eGardType, uint32_t plid) const = 0;
+#endif
 
     /**
      * @brief Create Progress SRC property on the boot progress
@@ -468,9 +472,9 @@ class DataInterfaceBase
      * @param[in] priSRC - Primary SRC value (e.g. BD8D1001)
      * @param[in] srcStruct - Full SRC base structure
      */
-    virtual void
-        createProgressSRC(const uint64_t& priSRC,
-                          const std::vector<uint8_t>& srcStruct) const = 0;
+    virtual void createProgressSRC(
+        const uint64_t& priSRC,
+        const std::vector<uint8_t>& srcStruct) const = 0;
 
     /**
      * @brief Get the list of unresolved OpenBMC event log ids that have an
@@ -487,6 +491,71 @@ class DataInterfaceBase
      * @return std::vector<uint8_t> - The progress SRC bytes
      */
     virtual std::vector<uint8_t> getRawProgressSRC() const = 0;
+
+    /**
+     * @brief Returns the FRUs DI property value hosted on the VINI iterface for
+     * the given location code.
+     *
+     * @param[in] locationCode - The location code of the FRU
+     *
+     * @return std::optional<std::vector<uint8_t>> -  The FRUs DI or
+     * std::nullopt
+     */
+    virtual std::optional<std::vector<uint8_t>> getDIProperty(
+        const std::string& locationCode) const = 0;
+
+    /**
+     * @brief Wrpper API to call pHAL API 'getFRUType()' and check whether the
+     * given location code is DIMM or not
+     *
+     * @param[in] locCode - The location code of the FRU
+     *
+     * @return - true, if the given location code is DIMM
+     *         - false, if the given location code is not DIMM or if it fails to
+     *         determine the FRU type.
+     */
+    bool isDIMM(const std::string& locCode);
+
+    /**
+     * @brief Check whether the given location code present in the cache
+     * memory
+     *
+     * @param[in] locCode - The location code of the FRU
+     *
+     * @return true, if the given location code present in cache and is a DIMM
+     *         false, if the given location code present in cache, but a non
+     *         DIMM FRU
+     *         std::nullopt, if the given location code is not present in the
+     *         cache.
+     */
+    std::optional<bool> isDIMMLocCode(const std::string& locCode) const;
+
+    /**
+     * @brief add the given location code to the cache memory
+     *
+     * @param[in] locCode - The location code of the FRU
+     * @param[in] isFRUDIMM - true indicates the FRU is a DIMM
+     *                        false indicates the FRU is a non DIMM
+     *
+     */
+    void addDIMMLocCode(const std::string& locCode, bool isFRUDIMM);
+
+    /**
+     * @brief Finds all D-Bus Associated paths that contain any of the
+     *        interfaces passed in, by using GetAssociatedSubTreePaths.
+     *
+     * @param[in] associatedPath - The D-Bus object path
+     * @param[in] subtree - The subtree path for which the result should be
+     *                      fetched
+     * @param[in] depth - The maximum subtree depth for which results should be
+     *                    fetched
+     * @param[in] interfaces - The desired interfaces
+     *
+     * @return The D-Bus paths.
+     */
+    virtual DBusPathList getAssociatedPaths(
+        const DBusPath& associatedPath, const DBusPath& subtree, int32_t depth,
+        const DBusInterfaceList& interfaces) const = 0;
 
   protected:
     /**
@@ -602,6 +671,14 @@ class DataInterfaceBase
      * @brief The boot state property
      */
     std::string _bootState;
+
+    /**
+     * @brief A cache storage for location code and its FRU Type
+     *  - The key 'std::string' represents the locationCode of the FRU
+     *  - The bool value - true indicates the FRU is a DIMM
+     *                     false indicates the FRU is a non DIMM.
+     */
+    std::unordered_map<std::string, bool> _locationCache;
 };
 
 /**
@@ -711,8 +788,8 @@ class DataInterface : public DataInterfaceBase
      *
      * @return std::string - The location code
      */
-    std::string
-        getLocationCode(const std::string& inventoryPath) const override;
+    std::string getLocationCode(
+        const std::string& inventoryPath) const override;
 
     /**
      * @brief Get the list of system type names the system is called.
@@ -754,9 +831,9 @@ class DataInterface : public DataInterfaceBase
      *
      * @return std::vector<std::string> - The inventory D-Bus objects
      */
-    std::vector<std::string>
-        getInventoryFromLocCode(const std::string& locationCode, uint16_t node,
-                                bool expanded) const override;
+    std::vector<std::string> getInventoryFromLocCode(
+        const std::string& locationCode, uint16_t node,
+        bool expanded) const override;
 
     /**
      * @brief Sets the Asserted property on the LED group passed in.
@@ -790,26 +867,17 @@ class DataInterface : public DataInterfaceBase
      */
     bool getQuiesceOnError() const override;
 
-    /**
-     * @brief Returns the dump status
-     *
-     * @param[in] type - The dump type to check for
-     *
-     * @return bool dump status
-     */
-    std::vector<bool>
-        checkDumpStatus(const std::vector<std::string>& type) const override;
-
+#ifdef PEL_ENABLE_PHAL
     /**
      * @brief Create guard record
      *
      *  @param[in] binPath: phal devtree binary path used as key
-     *  @param[in] type: Guard type
-     *  @param[in] logPath: error log entry object path
+     *  @param[in] eGardType: Guard type enum value
+     *   @param[in] plid: pel id to be associated to the guard record
      */
     void createGuardRecord(const std::vector<uint8_t>& binPath,
-                           const std::string& type,
-                           const std::string& logPath) const override;
+                           GardType eGardType, uint32_t plid) const override;
+#endif
 
     /**
      * @brief Create Progress SRC property on the boot progress
@@ -818,9 +886,9 @@ class DataInterface : public DataInterfaceBase
      * @param[in] priSRC - Primary SRC value
      * @param[in] srcStruct - Full SRC base structure
      */
-    void
-        createProgressSRC(const uint64_t& priSRC,
-                          const std::vector<uint8_t>& srcStruct) const override;
+    void createProgressSRC(
+        const uint64_t& priSRC,
+        const std::vector<uint8_t>& srcStruct) const override;
 
     /**
      * @brief Get the list of unresolved OpenBMC event log ids that have an
@@ -837,6 +905,35 @@ class DataInterface : public DataInterfaceBase
      * @return std::vector<uint8_t>: The progress SRC bytes
      */
     std::vector<uint8_t> getRawProgressSRC() const override;
+
+    /**
+     * @brief Returns the FRUs DI property value hosted on the VINI iterface for
+     * the given location code.
+     *
+     * @param[in] locationCode - The location code of the FRU
+     *
+     * @return std::optional<std::vector<uint8_t>> -  The FRUs DI or
+     * std::nullopt
+     */
+    std::optional<std::vector<uint8_t>> getDIProperty(
+        const std::string& locationCode) const override;
+
+    /**
+     * @brief Finds all D-Bus Associated paths that contain any of the
+     *        interfaces passed in, by using GetAssociatedSubTreePaths.
+     *
+     * @param[in] associatedPath - The D-Bus object path
+     * @param[in] subtree - The subtree path for which the result should be
+     *                      fetched
+     * @param[in] depth - The maximum subtree depth for which results should be
+     *                    fetched
+     * @param[in] interfaces - The desired interfaces
+     *
+     * @return The D-Bus paths.
+     */
+    DBusPathList getAssociatedPaths(
+        const DBusPath& associatedPath, const DBusPath& subtree, int32_t depth,
+        const DBusInterfaceList& interfaces) const override;
 
   private:
     /**
@@ -932,6 +1029,37 @@ class DataInterface : public DataInterfaceBase
     static std::string addLocationCodePrefix(const std::string& locationCode);
 
     /**
+     * @brief A helper API to check whether the PHAL device tree is exists,
+     *        ensuring the PHAL init API can be invoked.
+     *
+     * @return true if the PHAL device tree is exists, otherwise false
+     */
+    bool isPHALDevTreeExist() const;
+
+#ifdef PEL_ENABLE_PHAL
+    /**
+     * @brief A helper API to init PHAL libraries
+     *
+     * @return None
+     */
+    void initPHAL();
+#endif // PEL_ENABLE_PHAL
+
+    /**
+     * @brief A helper API to subscribe to systemd signals
+     *
+     * @return None
+     */
+    void subscribeToSystemdSignals();
+
+    /**
+     * @brief A helper API to unsubscribe to systemd signals
+     *
+     * @return None
+     */
+    void unsubscribeFromSystemdSignals();
+
+    /**
      * @brief The D-Bus property or interface watchers that have callbacks
      *        registered that will set members in this class when
      *        they change.
@@ -952,6 +1080,17 @@ class DataInterface : public DataInterfaceBase
      * @brief The sdbusplus bus object for making D-Bus calls.
      */
     sdbusplus::bus_t& _bus;
+
+    /**
+     * @brief Watcher to check "openpower-update-bios-attr-table" service
+     *        is "done" to init PHAL libraires
+     */
+    std::unique_ptr<sdbusplus::bus::match_t> _systemdMatch;
+
+    /**
+     * @brief A slot object for async dbus call
+     */
+    sdbusplus::slot_t _systemdSlot;
 };
 
 } // namespace pels

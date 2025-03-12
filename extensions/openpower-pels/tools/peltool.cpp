@@ -15,7 +15,6 @@
  */
 #include "config.h"
 
-#include "config_main.h"
 
 #include "../bcd_time.hpp"
 #include "../json_utils.hpp"
@@ -65,7 +64,7 @@ constexpr auto logging = "/xyz/openbmc_project/logging";
 
 std::string pelLogDir()
 {
-    return std::string(EXTENSION_PERSIST_DIR) + "/pels/logs";
+    return std::string(phosphor::logging::paths::extension()) + "/pels/logs";
 }
 
 /**
@@ -301,11 +300,10 @@ std::vector<std::string> getPlugins()
  * @return std::string - JSON string of PEL entry (empty if fullPEL is true)
  */
 template <typename T>
-std::string genPELJSON(T itr, bool hidden, bool includeInfo, bool critSysTerm,
-                       bool fullPEL, bool& foundPEL,
-                       const std::optional<std::regex>& scrubRegex,
-                       const std::vector<std::string>& plugins, bool hexDump,
-                       bool archive)
+std::string genPELJSON(
+    T itr, bool hidden, bool includeInfo, bool critSysTerm, bool fullPEL,
+    bool& foundPEL, const std::optional<std::regex>& scrubRegex,
+    const std::vector<std::string>& plugins, bool hexDump, bool archive)
 {
     std::string val;
     std::string listStr;
@@ -497,8 +495,8 @@ void printPELs(bool order, bool hidden, bool includeInfo, bool critSysTerm,
     // Sort the pairs based on second time parameter
     std::sort(PELs.begin(), PELs.end(),
               [](const auto& left, const auto& right) {
-        return left.second < right.second;
-    });
+                  return left.second < right.second;
+              });
 
     bool foundPEL = false;
 

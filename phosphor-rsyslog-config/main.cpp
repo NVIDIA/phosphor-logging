@@ -1,6 +1,5 @@
 #include "config.h"
 
-#include "config_main.h"
 
 #include "server-conf.hpp"
 

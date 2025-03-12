@@ -17,7 +17,7 @@ namespace logging
  */
 using StartupFunction = std::function<void(internal::Manager&)>;
 
-using AdditionalDataArg = std::vector<std::string>;
+using AdditionalDataArg = std::map<std::string, std::string>;
 using AssociationEndpointsArg = std::vector<std::string>;
 using FFDCArg = FFDCEntries;
 
@@ -45,10 +45,24 @@ using DeleteFunction = std::function<void(uint32_t)>;
 /**
  * @brief The function type that will to check if an event log is prohibited
  *        from being deleted.
+ *        The same function is used to check if an event log is prohibited from
+ *        setting Resolved flag, as Resolve is prohibited as long as Delete is
+ *        prohibited.
+ *
  * @param[in] uint32_t - The event log ID
  * @param[out] bool - set to true if the delete is prohibited
  */
 using DeleteProhibitedFunction = std::function<void(uint32_t, bool&)>;
+
+/**
+ * @brief The function type that will return list of Hw Isolated
+ *        log IDs
+ * @param[out] std::vector<uint32_t>& - Hw Isolated log IDs
+ */
+using LogIDWithHwIsolationFunction =
+    std::function<void(std::vector<uint32_t>&)>;
+using LogIDsWithHwIsolationFunctions =
+    std::vector<LogIDWithHwIsolationFunction>;
 
 using StartupFunctions = std::vector<StartupFunction>;
 using CreateFunctions = std::vector<CreateFunction>;
@@ -159,6 +173,19 @@ class Extensions
     }
 
     /**
+     * @brief Constructor to register a LogID with HwIsolation function
+     *
+     * Functions registered with this contructor will be called
+     * before phosphor-log-manager deletes all event log.
+     *
+     * @param[in] func - The function to register
+     */
+    explicit Extensions(LogIDWithHwIsolationFunction func)
+    {
+        getLogIDWithHwIsolationFunctions().emplace_back(func);
+    }
+
+    /**
      * @brief Constructor to disable event log capping
      *
      * This constructor should only be called by the
@@ -195,6 +222,13 @@ class Extensions
      * @return DeleteProhibitedFunctions - the DeleteProhibited functions
      */
     static DeleteProhibitedFunctions& getDeleteProhibitedFunctions();
+
+    /**
+     * @brief Returns the LogIDWithHwIsolationFunction functions
+     * @return LogIDsWithHwIsolationFunctions - the LogIDWithHwIsolationFunction
+     * functions
+     */
+    static LogIDsWithHwIsolationFunctions& getLogIDWithHwIsolationFunctions();
 
     /**
      * @brief Returns the DefaultErrorCaps value

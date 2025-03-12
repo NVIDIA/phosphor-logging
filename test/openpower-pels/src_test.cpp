@@ -198,8 +198,11 @@ TEST_F(SRCTest, CreateTestNoCallouts)
         {9, {"TEST4", "DESCR4"}}};
 
     // Values for the SRC words pointed to above
-    std::vector<std::string> adData{"TEST1=0x12345678", "TEST2=12345678",
-                                    "TEST3=0XDEF", "TEST4=Z"};
+    std::map<std::string, std::string> adData{
+        {"TEST1", "0x12345678"},
+        {"TEST2", "12345678"},
+        {"TEST3", "0XDEF"},
+        {"TEST4", "Z"}};
     AdditionalData ad{adData};
     NiceMock<MockDataInterface> dataIface;
 
@@ -260,7 +263,7 @@ TEST_F(SRCTest, BadCCINTest)
     entry.src.reasonCode = 0xABCD;
     entry.subsystem = 0x42;
 
-    std::vector<std::string> adData{};
+    std::map<std::string, std::string> adData{};
     AdditionalData ad{adData};
     NiceMock<MockDataInterface> dataIface;
 
@@ -301,8 +304,11 @@ TEST_F(SRCTest, MessageSubstitutionTest)
     message::Registry registry{path};
     auto entry = registry.lookup("0xABCD", message::LookupType::reasonCode);
 
-    std::vector<std::string> adData{"COMPID=0x1", "FREQUENCY=0x4",
-                                    "DURATION=30", "ERRORCODE=0x01ABCDEF"};
+    std::map<std::string, std::string> adData{
+        {"COMPID", "0x1"},
+        {"FREQUENCY", "0x4"},
+        {"DURATION", "30"},
+        {"ERRORCODE", "0x01ABCDEF"}};
     AdditionalData ad{adData};
     NiceMock<MockDataInterface> dataIface;
 
@@ -324,7 +330,8 @@ TEST_F(SRCTest, InventoryCalloutTest)
     entry.src.reasonCode = 0xABCD;
     entry.subsystem = 0x42;
 
-    std::vector<std::string> adData{"CALLOUT_INVENTORY_PATH=motherboard"};
+    std::map<std::string, std::string> adData{
+        {"CALLOUT_INVENTORY_PATH", "motherboard"}};
     AdditionalData ad{adData};
     NiceMock<MockDataInterface> dataIface;
 
@@ -375,7 +382,8 @@ TEST_F(SRCTest, InventoryCalloutNoLocCodeTest)
     entry.src.reasonCode = 0xABCD;
     entry.subsystem = 0x42;
 
-    std::vector<std::string> adData{"CALLOUT_INVENTORY_PATH=motherboard"};
+    std::map<std::string, std::string> adData{
+        {"CALLOUT_INVENTORY_PATH", "motherboard"}};
     AdditionalData ad{adData};
     NiceMock<MockDataInterface> dataIface;
 
@@ -415,7 +423,8 @@ TEST_F(SRCTest, InventoryCalloutNoVPDTest)
     entry.src.reasonCode = 0xABCD;
     entry.subsystem = 0x42;
 
-    std::vector<std::string> adData{"CALLOUT_INVENTORY_PATH=motherboard"};
+    std::map<std::string, std::string> adData{
+        {"CALLOUT_INVENTORY_PATH", "motherboard"}};
     AdditionalData ad{adData};
     NiceMock<MockDataInterface> dataIface;
 
@@ -624,9 +633,9 @@ TEST_F(SRCTest, RegistryCalloutTest)
                 "/xyz/openbmc_project/inventory/chassis/motherboard/cpu0", _, _,
                 _))
             .Times(1)
-            .WillOnce(DoAll(SetArgReferee<1>("1234567"),
-                            SetArgReferee<2>("CCCC"),
-                            SetArgReferee<3>("123456789ABC")));
+            .WillOnce(
+                DoAll(SetArgReferee<1>("1234567"), SetArgReferee<2>("CCCC"),
+                      SetArgReferee<3>("123456789ABC")));
 
         EXPECT_CALL(
             dataIface,
@@ -634,9 +643,9 @@ TEST_F(SRCTest, RegistryCalloutTest)
                 "/xyz/openbmc_project/inventory/chassis/motherboard/cpu1", _, _,
                 _))
             .Times(1)
-            .WillOnce(DoAll(SetArgReferee<1>("2345678"),
-                            SetArgReferee<2>("DDDD"),
-                            SetArgReferee<3>("23456789ABCD")));
+            .WillOnce(
+                DoAll(SetArgReferee<1>("2345678"), SetArgReferee<2>("DDDD"),
+                      SetArgReferee<3>("23456789ABCD")));
 
         SRC src{entry, ad, dataIface};
 
@@ -692,7 +701,8 @@ TEST_F(SRCTest, SymbolicFRUWithInvPathTest)
         // The location code for the first symbolic FRU callout will
         // come from this inventory path since UseInventoryLocCode is set.
         // In this case there will be no normal FRU callout for the motherboard.
-        std::vector<std::string> adData{"CALLOUT_INVENTORY_PATH=motherboard"};
+        std::map<std::string, std::string> adData{
+            {"CALLOUT_INVENTORY_PATH", "motherboard"}};
         AdditionalData ad{adData};
         NiceMock<MockDataInterface> dataIface;
         std::vector<std::string> names{"systemA"};
@@ -843,30 +853,30 @@ TEST_F(SRCTest, DevicePathCalloutTest)
         .Times(3)
         .WillRepeatedly(Return("Ufcs-P1-C15"));
 
-    EXPECT_CALL(
-        dataIface,
-        getHWCalloutFields(
-            "/xyz/openbmc_project/inventory/chassis/motherboard/cpu0", _, _, _))
+    EXPECT_CALL(dataIface,
+                getHWCalloutFields(
+                    "/xyz/openbmc_project/inventory/chassis/motherboard/cpu0",
+                    _, _, _))
         .Times(3)
-        .WillRepeatedly(DoAll(SetArgReferee<1>("1234567"),
-                              SetArgReferee<2>("CCCC"),
-                              SetArgReferee<3>("123456789ABC")));
+        .WillRepeatedly(
+            DoAll(SetArgReferee<1>("1234567"), SetArgReferee<2>("CCCC"),
+                  SetArgReferee<3>("123456789ABC")));
     EXPECT_CALL(
         dataIface,
         getHWCalloutFields("/xyz/openbmc_project/inventory/chassis/motherboard",
                            _, _, _))
         .Times(3)
-        .WillRepeatedly(DoAll(SetArgReferee<1>("7654321"),
-                              SetArgReferee<2>("MMMM"),
-                              SetArgReferee<3>("CBA987654321")));
-    EXPECT_CALL(
-        dataIface,
-        getHWCalloutFields(
-            "/xyz/openbmc_project/inventory/chassis/motherboard/bmc", _, _, _))
+        .WillRepeatedly(
+            DoAll(SetArgReferee<1>("7654321"), SetArgReferee<2>("MMMM"),
+                  SetArgReferee<3>("CBA987654321")));
+    EXPECT_CALL(dataIface,
+                getHWCalloutFields(
+                    "/xyz/openbmc_project/inventory/chassis/motherboard/bmc", _,
+                    _, _))
         .Times(3)
-        .WillRepeatedly(DoAll(SetArgReferee<1>("7123456"),
-                              SetArgReferee<2>("BBBB"),
-                              SetArgReferee<3>("C123456789AB")));
+        .WillRepeatedly(
+            DoAll(SetArgReferee<1>("7123456"), SetArgReferee<2>("BBBB"),
+                  SetArgReferee<3>("C123456789AB")));
 
     // Call this below with different AdditionalData values that
     // result in the same callouts.
@@ -910,34 +920,36 @@ TEST_F(SRCTest, DevicePathCalloutTest)
 
     {
         // Callouts based on the device path
-        std::vector<std::string> items{
-            "CALLOUT_ERRNO=5",
-            "CALLOUT_DEVICE_PATH=/sys/devices/platform/ahb/ahb:apb/"
-            "ahb:apb:bus@1e78a000/1e78a340.i2c-bus/i2c-14/14-0072"};
+        std::map<std::string, std::string> items{
+            {"CALLOUT_ERRNO", "5"},
+            {"CALLOUT_DEVICE_PATH",
+             "/sys/devices/platform/ahb/ahb:apb/ahb:apb:bus@1e78a000/1e78a340.i2c-bus/i2c-14/14-0072"}};
 
         checkCallouts(items);
     }
 
     {
         // Callouts based on the I2C bus and address
-        std::vector<std::string> items{"CALLOUT_ERRNO=5", "CALLOUT_IIC_BUS=14",
-                                       "CALLOUT_IIC_ADDR=0x72"};
+        std::map<std::string, std::string> items{{"CALLOUT_ERRNO", "5"},
+                                                 {"CALLOUT_IIC_BUS", "14"},
+                                                 {"CALLOUT_IIC_ADDR", "0x72"}};
         checkCallouts(items);
     }
 
     {
         // Also based on I2C bus and address, but with bus = /dev/i2c-14
-        std::vector<std::string> items{"CALLOUT_ERRNO=5", "CALLOUT_IIC_BUS=14",
-                                       "CALLOUT_IIC_ADDR=0x72"};
+        std::map<std::string, std::string> items{{"CALLOUT_ERRNO", "5"},
+                                                 {"CALLOUT_IIC_BUS", "14"},
+                                                 {"CALLOUT_IIC_ADDR", "0x72"}};
         checkCallouts(items);
     }
 
     {
         // Callout not found
-        std::vector<std::string> items{
-            "CALLOUT_ERRNO=5",
-            "CALLOUT_DEVICE_PATH=/sys/devices/platform/ahb/ahb:apb/"
-            "ahb:apb:bus@1e78a000/1e78a340.i2c-bus/i2c-24/24-0012"};
+        std::map<std::string, std::string> items{
+            {"CALLOUT_ERRNO", "5"},
+            {"CALLOUT_DEVICE_PATH",
+             "/sys/devices/platform/ahb/ahb:apb/ahb:apb:bus@1e78a000/1e78a340.i2c-bus/i2c-24/24-0012"}};
 
         AdditionalData ad{items};
         SRC src{entry, ad, dataIface};
@@ -951,8 +963,9 @@ TEST_F(SRCTest, DevicePathCalloutTest)
 
     {
         // Callout not found
-        std::vector<std::string> items{"CALLOUT_ERRNO=5", "CALLOUT_IIC_BUS=22",
-                                       "CALLOUT_IIC_ADDR=0x99"};
+        std::map<std::string, std::string> items{{"CALLOUT_ERRNO", "5"},
+                                                 {"CALLOUT_IIC_BUS", "22"},
+                                                 {"CALLOUT_IIC_ADDR", "0x99"}};
         AdditionalData ad{items};
         SRC src{entry, ad, dataIface};
 
@@ -1042,9 +1055,9 @@ TEST_F(SRCTest, JsonCalloutsTest)
             dataIface,
             getHWCalloutFields("/inv/system/chassis/motherboard/bmc", _, _, _))
             .Times(1)
-            .WillOnce(DoAll(SetArgReferee<1>("1234567"),
-                            SetArgReferee<2>("CCCC"),
-                            SetArgReferee<3>("123456789ABC")));
+            .WillOnce(
+                DoAll(SetArgReferee<1>("1234567"), SetArgReferee<2>("CCCC"),
+                      SetArgReferee<3>("123456789ABC")));
     }
     // Callout 1 mock calls
     {
@@ -1055,9 +1068,9 @@ TEST_F(SRCTest, JsonCalloutsTest)
             dataIface,
             getHWCalloutFields("/inv/system/chassis/motherboard/cpu0", _, _, _))
             .Times(1)
-            .WillOnce(DoAll(SetArgReferee<1>("2345678"),
-                            SetArgReferee<2>("DDDD"),
-                            SetArgReferee<3>("23456789ABCD")));
+            .WillOnce(
+                DoAll(SetArgReferee<1>("2345678"), SetArgReferee<2>("DDDD"),
+                      SetArgReferee<3>("23456789ABCD")));
     }
     // Callout 3 mock calls
     {
@@ -1230,9 +1243,9 @@ TEST_F(SRCTest, JsonBadCalloutsTest)
             dataIface,
             getHWCalloutFields("/inv/system/chassis/motherboard/bmc", _, _, _))
             .Times(1)
-            .WillOnce(DoAll(SetArgReferee<1>("1234567"),
-                            SetArgReferee<2>("CCCC"),
-                            SetArgReferee<3>("123456789ABC")));
+            .WillOnce(
+                DoAll(SetArgReferee<1>("1234567"), SetArgReferee<2>("CCCC"),
+                      SetArgReferee<3>("123456789ABC")));
     }
 
     // Callout 1 mock calls
@@ -1290,8 +1303,8 @@ TEST_F(SRCTest, InventoryCalloutTestPriority)
     entry.src.reasonCode = 0xABCD;
     entry.subsystem = 0x42;
 
-    std::vector<std::string> adData{"CALLOUT_INVENTORY_PATH=motherboard",
-                                    "CALLOUT_PRIORITY=M"};
+    std::map<std::string, std::string> adData{
+        {"CALLOUT_INVENTORY_PATH", "motherboard"}, {"CALLOUT_PRIORITY", "M"}};
     AdditionalData ad{adData};
     NiceMock<MockDataInterface> dataIface;
 
@@ -1316,64 +1329,6 @@ TEST_F(SRCTest, InventoryCalloutTestPriority)
     EXPECT_EQ(callout->priority(), 'M');
 }
 
-// Test for bmc & platform dump status bits
-TEST_F(SRCTest, DumpStatusBitsCheck)
-{
-    message::Entry entry;
-    entry.src.type = 0xBD;
-    entry.src.reasonCode = 0xABCD;
-    entry.subsystem = 0x42;
-
-    AdditionalData ad;
-    NiceMock<MockDataInterface> dataIface;
-    std::vector<std::string> dumpType{"bmc/entry", "resource/entry",
-                                      "system/entry"};
-
-    {
-        EXPECT_CALL(dataIface, checkDumpStatus(dumpType))
-            .WillOnce(Return(std::vector<bool>{true, false, false}));
-
-        SRC src{entry, ad, dataIface};
-        EXPECT_TRUE(src.valid());
-
-        const auto& hexwords = src.hexwordData();
-        EXPECT_EQ(0x00080055, hexwords[0]);
-    }
-
-    {
-        EXPECT_CALL(dataIface, checkDumpStatus(dumpType))
-            .WillOnce(Return(std::vector<bool>{false, true, false}));
-
-        SRC src{entry, ad, dataIface};
-        EXPECT_TRUE(src.valid());
-
-        const auto& hexwords = src.hexwordData();
-        EXPECT_EQ(0x00000255, hexwords[0]);
-    }
-
-    {
-        EXPECT_CALL(dataIface, checkDumpStatus(dumpType))
-            .WillOnce(Return(std::vector<bool>{false, false, true}));
-
-        SRC src{entry, ad, dataIface};
-        EXPECT_TRUE(src.valid());
-
-        const auto& hexwords = src.hexwordData();
-        EXPECT_EQ(0x00000455, hexwords[0]);
-    }
-
-    {
-        EXPECT_CALL(dataIface, checkDumpStatus(dumpType))
-            .WillOnce(Return(std::vector<bool>{true, true, true}));
-
-        SRC src{entry, ad, dataIface};
-        EXPECT_TRUE(src.valid());
-
-        const auto& hexwords = src.hexwordData();
-        EXPECT_EQ(0x00080655, hexwords[0]);
-    }
-}
-
 // Test SRC with additional data - PEL_SUBSYSTEM
 TEST_F(SRCTest, TestPELSubsystem)
 {
@@ -1383,7 +1338,7 @@ TEST_F(SRCTest, TestPELSubsystem)
     entry.subsystem = 0x42;
 
     // Values for the SRC words pointed to above
-    std::vector<std::string> adData{"PEL_SUBSYSTEM=0x20"};
+    std::map<std::string, std::string> adData{{"PEL_SUBSYSTEM", "0x20"}};
     AdditionalData ad{adData};
     NiceMock<MockDataInterface> dataIface;
 

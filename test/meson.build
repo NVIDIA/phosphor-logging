@@ -8,24 +8,25 @@ if not gtest_dep.found() or not gmock_dep.found()
                 dependency('threads'),
                 gtest_proj.dependency('gtest'),
                 gtest_proj.dependency('gtest_main'),
-            ]
+            ],
         )
         gmock_dep = gtest_proj.dependency('gmock')
-  else
+    else
         assert(
             not get_option('tests').enabled(),
-            'Googletest is required if tests are enabled'
+            'Googletest is required if tests are enabled',
         )
-  endif
+    endif
 endif
 
-if not get_option('openpower-pel-extension').disabled()
+if get_option('openpower-pel-extension').allowed()
     subdir('openpower-pels')
 endif
 
 tests = [
     'extensions_test',
     'namespace_logging_test',
+    'log_manager_dbus_tests',
     'remote_logging_test_address',
     'remote_logging_test_config',
     'remote_logging_test_port',
@@ -48,10 +49,11 @@ foreach t : tests
                 gmock_dep,
                 gtest_dep,
                 log_manager_deps,
+                pdi_dep,
                 phosphor_logging_dep,
             ],
             include_directories: include_directories('..', '../gen'),
-        )
+        ),
     )
 endforeach
 

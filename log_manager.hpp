@@ -1,8 +1,10 @@
 #pragma once
 
 #include "bin.hpp"
+#include "paths.hpp"
 #include "elog_block.hpp"
 #include "elog_entry.hpp"
+#include "xyz/openbmc_project/Logging/Internal/Manager/server.hpp"
 #ifdef ENABLE_LOG_STREAMING
 #include "log_streamer.hpp"
 #endif
@@ -10,9 +12,8 @@
 #include "xyz/openbmc_project/Logging/Capacity/server.hpp"
 #include "xyz/openbmc_project/Logging/Create/server.hpp"
 #include "xyz/openbmc_project/Logging/Entry/server.hpp"
-#include "xyz/openbmc_project/Logging/Internal/Manager/server.hpp"
 #include "xyz/openbmc_project/Logging/Namespace/server.hpp"
-#include "xyz/openbmc_project/Logging/error.hpp"
+#include "xyz/openbmc_project/Logging/event.hpp"
 
 #include <nlohmann/json.hpp>
 #include <phosphor-logging/lg2.hpp>
@@ -44,8 +45,7 @@ using CapacityIface =
     sdbusplus::xyz::openbmc_project::Logging::server::Capacity;
 
 using Severity = sdbusplus::xyz::openbmc_project::Logging::server::Entry::Level;
-using LogsCleared =
-    sdbusplus::xyz::openbmc_project::Logging::Error::LogsCleared;
+using LoggingCleared = sdbusplus::event::xyz::openbmc_project::Logging::Cleared;
 
 namespace details
 {
@@ -103,7 +103,7 @@ class Manager : public details::ServerObject<details::ManagerIface>
      *  @param[in] bus - Bus to attach to.
      *  @param[in] path - Path to attach at.
      */
-    Manager(sdbusplus::bus_t& bus, const std::string& objPath);
+    Manager(sdbusplus::bus::bus& bus, const std::string& objPath);
 
     /**
      * @fn parseJson
@@ -170,7 +170,7 @@ class Manager : public details::ServerObject<details::ManagerIface>
                     }
                     auto bin = phosphor::logging::internal::Bin(
                         std::string(*id), *errorCap, *errorInfoCap,
-                        std::string(ERRLOG_PERSIST_PATH) + "/" +
+                        std::string(phosphor::logging::paths::error()) + "/" +
                             std::string(*id),
                         persistInfoLog);
 
@@ -188,7 +188,7 @@ class Manager : public details::ServerObject<details::ManagerIface>
             return 3;
         }
 
-        std::filesystem::path logDir(std::string{ERRLOG_PERSIST_PATH});
+        std::filesystem::path logDir(std::string{phosphor::logging::paths::error()});
 
         // clear errlog path, skip configured dirnames, skip non-dirs
         for (const auto& p : std::filesystem::directory_iterator(logDir))
@@ -413,22 +413,7 @@ class Manager : public details::ServerObject<details::ManagerIface>
      *
      *  @return size_t - count of erased entries
      */
-    size_t eraseAll()
-    {
-        this->cancelPendingLogDeletion();
-        size_t entriesSize = entries.size();
-        auto iter = entries.begin();
-        while (iter != entries.end())
-        {
-            auto e = iter->first;
-            ++iter;
-            erase(e);
-        }
-        entryId = 0;
-        lastCreatedTimeStamp = 0;
-
-        return entriesSize;
-    }
+    size_t eraseAll();
 
     /** @brief Returns the count of high severity errors
      *
@@ -509,10 +494,10 @@ class Manager : public details::ServerObject<details::ManagerIface>
      *
      * @param[in] nspace - Namespace String
      */
-    bool
-        deleteAll(const std::string& nspace,
-                  sdbusplus::xyz::openbmc_project::Logging::server::Entry::Level
-                      severity);
+    bool deleteAll(
+        const std::string& nspace,
+        sdbusplus::xyz::openbmc_project::Logging::server::Entry::Level
+            severity);
 
     /** @brief Get logs per namespace
      *
@@ -605,9 +590,17 @@ class Manager : public details::ServerObject<details::ManagerIface>
      *                   Failure Data Capture). These will be passed to any
      *                   event logging extensions.
      */
-    void create(const std::string& message, Severity severity,
+    auto create(const std::string& message, Severity severity,
                 const std::map<std::string, std::string>& additionalData,
-                const FFDCEntries& ffdc = FFDCEntries{});
+                const FFDCEntries& ffdc = FFDCEntries{})
+        -> sdbusplus::message::object_path;
+
+    /** @brief Create an internal event log from the sdbusplus generated event
+     *
+     *  @param[in] event - The event to create.
+     */
+    auto createFromEvent(sdbusplus::exception::generated_event_base&& event)
+        -> sdbusplus::message::object_path;
 
     /** @brief Common wrapper for creating an Entry object
      *
@@ -701,9 +694,10 @@ class Manager : public details::ServerObject<details::ManagerIface>
      * @param[in] ffdc - A vector of FFDC file info. Defaults to an empty
      * vector.
      */
-    void createEntry(std::string errMsg, Entry::Level errLvl,
-                     std::vector<std::string> additionalData,
-                     const FFDCEntries& ffdc = FFDCEntries{});
+    auto createEntry(std::string errMsg, Entry::Level errLvl,
+                     std::map<std::string, std::string> additionalData,
+                     const FFDCEntries& ffdc = FFDCEntries{})
+        -> sdbusplus::message::object_path;
 
     /** @brief Notified on entry property changes
      *
@@ -825,7 +819,7 @@ class Manager :
             bus, path.c_str(),
             details::ServerObject<DeleteAllIface, CreateIface, NamespaceIface,
                                   CapacityIface>::action::defer_emit),
-        manager(manager){};
+        manager(manager) {};
 
     /** @brief Delete all d-bus objects.
      */
@@ -833,10 +827,8 @@ class Manager :
     {
         log<level::INFO>("Deleting all log entries");
         auto numbersOfLogs = manager.eraseAll();
-        std::map<std::string, std::string> additionalData;
-        additionalData.emplace("NUM_LOGS", std::to_string(numbersOfLogs));
-        manager.create(LogsCleared::errName, Severity::Informational,
-                       additionalData);
+        manager.createFromEvent(
+            LoggingCleared("NUMBER_OF_LOGS", numbersOfLogs));
     }
 
     /** @brief getAll method call implementation to get event logs
@@ -876,10 +868,10 @@ class Manager :
      * namespace
      *
      */
-    bool
-        deleteAll(std::string nspace,
-                  sdbusplus::xyz::openbmc_project::Logging::server::Entry::Level
-                      severity) override
+    bool deleteAll(
+        std::string nspace,
+        sdbusplus::xyz::openbmc_project::Logging::server::Entry::Level severity)
+        override
     {
         return manager.deleteAll(nspace, severity);
     }
@@ -891,10 +883,11 @@ class Manager :
      * @param[in] severity - Level of the error
      * @param[in] additionalData - The AdditionalData property for the error
      */
-    void create(std::string message, Severity severity,
-                std::map<std::string, std::string> additionalData) override
+    auto create(std::string message, Severity severity,
+                std::map<std::string, std::string> additionalData)
+        -> sdbusplus::message::object_path override
     {
-        manager.create(message, severity, additionalData);
+        return manager.create(message, severity, additionalData);
     }
 
     /** @brief D-Bus method call implementation to configure the info capacity.

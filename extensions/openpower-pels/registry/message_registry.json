@@ -552,7 +552,7 @@
         },
 
         {
-            "Name": "xyz.openbmc_project.Logging.Error.LogsCleared",
+            "Name": "xyz.openbmc_project.Logging.Cleared",
             "Subsystem": "bmc_firmware",
             "Severity": "non_error",
 
@@ -561,7 +561,7 @@
                 "Words6To9": {
                     "6": {
                         "Description": "Number of logs deleted",
-                        "AdditionalDataPropSource": "NUM_LOGS"
+                        "AdditionalDataPropSource": "NUMBER_OF_LOGS"
                     }
                 }
             },
@@ -806,7 +806,7 @@
             "Subsystem": "cec_clocks",
             "ComponentID": "0x3000",
             "Severity": "non_error",
-            "ActionFlags": ["report", "call_home"],
+            "ActionFlags": ["report", "call_home", "heartbeat_call_home"],
 
             "SRC": {
                 "ReasonCode": "0x300A",
@@ -901,6 +901,9 @@
                     "The number of OCCs detected by the BMC does not match the number of OCCs detected by the OCC.",
                     "The BMC requests that the OCC reset."
                 ]
+            },
+            "JournalCapture": {
+                "NumLines": 60
             }
         },
 
@@ -921,6 +924,14 @@
                 "Notes": [
                     "The BMC detected that the OCC was in safe state for one minute while active.",
                     "The BMC requests that the OCC reset."
+                ]
+            },
+            "JournalCapture": {
+                "Sections": [
+                    {
+                        "SyslogID": "openpower-occ-control",
+                        "NumLines": 80
+                    }
                 ]
             }
         },
@@ -943,6 +954,9 @@
                     "The BMC failed to communicate with the OCC and retried three times.",
                     "The BMC requests that the OCC reset."
                 ]
+            },
+            "JournalCapture": {
+                "NumLines": 80
             }
         },
 
@@ -950,7 +964,6 @@
             "Name": "org.open_power.OCC.Device.Error.OpenFailure",
             "Subsystem": "cec_chip_iface",
             "ComponentID": "0x2600",
-            "Severity": "predictive",
 
             "SRC": {
                 "ReasonCode": "0x2684",
@@ -963,6 +976,9 @@
                 "Notes": [
                     "There was a failure trying to open an OCC device driver file"
                 ]
+            },
+            "JournalCapture": {
+                "NumLines": 80
             }
         },
 
@@ -993,7 +1009,7 @@
                 ]
             },
             "JournalCapture": {
-                "NumLines": 40
+                "NumLines": 100
             }
         },
 
@@ -1580,6 +1596,7 @@
             "Subsystem": "bmc_firmware",
             "ComponentID": "0x3400",
             "Severity": "non_error",
+            "ActionFlags": ["report", "heartbeat_call_home"],
             "SRC": {
                 "ReasonCode": "0x3416",
                 "Words6To9": {}
@@ -2275,6 +2292,149 @@
         },
 
         {
+            "Name": "xyz.openbmc_project.Power.PowerSupply.Info.FirmwareUpdateSuccessful",
+            "Subsystem": "power_supply",
+            "ActionFlags": ["report"],
+            "ComponentID": "0x2700",
+
+            "SRC": {
+                "Type": "11",
+                "ReasonCode": "0x15F8",
+                "Words6To9": {}
+            },
+
+            "Documentation": {
+                "Description": "Power Supply firmware update successful",
+                "Message": "Successful PSU code update",
+                "Notes": [
+                    "Successful PSU firmware update, verify current firmware level",
+                    "in the PEL detail data"
+                ]
+            },
+            "JournalCapture": {
+                "Sections": [
+                    {
+                        "SyslogID": "psutils",
+                        "NumLines": 30
+                    },
+                    {
+                        "SyslogID": "phosphor-psu-monitor",
+                        "NumLines": 30
+                    },
+                    {
+                        "SyslogID": "phosphor-psu-code-manager",
+                        "NumLines": 30
+                    }
+                ]
+            }
+        },
+
+        {
+            "Name": "xyz.openbmc_project.Power.PowerSupply.Error.FirmwareUpdateFailed",
+            "Subsystem": "power_supply",
+            "ActionFlags": ["service_action", "report", "call_home"],
+            "ComponentID": "0x2700",
+
+            "SRC": {
+                "Type": "11",
+                "ReasonCode": "0x15F9",
+                "Words6To9": {}
+            },
+
+            "Callouts": [
+                {
+                    "System": "com.ibm.Hardware.Chassis.Model.Rainier",
+                    "CalloutList": [
+                        { "Priority": "low", "LocCode": "P0-C5" },
+                        { "Priority": "low", "LocCode": "P0" }
+                    ]
+                },
+                {
+                    "System": "com.ibm.Hardware.Chassis.Model.Everest",
+                    "CalloutList": [
+                        { "Priority": "low", "LocCode": "P0-C0" },
+                        { "Priority": "low", "LocCode": "P0" }
+                    ]
+                }
+            ],
+
+            "Documentation": {
+                "Description": "Power Supply firmware update failed",
+                "Message": "Unsuccessful PSU code update",
+                "Notes": [
+                    "This message may indicate failure triggered due to multiple reasons,",
+                    "an issue with I2C transactions, an I2C exception, or a failure in the",
+                    "firmware download procedure. Some of the callout severity is set dynamically",
+                    "by the application based on the failure. Detailed information in the PEL",
+                    "journal data for further debugging."
+                ]
+            },
+            "JournalCapture": {
+                "Sections": [
+                    {
+                        "SyslogID": "psutils",
+                        "NumLines": 30
+                    },
+                    {
+                        "SyslogID": "phosphor-psu-monitor",
+                        "NumLines": 30
+                    },
+                    {
+                        "SyslogID": "phosphor-psu-code-manager",
+                        "NumLines": 30
+                    }
+                ]
+            }
+        },
+
+        {
+            "Name": "xyz.openbmc_project.Power.PowerSupply.Error.FirmwareIssue",
+            "Subsystem": "power_supply",
+            "ActionFlags": ["service_action", "report", "call_home"],
+            "ComponentID": "0x2700",
+
+            "SRC": {
+                "Type": "11",
+                "ReasonCode": "0x15FA",
+                "Words6To9": {}
+            },
+
+            "Callouts": [
+                {
+                    "CalloutList": [
+                        { "Priority": "high", "Procedure": "BMC0001" }
+                    ]
+                }
+            ],
+
+            "Documentation": {
+                "Description": "Power Supply firmware missing",
+                "Message": "Unsuccessful PSU code update",
+                "Notes": [
+                    "This PEL can be triggered by a missing firmware path, empty firmware",
+                    "file, or failure to open. Possible causes in the image firmware",
+                    "path. Detailed information in the PEL journal data."
+                ]
+            },
+            "JournalCapture": {
+                "Sections": [
+                    {
+                        "SyslogID": "psutils",
+                        "NumLines": 30
+                    },
+                    {
+                        "SyslogID": "phosphor-psu-monitor",
+                        "NumLines": 30
+                    },
+                    {
+                        "SyslogID": "phosphor-psu-code-manager",
+                        "NumLines": 30
+                    }
+                ]
+            }
+        },
+
+        {
             "Name": "xyz.openbmc_project.Power.PowerSupply.Error.FanFault",
             "Subsystem": "power_supply",
             "ActionFlags": ["service_action", "report", "call_home"],
@@ -2618,444 +2778,6 @@
                 "Words6To9": {}
             },
 
-            "CalloutsUsingAD": {
-                "ADName": "INPUT_NAME",
-                "CalloutsWithTheirADValues": [
-                    {
-                        "ADValue": "PGOOD_12A",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    {
-                                        "Priority": "high",
-                                        "SymbolicFRU": "pgood_part"
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "PGOOD_12B",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    {
-                                        "Priority": "high",
-                                        "SymbolicFRU": "pgood_part"
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "PGOOD_12C",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    {
-                                        "Priority": "high",
-                                        "SymbolicFRU": "pgood_part"
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "PGOOD_12D",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    {
-                                        "Priority": "high",
-                                        "SymbolicFRU": "pgood_part"
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "PGOOD_12L",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    {
-                                        "Priority": "high",
-                                        "SymbolicFRU": "pgood_part"
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "PGOOD_12M",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    {
-                                        "Priority": "high",
-                                        "SymbolicFRU": "pgood_part"
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "PGOOD_12N",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    {
-                                        "Priority": "high",
-                                        "SymbolicFRU": "pgood_part"
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "PGOOD_12PCIE",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    {
-                                        "Priority": "high",
-                                        "SymbolicFRU": "pgood_part"
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "PGOOD_12Q",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    {
-                                        "Priority": "high",
-                                        "SymbolicFRU": "pgood_part"
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "PGOOD_VDN_DCM0",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0-C14" },
-                                    {
-                                        "Priority": "medium",
-                                        "LocCode": "P0-C15"
-                                    },
-                                    { "Priority": "low", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "PGOOD_VDN_DCM1",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0-C23" },
-                                    {
-                                        "Priority": "medium",
-                                        "LocCode": "P0-C24"
-                                    },
-                                    { "Priority": "low", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "PGOOD_VCS_DCM0",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0-C14" },
-                                    {
-                                        "Priority": "medium",
-                                        "LocCode": "P0-C15"
-                                    },
-                                    { "Priority": "low", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "PGOOD_VCS_DCM1",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0-C23" },
-                                    {
-                                        "Priority": "medium",
-                                        "LocCode": "P0-C24"
-                                    },
-                                    { "Priority": "low", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "PGOOD_VIO_DCM0",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0-C14" },
-                                    {
-                                        "Priority": "medium",
-                                        "LocCode": "P0-C15"
-                                    },
-                                    { "Priority": "low", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "PGOOD_VIO_DCM1",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0-C23" },
-                                    {
-                                        "Priority": "medium",
-                                        "LocCode": "P0-C24"
-                                    },
-                                    { "Priority": "low", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "PGOOD_VPCIE_DCM0",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0-C14" },
-                                    {
-                                        "Priority": "medium",
-                                        "LocCode": "P0-C15"
-                                    },
-                                    { "Priority": "low", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "PGOOD_VPCIE_DCM1",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0-C23" },
-                                    {
-                                        "Priority": "medium",
-                                        "LocCode": "P0-C24"
-                                    },
-                                    { "Priority": "low", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "CP0_VPCIE",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0-C58" },
-                                    {
-                                        "Priority": "medium",
-                                        "LocCode": "P0-C61"
-                                    },
-                                    { "Priority": "low", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "CP1_VPCIE",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0-C16" },
-                                    {
-                                        "Priority": "medium",
-                                        "LocCode": "P0-C14"
-                                    },
-                                    { "Priority": "low", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "CP2_VPCIE",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0-C16" },
-                                    {
-                                        "Priority": "medium",
-                                        "LocCode": "P0-C19"
-                                    },
-                                    { "Priority": "low", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "CP3_VPCIE",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0-C58" },
-                                    {
-                                        "Priority": "medium",
-                                        "LocCode": "P0-C56"
-                                    },
-                                    { "Priority": "low", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "5.0V_USB_front",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    {
-                                        "Priority": "high",
-                                        "SymbolicFRU": "usb_pgood"
-                                    },
-                                    { "Priority": "low", "LocCode": "P1" },
-                                    { "Priority": "low", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "CP0_VDN",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0-C63" },
-                                    {
-                                        "Priority": "medium",
-                                        "LocCode": "P0-C61"
-                                    },
-                                    { "Priority": "low", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "CP1_VDN",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0-C12" },
-                                    {
-                                        "Priority": "medium",
-                                        "LocCode": "P0-C14"
-                                    },
-                                    { "Priority": "low", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "CP2_VDN",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0-C21" },
-                                    {
-                                        "Priority": "medium",
-                                        "LocCode": "P0-C19"
-                                    },
-                                    { "Priority": "low", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "CP3_VDN",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0-C54" },
-                                    {
-                                        "Priority": "medium",
-                                        "LocCode": "P0-C56"
-                                    },
-                                    { "Priority": "low", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "CP0_VIO",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0-C63" },
-                                    {
-                                        "Priority": "medium",
-                                        "LocCode": "P0-C61"
-                                    },
-                                    { "Priority": "low", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "CP1_VIO",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0-C12" },
-                                    {
-                                        "Priority": "medium",
-                                        "LocCode": "P0-C14"
-                                    },
-                                    { "Priority": "low", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "CP2_VIO",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0-C21" },
-                                    {
-                                        "Priority": "medium",
-                                        "LocCode": "P0-C19"
-                                    },
-                                    { "Priority": "low", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "CP3_VIO",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0-C54" },
-                                    {
-                                        "Priority": "medium",
-                                        "LocCode": "P0-C56"
-                                    },
-                                    { "Priority": "low", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    }
-                ]
-            },
-
             "Documentation": {
                 "Description": "The power sequencer chip detected a PGOOD fault",
                 "Message": "The power sequencer chip detected a PGOOD fault",
@@ -3172,16 +2894,6 @@
                         ]
                     },
                     {
-                        "ADValue": "1.1V",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
                         "ADValue": "VDDA_DCM0",
                         "Callouts": [
                             {
@@ -3237,157 +2949,6 @@
                                         "LocCode": "P0-C24"
                                     },
                                     { "Priority": "low", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "12.0VCS",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    {
-                                        "Priority": "high",
-                                        "SymbolicFRU": "pgood_part"
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "3.3VCS",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "1.1V_Current",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "5.0V_USB_Current",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    {
-                                        "Priority": "high",
-                                        "SymbolicFRU": "usb_pgood"
-                                    },
-                                    { "Priority": "medium", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "5.0V_DASD_Current",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    { "Priority": "medium", "LocCode": "P1" },
-                                    { "Priority": "medium", "LocCode": "P2" },
-                                    { "Priority": "low", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "12.0VN",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    {
-                                        "Priority": "high",
-                                        "SymbolicFRU": "pgood_part"
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "12.0VP",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    {
-                                        "Priority": "high",
-                                        "SymbolicFRU": "pgood_part"
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "12.0VQ",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    {
-                                        "Priority": "high",
-                                        "SymbolicFRU": "pgood_part"
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "12.0VR",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    {
-                                        "Priority": "high",
-                                        "SymbolicFRU": "pgood_part"
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "ThermalDiode1",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "ThermalDiode2",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "ThermalDiode3",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        "ADValue": "ThermalDiode4",
-                        "Callouts": [
-                            {
-                                "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0" }
                                 ]
                             }
                         ]
@@ -3517,7 +3078,14 @@
                         "Callouts": [
                             {
                                 "CalloutList": [
-                                    { "Priority": "high", "LocCode": "P0-C17" },
+                                    {
+                                        "Priority": "high",
+                                        "Procedure": "BMC0005"
+                                    },
+                                    {
+                                        "Priority": "medium",
+                                        "LocCode": "P0-C17"
+                                    },
                                     {
                                         "Priority": "medium",
                                         "LocCode": "P0-C96"
@@ -4247,7 +3815,7 @@
             "Subsystem": "power",
             "Severity": "non_error",
             "MfgSeverity": "predictive_redundancy_loss",
-            "ActionFlags": ["report"],
+            "ActionFlags": ["report", "heartbeat_call_home"],
             "MfgActionFlags": ["service_action", "report", "call_home"],
             "ComponentID": "0x2700",
 
@@ -4905,7 +4473,7 @@
         },
 
         {
-            "Name": "xyz.openbmc_project.Sensor.Threshold.Error.TemperaturePerfLossHigh",
+            "Name": "xyz.openbmc_project.Sensor.Threshold.Error.TemperaturePerformanceLossHigh",
             "Subsystem": "power",
             "ComponentID": "0x2800",
             "Severity": "predictive",
@@ -4958,7 +4526,7 @@
         },
 
         {
-            "Name": "xyz.openbmc_project.Sensor.Threshold.Error.TemperaturePerfLossHighClear",
+            "Name": "xyz.openbmc_project.Sensor.Threshold.Error.TemperaturePerformanceLossHighClear",
             "Subsystem": "power",
             "ComponentID": "0x2800",
             "Severity": "non_error",
@@ -6666,8 +6234,8 @@
                 "Words6To9": {}
             },
             "Documentation": {
-                "Description": "Dump has been deleted/offloaded",
-                "Message": "BMC/System/Resource dump has been deleted/offloaded"
+                "Description": "Dump has been deleted",
+                "Message": "BMC/System/Resource dump has been deleted"
             }
         },
         {
@@ -6689,6 +6257,62 @@
             "Documentation": {
                 "Description": "Failed to collect PDR from Host within the timeout of BMC PDR Exchange.",
                 "Message": "Failed to collect PDR from Host within the timeout of BMC PDR Exchange."
+            }
+        },
+        {
+            "Name": "xyz.openbmc_project.PLDM.Error.ReportResourceDumpFail.NewFileAvailableRequest",
+            "Subsystem": "bmc_firmware",
+            "ComponentID": "0x6000",
+            "Severity": "predictive",
+            "SRC": {
+                "ReasonCode": "0x6027",
+                "Words6To9": {}
+            },
+            "Callouts": [
+                {
+                    "CalloutList": [
+                        { "Priority": "high", "Procedure": "BMC0001" }
+                    ]
+                }
+            ],
+            "Documentation": {
+                "Description": "Failed to send NewFileAvailable request to remote terminus.",
+                "Message": "Failed to send NewFileAvailable request to remote terminus."
+            }
+        },
+        {
+            "Name": "xyz.openbmc_project.PLDM.Error.ReportResourceDumpFail.DecodeNewFileResp",
+            "Subsystem": "bmc_firmware",
+            "ComponentID": "0x6000",
+            "Severity": "predictive",
+            "SRC": {
+                "ReasonCode": "0x6028",
+                "Words6To9": {}
+            },
+            "Callouts": [
+                {
+                    "CalloutList": [
+                        { "Priority": "high", "Procedure": "BMC0001" }
+                    ]
+                }
+            ],
+            "Documentation": {
+                "Description": "Failed to decode NewFileAvailable response",
+                "Message": "Failed to decode NewFileAvailable response"
+            }
+        },
+        {
+            "Name": "xyz.openbmc_project.Dump.Error.Offload",
+            "Subsystem": "bmc_firmware",
+            "ComponentID": "0x6000",
+            "Severity": "non_error",
+            "SRC": {
+                "ReasonCode": "0x6029",
+                "Words6To9": {}
+            },
+            "Documentation": {
+                "Description": "Dump has been offloaded",
+                "Message": "BMC/System/Resource dump has been offloaded"
             }
         },
         {

@@ -6,26 +6,19 @@ subdir('include/phosphor-logging')
 
 threads_dep = dependency('threads')
 
-phosphor_logging_deps = [
-    pdi_dep,
-    sdbusplus_dep,
-    systemd_dep,
-    threads_dep
-]
+phosphor_logging_deps = [libsystemd_dep, pdi_dep, sdbusplus_dep, threads_dep]
 
 phosphor_logging_lib = library(
     'phosphor_logging',
     'elog.cpp',
+    'lg2_commit.cpp',
     'lg2_logger.cpp',
     'sdjournal.cpp',
     'redfish_event_log.cpp',
     phosphor_logging_gen,
     implicit_include_directories: false,
     include_directories: phosphor_logging_includes,
-    dependencies: [
-        phosphor_logging_deps,
-        conf_h_dep,
-    ],
+    dependencies: [phosphor_logging_deps, conf_h_dep],
     version: meson.project_version(),
     install: true,
 )

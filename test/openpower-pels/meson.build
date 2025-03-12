@@ -34,7 +34,7 @@ openpower_pels = {
             generated_sources,
             log_manager_ext_sources,
         ],
-        'deps': [ cereal_dep ],
+        'deps': [cereal_dep],
     },
     'pel_rules': {},
     'pel': {},
@@ -43,9 +43,7 @@ openpower_pels = {
     'real_pel': {},
     'registry': {},
     'repository': {
-        'sources': [
-            '../../extensions/openpower-pels/repository.cpp',
-        ],
+        'sources': ['../../extensions/openpower-pels/repository.cpp'],
     },
     'section_header': {},
     'service_indicators': {},
@@ -57,9 +55,7 @@ openpower_pels = {
     'user_data': {},
     'user_header': {},
     'temporary_file': {
-         'sources': [
-            '../../extensions/openpower-pels/temporary_file.cpp',
-        ],
+        'sources': ['../../extensions/openpower-pels/temporary_file.cpp'],
     },
 }
 
@@ -68,20 +64,12 @@ openpower_pels = {
 openpower_test_lib = static_library(
     'openpower_test_lib',
     'pel_utils.cpp',
-    'paths.cpp',
+    'pel_paths.cpp',
     libpel_sources,
     peltool_sources,
     '../common.cpp',
-    '../../util.cpp',
-    include_directories: include_directories(
-        '../../',
-        '../../gen',
-    ),
-    dependencies: [
-        libpel_deps,
-        peltool_deps,
-        gtest_dep,
-    ],
+    include_directories: include_directories('../../', '../../gen'),
+    dependencies: [libpel_deps, peltool_deps, gtest_dep],
 )
 
 foreach t : openpower_pels.keys()
@@ -91,10 +79,8 @@ foreach t : openpower_pels.keys()
             'test-openpower-pels-' + t.underscorify(),
             t + '_test.cpp',
             openpower_pels.get(t).get('sources', []),
-            link_with: [
-                openpower_test_lib,
-            ],
-            link_args: [ '-lpython' + python_ver ],
+            link_with: [openpower_test_lib],
+            link_args: ['-lpython' + python_ver],
             dependencies: [
                 gtest_dep,
                 gmock_dep,
@@ -103,10 +89,7 @@ foreach t : openpower_pels.keys()
                 peltool_deps,
                 openpower_pels.get(t).get('deps', []),
             ],
-            include_directories: include_directories(
-                '../../',
-                '../../gen',
-            ),
-        )
+            include_directories: include_directories('../../', '../../gen'),
+        ),
     )
 endforeach

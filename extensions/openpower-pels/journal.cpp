@@ -83,8 +83,8 @@ std::vector<std::string> Journal::getMessages(const std::string& syslogID,
     int rc = sd_journal_open(&journal, SD_JOURNAL_LOCAL_ONLY);
     if (rc < 0)
     {
-        throw std::runtime_error{std::string{"Failed to open journal: "} +
-                                 strerror(-rc)};
+        throw std::runtime_error{
+            std::string{"Failed to open journal: "} + strerror(-rc)};
     }
 
     JournalCloser closer{journal};
@@ -177,7 +177,7 @@ std::string Journal::getTimeStamp(sd_journal* journal) const
     time_t secs = usec / 1000000;
 
     // Convert seconds to tm struct required by strftime()
-    struct tm* timeStruct = localtime(&secs);
+    struct tm* timeStruct = gmtime(&secs);
     if (timeStruct == nullptr)
     {
         throw std::runtime_error{

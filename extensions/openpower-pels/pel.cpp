@@ -34,6 +34,11 @@
 #ifdef PEL_ENABLE_PHAL
 #include "phal_service_actions.hpp"
 #include "sbe_ffdc_handler.hpp"
+
+#include <libguard/guard_interface.hpp>
+#include <libguard/include/guard_record.hpp>
+
+namespace libguard = openpower::guard;
 #endif
 
 #include <sys/stat.h>
@@ -43,6 +48,7 @@
 
 #include <format>
 #include <iostream>
+#include <ranges>
 
 namespace openpower
 {
@@ -51,6 +57,7 @@ namespace pels
 namespace pv = openpower::pels::pel_values;
 
 constexpr auto unknownValue = "Unknown";
+constexpr auto AdDIMMInfoFetchError = "DIMMs Info Fetch Error";
 
 PEL::PEL(const message::Entry& regEntry, uint32_t obmcLogID, uint64_t timestamp,
          phosphor::logging::Entry::Level severity,
@@ -63,18 +70,18 @@ PEL::PEL(const message::Entry& regEntry, uint32_t obmcLogID, uint64_t timestamp,
 #ifdef PEL_ENABLE_PHAL
     // Add sbe ffdc processed data into ffdcfiles.
     namespace sbe = openpower::pels::sbe;
-    auto processReq = std::any_of(ffdcFiles.begin(), ffdcFiles.end(),
-                                  [](const auto& file) {
-        return file.format == UserDataFormat::custom &&
-               file.subType == sbe::sbeFFDCSubType;
-    });
+    auto processReq =
+        std::any_of(ffdcFiles.begin(), ffdcFiles.end(), [](const auto& file) {
+            return file.format == UserDataFormat::custom &&
+                   file.subType == sbe::sbeFFDCSubType;
+        });
     // sbeFFDC can't be destroyed until the end of the PEL constructor
     // because it needs to keep around the FFDC Files to be used below.
     std::unique_ptr<sbe::SbeFFDC> sbeFFDCPtr;
     if (processReq)
     {
-        sbeFFDCPtr = std::make_unique<sbe::SbeFFDC>(additionalData,
-                                                    ffdcFilesIn);
+        sbeFFDCPtr =
+            std::make_unique<sbe::SbeFFDC>(additionalData, ffdcFilesIn);
         const auto& sbeFFDCFiles = sbeFFDCPtr->getSbeFFDC();
         ffdcFiles.insert(ffdcFiles.end(), sbeFFDCFiles.begin(),
                          sbeFFDCFiles.end());
@@ -87,7 +94,7 @@ PEL::PEL(const message::Entry& regEntry, uint32_t obmcLogID, uint64_t timestamp,
     }
 #endif
 
-    std::map<std::string, std::vector<std::string>> debugData;
+    DebugData debugData;
     nlohmann::json callouts;
 
     _ph = std::make_unique<PrivateHeader>(regEntry.componentID, obmcLogID,
@@ -109,8 +116,11 @@ PEL::PEL(const message::Entry& regEntry, uint32_t obmcLogID, uint64_t timestamp,
         }
     }
 
-    auto src = std::make_unique<SRC>(regEntry, additionalData, callouts,
-                                     dataIface);
+    auto src =
+        std::make_unique<SRC>(regEntry, additionalData, callouts, dataIface);
+
+    nlohmann::json adSysInfoData(nlohmann::json::value_t::object);
+    addAdDetailsForDIMMsCallout(src, dataIface, adSysInfoData, debugData);
 
     if (!src->getDebugData().empty())
     {
@@ -126,7 +136,8 @@ PEL::PEL(const message::Entry& regEntry, uint32_t obmcLogID, uint64_t timestamp,
     auto mtms = std::make_unique<FailingMTMS>(dataIface);
     _optionalSections.push_back(std::move(mtms));
 
-    auto ud = util::makeSysInfoUserDataSection(additionalData, dataIface);
+    auto ud = util::makeSysInfoUserDataSection(additionalData, dataIface, true,
+                                               adSysInfoData);
     addUserDataSection(std::move(ud));
 
     //  Check for pel severity of type - 0x51 = critical error, system
@@ -169,8 +180,7 @@ PEL::PEL(const message::Entry& regEntry, uint32_t obmcLogID, uint64_t timestamp,
 
 #ifdef PEL_ENABLE_PHAL
     auto path = std::string(OBJ_ENTRY) + '/' + std::to_string(obmcLogID);
-    openpower::pels::phal::createServiceActions(callouts, path, dataIface,
-                                                plid());
+    openpower::pels::phal::createServiceActions(callouts, dataIface, plid());
 #endif
 
     // Store in the PEL any important debug data created while
@@ -307,11 +317,11 @@ size_t PEL::size() const
 
 std::optional<SRC*> PEL::primarySRC() const
 {
-    auto src = std::find_if(_optionalSections.begin(), _optionalSections.end(),
-                            [](auto& section) {
-        return section->header().id ==
-               static_cast<uint16_t>(SectionID::primarySRC);
-    });
+    auto src = std::find_if(
+        _optionalSections.begin(), _optionalSections.end(), [](auto& section) {
+            return section->header().id ==
+                   static_cast<uint16_t>(SectionID::primarySRC);
+        });
     if (src != _optionalSections.end())
     {
         return static_cast<SRC*>(src->get());
@@ -327,19 +337,18 @@ void PEL::checkRulesAndFix()
     // assume the user knows what they are doing.
     if (_uh->actionFlags() == actionFlagsDefault)
     {
-        auto [actionFlags, eventType] = pel_rules::check(0, _uh->eventType(),
-                                                         _uh->severity());
+        auto [actionFlags, eventType] =
+            pel_rules::check(0, _uh->eventType(), _uh->severity());
 
         _uh->setActionFlags(actionFlags);
         _uh->setEventType(eventType);
     }
 }
 
-void PEL::printSectionInJSON(const Section& section, std::string& buf,
-                             std::map<uint16_t, size_t>& pluralSections,
-                             message::Registry& registry,
-                             const std::vector<std::string>& plugins,
-                             uint8_t creatorID) const
+void PEL::printSectionInJSON(
+    const Section& section, std::string& buf,
+    std::map<uint16_t, size_t>& pluralSections, message::Registry& registry,
+    const std::vector<std::string>& plugins, uint8_t creatorID) const
 {
     char tmpB[5];
     uint8_t id[] = {static_cast<uint8_t>(section.header().id >> 8),
@@ -553,11 +562,12 @@ void PEL::updateSysInfoInExtendedUserDataSection(
     if (_ph->creatorID() == static_cast<uint8_t>(CreatorID::hostboot))
     {
         // Get the ED section from PEL
-        auto op = std::find_if(_optionalSections.begin(),
-                               _optionalSections.end(), [](auto& section) {
-            return section->header().id ==
-                   static_cast<uint16_t>(SectionID::extUserData);
-        });
+        auto op = std::find_if(
+            _optionalSections.begin(), _optionalSections.end(),
+            [](auto& section) {
+                return section->header().id ==
+                       static_cast<uint16_t>(SectionID::extUserData);
+            });
 
         // Check for ED section found and its not the last section of PEL
         if (op != _optionalSections.end())
@@ -722,12 +732,69 @@ void PEL::addJournalSections(const message::Entry& regEntry,
     }
 }
 
+void PEL::addAdDetailsForDIMMsCallout(
+    const std::unique_ptr<SRC>& src, const DataInterfaceBase& dataIface,
+    nlohmann::json& adSysInfoData, DebugData& debugData)
+{
+    if (!src->callouts())
+    {
+        // No callouts
+        return;
+    }
+
+    auto isDIMMCallout = [&dataIface, &debugData](const auto& callout) {
+        auto locCode{callout->locationCode()};
+        if (locCode.empty())
+        {
+            // Not a hardware callout. No action required
+            return false;
+        }
+        else
+        {
+            return const_cast<DataInterfaceBase&>(dataIface).isDIMM(locCode);
+        }
+    };
+    auto addAdDIMMDetails = [&dataIface, &adSysInfoData,
+                             &debugData](const auto& callout) {
+        auto dimmLocCode{callout->locationCode()};
+
+        auto diPropVal = dataIface.getDIProperty(dimmLocCode);
+        if (!diPropVal.has_value())
+        {
+            std::string errMsg{
+                std::format("Failed reading DI property from "
+                            "VINI Interface for the LocationCode:[{}]",
+                            dimmLocCode)};
+            debugData[AdDIMMInfoFetchError].emplace_back(errMsg);
+        }
+        else
+        {
+            util::addDIMMInfo(dimmLocCode, diPropVal.value(), adSysInfoData);
+        }
+    };
+
+    auto DIMMsCallouts = src->callouts()->callouts() |
+                         std::views::filter(isDIMMCallout);
+
+    std::ranges::for_each(DIMMsCallouts, addAdDIMMDetails);
+}
+
 namespace util
 {
 
 std::unique_ptr<UserData> makeJSONUserDataSection(const nlohmann::json& json)
 {
-    auto jsonString = json.dump();
+    std::string jsonString;
+    try
+    {
+        jsonString = json.dump();
+    }
+    catch (const std::exception& e)
+    {
+        lg2::error("json.dump() failed with: {ERROR}", "ERROR", e);
+        jsonString = "Invalid JSON passed to makeJSONUserDataSection!";
+    }
+
     std::vector<uint8_t> jsonData(jsonString.begin(), jsonString.end());
 
     // Pad to a 4 byte boundary
@@ -846,10 +913,9 @@ void addBMCUptime(nlohmann::json& json, const DataInterfaceBase& dataIface)
     json["BMCLoad"] = dataIface.getBMCLoadAvg();
 }
 
-std::unique_ptr<UserData>
-    makeSysInfoUserDataSection(const AdditionalData& ad,
-                               const DataInterfaceBase& dataIface,
-                               bool addUptime)
+std::unique_ptr<UserData> makeSysInfoUserDataSection(
+    const AdditionalData& ad, const DataInterfaceBase& dataIface,
+    bool addUptime, const nlohmann::json& adSysInfoData)
 {
     nlohmann::json json;
 
@@ -861,6 +927,11 @@ std::unique_ptr<UserData>
     if (addUptime)
     {
         addBMCUptime(json, dataIface);
+    }
+
+    if (!adSysInfoData.empty())
+    {
+        json.update(adSysInfoData);
     }
 
     return makeJSONUserDataSection(json);
@@ -993,6 +1064,20 @@ std::vector<uint8_t> flattenLines(const std::vector<std::string>& lines)
     }
 
     return out;
+}
+
+void addDIMMInfo(const std::string& locationCode,
+                 const std::vector<std::uint8_t>& diPropVal,
+                 nlohmann::json& adSysInfoData)
+{
+    nlohmann::json dimmInfoObj;
+    dimmInfoObj["Location Code"] = locationCode;
+    std::ranges::transform(
+        diPropVal, std::back_inserter(dimmInfoObj["DRAM Manufacturer ID"]),
+        [](const auto& diPropEachByte) {
+            return std::format("{:#04x}", diPropEachByte);
+        });
+    adSysInfoData["DIMMs Additional Info"] += dimmInfoObj;
 }
 
 } // namespace util

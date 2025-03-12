@@ -51,9 +51,8 @@ class Manager : public PELInterface
             std::unique_ptr<DataInterfaceBase> dataIface,
             EventLogger::LogFunction creatorFunc,
             std::unique_ptr<JournalBase> journal) :
-        PELInterface(logManager.getBus(), OBJ_LOGGING),
-        _logManager(logManager), _eventLogger(std::move(creatorFunc)),
-        _repo(getPELRepoPath()),
+        PELInterface(logManager.getBus(), OBJ_LOGGING), _logManager(logManager),
+        _eventLogger(std::move(creatorFunc)), _repo(getPELRepoPath()),
         _registry(getPELReadOnlyDataPath() / message::registryFileName),
         _event(sdeventplus::Event::get_default()),
         _dataIface(std::move(dataIface)), _journal(std::move(journal))
@@ -114,7 +113,7 @@ class Manager : public PELInterface
      */
     void create(const std::string& message, uint32_t obmcLogID,
                 uint64_t timestamp, phosphor::logging::Entry::Level severity,
-                const std::vector<std::string>& additionalData,
+                const std::map<std::string, std::string>& additionalData,
                 const std::vector<std::string>& associations,
                 const phosphor::logging::FFDCEntries& ffdc =
                     phosphor::logging::FFDCEntries{});
@@ -125,6 +124,14 @@ class Manager : public PELInterface
      * @param[in] obmcLogID - the corresponding OpenBMC event log id
      */
     void erase(uint32_t obmcLogID);
+
+    /**
+     * @brief Get the list of event log ids that have an associated
+     *        hardware isolation entry.
+     *
+     * @param[in] idsWithHwIsoEntry - List to store the list of log ids
+     */
+    void getLogIDWithHwIsolation(std::vector<uint32_t>& idsWithHwIsoEntry);
 
     /** @brief Says if an OpenBMC event log may not be manually deleted at this
      *         time because its corresponding PEL cannot be.
@@ -312,7 +319,7 @@ class Manager : public PELInterface
      */
     void createPEL(const std::string& message, uint32_t obmcLogID,
                    uint64_t timestamp, phosphor::logging::Entry::Level severity,
-                   const std::vector<std::string>& additionalData,
+                   const std::map<std::string, std::string>& additionalData,
                    const std::vector<std::string>& associations,
                    const phosphor::logging::FFDCEntries& ffdc);
 

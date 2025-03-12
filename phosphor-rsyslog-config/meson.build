@@ -3,6 +3,7 @@ sources = [
     'main.cpp',
     'server-conf.cpp',
     '../elog_meta.cpp',
+    '../util.cpp',
     elog_process_gen,
 ]
 

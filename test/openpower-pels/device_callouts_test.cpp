@@ -322,7 +322,7 @@ TEST_F(DeviceCalloutsTest, getCalloutTypeTest)
     {
         EXPECT_EQ(util::getCalloutType(
                       "/sys/devices/platform/ahb/ahb:apb/ahb:apb:bus@1e78a000/"
-                      "1e78a340.i2c-bus/i2c-14/14-0072"),
+                      "1e78a340.i2c/i2c-14/14-0072"),
                   util::CalloutType::i2c);
     }
 
@@ -361,7 +361,7 @@ TEST_F(DeviceCalloutsTest, getI2CSearchKeysTest)
     {
         EXPECT_EQ(util::getI2CSearchKeys(
                       "/sys/devices/platform/ahb/ahb:apb/ahb:apb:bus@1e78a000/"
-                      "1e78a340.i2c-bus/i2c-10/10-0022"),
+                      "1e78a340.i2c/i2c-10/10-0022"),
                   (std::tuple{10, 0x22}));
 
         EXPECT_EQ(util::getI2CSearchKeys(
@@ -480,7 +480,7 @@ TEST_F(DeviceCalloutsTest, getCalloutsTest)
     {
         auto callouts = getCallouts(
             "/sys/devices/platform/ahb/ahb:apb/ahb:apb:bus@1e78a000/"
-            "1e78a340.i2c-bus/i2c-14/14-0072",
+            "1e78a340.i2c/i2c-14/14-0072",
             systemTypes);
 
         std::vector<Callout> expected{
@@ -498,7 +498,7 @@ TEST_F(DeviceCalloutsTest, getCalloutsTest)
         EXPECT_THROW(
             getCallouts(
                 "/sys/devices/platform/ahb/ahb:apb/ahb:apb:bus@1e78a000/"
-                "1e78a340.i2c-bus/i2c-14/14-0099",
+                "1e78a340.i2c/i2c-14/14-0099",
                 systemTypes),
             std::invalid_argument);
 
@@ -506,7 +506,7 @@ TEST_F(DeviceCalloutsTest, getCalloutsTest)
         EXPECT_THROW(
             getCallouts(
                 "/sys/devices/platform/ahb/ahb:apb/ahb:apb:bus@1e78a000/"
-                "1e78a340.i2c-bus/i2c-0/0-005a",
+                "1e78a340.i2c/i2c-0/0-005a",
                 systemTypes),
             std::runtime_error);
     }
@@ -519,9 +519,9 @@ TEST_F(DeviceCalloutsTest, getCalloutsTest)
             "slave@01:00/01:01:00:06/sbefifo2-dev0/occ-hwmon.2",
             systemTypes);
 
-        std::vector<Callout> expected{{"H", "P1-C19",
-                                       "/chassis/motherboard/cpu0", "core",
-                                       "FSI: links: 0-1 dest: proc-0 target"}};
+        std::vector<Callout> expected{
+            {"H", "P1-C19", "/chassis/motherboard/cpu0", "core",
+             "FSI: links: 0-1 dest: proc-0 target"}};
 
         EXPECT_EQ(callouts, expected);
 

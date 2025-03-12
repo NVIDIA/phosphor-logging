@@ -156,8 +156,8 @@ std::string getFSISearchKeys(const std::string& devPath)
     return links;
 }
 
-std::tuple<std::string, std::tuple<size_t, uint8_t>>
-    getFSII2CSearchKeys(const std::string& devPath)
+std::tuple<std::string, std::tuple<size_t, uint8_t>> getFSII2CSearchKeys(
+    const std::string& devPath)
 {
     // This combines the FSI and i2C search keys
 
@@ -273,9 +273,8 @@ std::vector<Callout> extractCallouts(const nlohmann::json& calloutJSON,
  *
  * @return std::vector<Callout> - The callouts
  */
-std::vector<device_callouts::Callout>
-    calloutI2C(size_t i2cBus, uint8_t i2cAddress,
-               const nlohmann::json& calloutJSON)
+std::vector<device_callouts::Callout> calloutI2C(
+    size_t i2cBus, uint8_t i2cAddress, const nlohmann::json& calloutJSON)
 {
     auto busString = std::to_string(i2cBus);
     auto addrString = std::to_string(i2cAddress);
@@ -312,9 +311,8 @@ std::vector<device_callouts::Callout>
  *
  * @return std::vector<Callout> - The callouts
  */
-std::vector<device_callouts::Callout>
-    calloutI2CUsingPath(const std::string& devPath,
-                        const nlohmann::json& calloutJSON)
+std::vector<device_callouts::Callout> calloutI2CUsingPath(
+    const std::string& devPath, const nlohmann::json& calloutJSON)
 {
     auto [bus, address] = getI2CSearchKeys(devPath);
 
@@ -329,8 +327,8 @@ std::vector<device_callouts::Callout>
  *
  * @return std::vector<Callout> - The callouts
  */
-std::vector<device_callouts::Callout>
-    calloutFSI(const std::string& devPath, const nlohmann::json& calloutJSON)
+std::vector<device_callouts::Callout> calloutFSI(
+    const std::string& devPath, const nlohmann::json& calloutJSON)
 {
     auto links = getFSISearchKeys(devPath);
 
@@ -361,8 +359,8 @@ std::vector<device_callouts::Callout>
  *
  * @return std::vector<Callout> - The callouts
  */
-std::vector<device_callouts::Callout>
-    calloutFSII2C(const std::string& devPath, const nlohmann::json& calloutJSON)
+std::vector<device_callouts::Callout> calloutFSII2C(
+    const std::string& devPath, const nlohmann::json& calloutJSON)
 {
     auto linksAndI2C = getFSII2CSearchKeys(devPath);
     auto links = std::get<std::string>(linksAndI2C);
@@ -407,8 +405,8 @@ std::vector<device_callouts::Callout>
  *
  * @return std::vector<Callout> - The callouts
  */
-std::vector<device_callouts::Callout>
-    calloutFSISPI(const std::string& devPath, const nlohmann::json& calloutJSON)
+std::vector<device_callouts::Callout> calloutFSISPI(
+    const std::string& devPath, const nlohmann::json& calloutJSON)
 {
     auto linksAndSPI = getFSISPISearchKeys(devPath);
     auto links = std::get<std::string>(linksAndSPI);
@@ -479,8 +477,8 @@ std::vector<device_callouts::Callout> findCallouts(const std::string& devPath,
             callouts = calloutFSISPI(path, json);
             break;
         default:
-            std::string msg = "Could not get callout type from device path: " +
-                              path.string();
+            std::string msg =
+                "Could not get callout type from device path: " + path.string();
             throw std::invalid_argument{msg.c_str()};
             break;
     }
@@ -508,7 +506,7 @@ CalloutType getCalloutType(const std::string& devPath)
         return CalloutType::fsi;
     }
 
-    if (devPath.find("i2c-bus/i2c-") != std::string::npos)
+    if (devPath.find("i2c-") != std::string::npos)
     {
         return CalloutType::i2c;
     }
@@ -525,9 +523,9 @@ std::vector<Callout> getCallouts(const std::string& devPath,
     return util::findCallouts(devPath, json);
 }
 
-std::vector<Callout>
-    getI2CCallouts(size_t i2cBus, uint8_t i2cAddress,
-                   const std::vector<std::string>& compatibleList)
+std::vector<Callout> getI2CCallouts(
+    size_t i2cBus, uint8_t i2cAddress,
+    const std::vector<std::string>& compatibleList)
 {
     auto json = util::loadJSON(compatibleList);
     return util::calloutI2C(i2cBus, i2cAddress, json);

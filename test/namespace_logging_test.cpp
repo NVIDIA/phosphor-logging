@@ -22,7 +22,7 @@
 #include <sdbusplus/test/sdbus_mock.hpp>
 
 #include <filesystem>
-
+#include "paths.hpp"
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -61,7 +61,7 @@ TEST_F(TestNamespaceLogging, testBinCreation)
     auto binInfoCapacity = 20;
     auto bin = phosphor::logging::internal::Bin(
         binName, binErrorCapacity, binInfoCapacity,
-        std::string(ERRLOG_PERSIST_PATH) + "/" + binName, true);
+        std::string(phosphor::logging::paths::error()) + "/" + binName, true);
 
     // Add Bin to the Manager
     manager.addBin(bin);
@@ -81,7 +81,7 @@ TEST_F(TestNamespaceLogging, testBinCreation)
 
     // Test 3: Make sure one new entry was created
     EXPECT_EQ(countFilesinDirectory(
-                  fs::path(std::string(ERRLOG_PERSIST_PATH) + "/" + binName)),
+                  fs::path(std::string(phosphor::logging::paths::error()) + "/" + binName)),
               1);
 
     // Erase all entries
@@ -89,7 +89,7 @@ TEST_F(TestNamespaceLogging, testBinCreation)
 
     // Test 4: Make sure entries got erased
     EXPECT_EQ(countFilesinDirectory(
-                  fs::path(std::string(ERRLOG_PERSIST_PATH) + "/" + binName)),
+                  fs::path(std::string(phosphor::logging::paths::error()) + "/" + binName)),
               0);
 }
 
@@ -101,7 +101,7 @@ TEST_F(TestNamespaceLogging, testEraseAll)
     auto binInfoCapacity = 20;
     auto bin = phosphor::logging::internal::Bin(
         binName, binErrorCapacity, binInfoCapacity,
-        std::string(ERRLOG_PERSIST_PATH) + "/" + binName, true);
+        std::string(phosphor::logging::paths::error()) + "/" + binName, true);
 
     // Add Bin to the Manager
     manager.addBin(bin);
@@ -135,7 +135,7 @@ TEST_F(TestNamespaceLogging, testEraseAll)
 
     // Test 3: Test 'binName' FS files are 0
     EXPECT_EQ(countFilesinDirectory(
-                  fs::path(std::string(ERRLOG_PERSIST_PATH) + "/" + binName)),
+                  fs::path(std::string(phosphor::logging::paths::error()) + "/" + binName)),
               0);
 }
 
@@ -147,7 +147,7 @@ TEST_F(TestNamespaceLogging, testBinCapacity)
     auto binInfoCapacity = 20;
     auto bin = phosphor::logging::internal::Bin(
         binName, binErrorCapacity, binInfoCapacity,
-        std::string(ERRLOG_PERSIST_PATH) + "/" + binName, true);
+        std::string(phosphor::logging::paths::error()) + "/" + binName, true);
 
     // Add Bin to the Manager
     manager.addBin(bin);
@@ -194,7 +194,7 @@ TEST_F(TestNamespaceLogging, testBinCapacity)
 
     // Test 8: Count number of FS entries in created in bin
     EXPECT_EQ(countFilesinDirectory(
-                  fs::path(std::string(ERRLOG_PERSIST_PATH) + "/" + binName)),
+                  fs::path(std::string(phosphor::logging::paths::error()) + "/" + binName)),
               binInfoCapacity + binErrorCapacity);
 
     manager.eraseAll();
@@ -208,7 +208,7 @@ TEST_F(TestNamespaceLogging, testLogPersistency)
     auto binInfoCapacity = 20;
     auto bin = phosphor::logging::internal::Bin(
         binName, binErrorCapacity, binInfoCapacity,
-        std::string(ERRLOG_PERSIST_PATH) + "/" + binName, false);
+        std::string(phosphor::logging::paths::error()) + "/" + binName, false);
 
     // Add Bin to the Manager
     manager.addBin(bin);
@@ -228,7 +228,7 @@ TEST_F(TestNamespaceLogging, testLogPersistency)
 
     // Test 3: Since log is informational it should not be present in directory
     EXPECT_EQ(countFilesinDirectory(
-                  fs::path(std::string(ERRLOG_PERSIST_PATH) + "/" + binName)),
+                  fs::path(std::string(phosphor::logging::paths::error()) + "/" + binName)),
               0);
     manager.eraseAll();
     // Create Error log in Bin 'binName'
@@ -242,7 +242,7 @@ TEST_F(TestNamespaceLogging, testLogPersistency)
 
     // Test 6: Since log is error it should be present in directory
     EXPECT_EQ(countFilesinDirectory(
-                  fs::path(std::string(ERRLOG_PERSIST_PATH) + "/" + binName)),
+                  fs::path(std::string(phosphor::logging::paths::error()) + "/" + binName)),
               1);
 }
 

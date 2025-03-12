@@ -247,8 +247,8 @@ std::optional<std::map<SRC::WordNum, SRC::AdditionalDataField>>
 
     return std::nullopt;
 }
-std::optional<std::vector<SRC::WordNum>>
-    getSRCSymptomIDFields(const nlohmann::json& src, const std::string& name)
+std::optional<std::vector<SRC::WordNum>> getSRCSymptomIDFields(
+    const nlohmann::json& src, const std::string& name)
 {
     std::vector<SRC::WordNum> symptomIDFields;
 
@@ -549,9 +549,8 @@ RegistryCallout makeRegistryCallout(const nlohmann::json& json)
  *
  * @return std::vector<RegistryCallout> - The callouts to use
  */
-std::vector<RegistryCallout>
-    getCalloutsWithoutAD(const nlohmann::json& json,
-                         const std::vector<std::string>& systemNames)
+std::vector<RegistryCallout> getCalloutsWithoutAD(
+    const nlohmann::json& json, const std::vector<std::string>& systemNames)
 {
     std::vector<RegistryCallout> calloutEntries;
 
@@ -605,10 +604,9 @@ std::vector<RegistryCallout>
  *
  * @return std::vector<RegistryCallout> - The callouts to use
  */
-std::vector<RegistryCallout>
-    getCalloutsUsingAD(const nlohmann::json& json,
-                       const std::vector<std::string>& systemNames,
-                       const AdditionalData& additionalData)
+std::vector<RegistryCallout> getCalloutsUsingAD(
+    const nlohmann::json& json, const std::vector<std::string>& systemNames,
+    const AdditionalData& additionalData)
 {
     // This indicates which AD field we'll be using
     auto keyName = json["ADName"].get<std::string>();
@@ -630,10 +628,10 @@ std::vector<RegistryCallout>
     const auto& callouts = json["CalloutsWithTheirADValues"];
 
     // find the entry with that AD value
-    auto it = std::find_if(callouts.begin(), callouts.end(),
-                           [adValue](const nlohmann::json& j) {
-        return *adValue == j["ADValue"].get<std::string>();
-    });
+    auto it = std::find_if(
+        callouts.begin(), callouts.end(), [adValue](const nlohmann::json& j) {
+            return *adValue == j["ADValue"].get<std::string>();
+        });
 
     if (it == callouts.end())
     {
@@ -728,13 +726,14 @@ std::optional<Entry> Registry::lookup(const std::string& name, LookupType type,
     auto& reg = (_registry) ? _registry : registryTmp;
     const auto& registry = reg.value();
     // Find an entry with this name in the PEL array.
-    auto e = std::find_if(registry["PELs"].begin(), registry["PELs"].end(),
-                          [&name, &type](const nlohmann::json& j) {
-        return ((name == j.at("Name").get<std::string>() &&
-                 type == LookupType::name) ||
-                (name == j.at("SRC").at("ReasonCode").get<std::string>() &&
-                 type == LookupType::reasonCode));
-    });
+    auto e = std::find_if(
+        registry["PELs"].begin(), registry["PELs"].end(),
+        [&name, &type](const nlohmann::json& j) {
+            return ((name == j.at("Name").get<std::string>() &&
+                     type == LookupType::name) ||
+                    (name == j.at("SRC").at("ReasonCode").get<std::string>() &&
+                     type == LookupType::reasonCode));
+        });
 
     if (e != registry["PELs"].end())
     {
@@ -801,8 +800,8 @@ std::optional<Entry> Registry::lookup(const std::string& name, LookupType type,
 
             if (src.contains("Words6To9"))
             {
-                entry.src.hexwordADFields = helper::getSRCHexwordFields(src,
-                                                                        name);
+                entry.src.hexwordADFields =
+                    helper::getSRCHexwordFields(src, name);
             }
 
             if (src.contains("SymptomIDFields"))
@@ -859,8 +858,8 @@ std::optional<Entry> Registry::lookup(const std::string& name, LookupType type,
     return std::nullopt;
 }
 
-std::optional<nlohmann::json>
-    Registry::readRegistry(const std::filesystem::path& registryFile)
+std::optional<nlohmann::json> Registry::readRegistry(
+    const std::filesystem::path& registryFile)
 {
     // Look in /etc first in case someone put a test file there
     fs::path debugFile{fs::path{debugFilePath} / registryFileName};
@@ -890,10 +889,10 @@ std::optional<nlohmann::json>
     return registry;
 }
 
-std::vector<RegistryCallout>
-    Registry::getCallouts(const nlohmann::json& calloutJSON,
-                          const std::vector<std::string>& systemNames,
-                          const AdditionalData& additionalData)
+std::vector<RegistryCallout> Registry::getCallouts(
+    const nlohmann::json& calloutJSON,
+    const std::vector<std::string>& systemNames,
+    const AdditionalData& additionalData)
 {
     // The JSON may either use an AdditionalData key
     // as an index, or not.

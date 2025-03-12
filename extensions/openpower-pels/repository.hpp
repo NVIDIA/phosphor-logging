@@ -46,8 +46,7 @@ class Repository
                       uint16_t flags, TransmissionState hostState,
                       TransmissionState hmcState, uint32_t plid, bool deconfig,
                       bool guard, uint64_t creationTime) :
-            path(p),
-            sizeOnDisk(size), creator(creator), subsystem(subsystem),
+            path(p), sizeOnDisk(size), creator(creator), subsystem(subsystem),
             severity(sev), actionFlags(flags), hostState(hostState),
             hmcState(hmcState), plid(plid), deconfig(deconfig), guard(guard),
             creationTime(creationTime)
@@ -308,8 +307,8 @@ class Repository
      *
      * @return The attributes or an empty optional if not found
      */
-    std::optional<std::reference_wrapper<const PELAttributes>>
-        getPELAttributes(const LogID& id) const;
+    std::optional<std::reference_wrapper<const PELAttributes>> getPELAttributes(
+        const LogID& id) const;
 
     /**
      * @brief Returns the attributes map so that others can traverse PELs.
@@ -478,8 +477,8 @@ class Repository
      *
      * @return an iterator to the entry
      */
-    std::map<LogID, PELAttributes>::const_iterator
-        findPEL(const LogID& id) const
+    std::map<LogID, PELAttributes>::const_iterator findPEL(
+        const LogID& id) const
     {
         return std::find_if(_pelAttributes.begin(), _pelAttributes.end(),
                             [&id](const auto& a) { return a.first == id; });

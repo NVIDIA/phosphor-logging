@@ -87,8 +87,8 @@ std::optional<
                 // There is no ':', or no more content after ':', invalid config
                 return {};
             }
-            serverAddress = line.substr(posColonLeft + 1,
-                                        posColonRight - posColonLeft - 1);
+            serverAddress =
+                line.substr(posColonLeft + 1, posColonRight - posColonLeft - 1);
             serverPort = line.substr(posColonRight + 2);
         }
         else
@@ -189,8 +189,8 @@ uint16_t Server::port(uint16_t value)
     return result;
 }
 
-NetworkClient::TransportProtocol
-    Server::transportProtocol(NetworkClient::TransportProtocol value)
+NetworkClient::TransportProtocol Server::transportProtocol(
+    NetworkClient::TransportProtocol value)
 {
     TransportProtocol result{};
 

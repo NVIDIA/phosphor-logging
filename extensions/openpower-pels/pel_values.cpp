@@ -199,7 +199,8 @@ const PELValues actionFlagsValues = {
     {0x0800, "call_home", "HMC Call Home"},
     {0x0400, "isolation_incomplete",
      "Isolation Incomplete, further analysis required"},
-    {0x0100, "termination", "Service Processor Call Home Required"}};
+    {0x0100, "termination", "Service Processor Call Home Required"},
+    {0x0020, "heartbeat_call_home", "Heartbeat Call Home Event"}};
 
 /**
  * The possible values for the Callout Priority field in the SRC.
@@ -252,8 +253,8 @@ PELValues::const_iterator findByValue(uint32_t value, const PELValues& fields)
 {
     return std::find_if(fields.begin(), fields.end(),
                         [value](const auto& entry) {
-        return value == std::get<fieldValuePos>(entry);
-    });
+                            return value == std::get<fieldValuePos>(entry);
+                        });
 }
 
 PELValues::const_iterator findByName(const std::string& name,
@@ -262,8 +263,8 @@ PELValues::const_iterator findByName(const std::string& name,
 {
     return std::find_if(fields.begin(), fields.end(),
                         [&name](const auto& entry) {
-        return name == std::get<registryNamePos>(entry);
-    });
+                            return name == std::get<registryNamePos>(entry);
+                        });
 }
 
 /**
@@ -357,13 +358,13 @@ std::vector<std::string> getValuesBitwise(uint16_t value,
                                           const pel_values::PELValues& table)
 {
     std::vector<std::string> foundValues;
-    std::for_each(table.begin(), table.end(),
-                  [&value, &foundValues](const auto& entry) {
-        if (value & std::get<fieldValuePos>(entry))
-        {
-            foundValues.push_back(std::get<descriptionPos>(entry));
-        }
-    });
+    std::for_each(
+        table.begin(), table.end(), [&value, &foundValues](const auto& entry) {
+            if (value & std::get<fieldValuePos>(entry))
+            {
+                foundValues.push_back(std::get<descriptionPos>(entry));
+            }
+        });
     return foundValues;
 }
 

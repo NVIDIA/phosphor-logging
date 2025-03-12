@@ -17,7 +17,7 @@
 #include "config.h"
 
 #include "log_manager.hpp"
-
+#include "paths.hpp"
 #include <sdbusplus/bus.hpp>
 #include <sdbusplus/test/sdbus_mock.hpp>
 
@@ -69,7 +69,7 @@ TEST_F(TestPolicy, testLinearPolicy)
     auto totalCapacity = 500;
     auto bin = phosphor::logging::internal::Bin(
         binName, binErrorCapacity, binInfoCapacity,
-        std::string(ERRLOG_PERSIST_PATH) + "/" + binName, true);
+        std::string(phosphor::logging::paths::error()) + "/" + binName, true);
 
     // Add Bin to the Manager
     manager.addBin(bin);
@@ -155,7 +155,7 @@ TEST_F(TestPolicy, testLinearPolicy)
 
     // Test 9: Count number of FS entries in created in bin
     EXPECT_EQ(countFilesinDirectory(
-                  fs::path(std::string(ERRLOG_PERSIST_PATH) + "/" + binName)),
+                  fs::path(std::string(phosphor::logging::paths::error()) + "/" + binName)),
               binInfoCapacity + binErrorCapacity);
 
     manager.eraseAll();

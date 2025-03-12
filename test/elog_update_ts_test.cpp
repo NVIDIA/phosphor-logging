@@ -2,7 +2,9 @@
 
 #include "elog_entry.hpp"
 #include "elog_serialize.hpp"
+#include "extensions.hpp"
 #include "log_manager.hpp"
+#include "paths.hpp"
 
 #include <filesystem>
 #include <thread>
@@ -19,15 +21,25 @@ namespace test
 using namespace std::chrono_literals;
 namespace fs = std::filesystem;
 
+void deleteIsProhibitedMock(uint32_t /*id*/, bool& prohibited)
+{
+    prohibited = true;
+}
+
+void deleteIsNotProhibitedMock(uint32_t /*id*/, bool& prohibited)
+{
+    prohibited = false;
+}
+
 // Test that the update timestamp changes when the resolved property changes
 TEST(TestUpdateTS, testChangeResolved)
 {
     // Setting resolved will serialize, so need this directory.
-    fs::create_directory(ERRLOG_PERSIST_PATH);
+    fs::create_directories(paths::error());
 
-    if (!fs::exists(ERRLOG_PERSIST_PATH))
+    if (!fs::exists(paths::error()))
     {
-        ADD_FAILURE() << "Could not create " << ERRLOG_PERSIST_PATH << "\n";
+        ADD_FAILURE() << "Could not create " << paths::error() << "\n";
         exit(1);
     }
 
@@ -39,7 +51,7 @@ TEST(TestUpdateTS, testChangeResolved)
     std::srand(std::time(nullptr));
     uint32_t id = std::rand();
 
-    if (fs::exists(fs::path{ERRLOG_PERSIST_PATH} / std::to_string(id)))
+    if (fs::exists(fs::path{paths::error()} / std::to_string(id)))
     {
         std::cerr << "Another testcase is using ID " << id << "\n";
         id = std::rand();
@@ -49,7 +61,7 @@ TEST(TestUpdateTS, testChangeResolved)
     std::string message{"test error"};
     std::string fwLevel{"level42"};
     std::string path{"/tmp/99"};
-    std::vector<std::string> testData{"additional", "data"};
+    std::map<std::string, std::string> testData{{"additional", "data"}};
     phosphor::logging::AssociationList associations{};
 
     Entry elog{bus,
@@ -85,9 +97,71 @@ TEST(TestUpdateTS, testChangeResolved)
     EXPECT_EQ(updateTS, elog.updateTimestamp());
 
     // Leave the directory in case other CI instances are running
-    fs::remove(fs::path{ERRLOG_PERSIST_PATH} / std::to_string(id));
+    fs::remove(fs::path{paths::error()} / std::to_string(id));
 }
 
+TEST(TestResolveProhibited, testResolveFlagChange)
+{
+    auto persist_path = phosphor::logging::paths::error();
+
+    // Setting resolved will serialize, so need this directory.
+    fs::create_directories(persist_path);
+
+    if (!fs::exists(persist_path))
+    {
+        ADD_FAILURE() << "Could not create "
+                      << phosphor::logging::paths::error() << "\n";
+        exit(1);
+    }
+
+    auto bus = sdbusplus::bus::new_default();
+    phosphor::logging::internal::Manager manager(bus, OBJ_INTERNAL);
+
+    // Use a random number for the ID to avoid other CI
+    // testcases running in parallel.
+    std::srand(std::time(nullptr));
+    uint32_t id = std::rand();
+
+    if (fs::exists(persist_path / std::to_string(id)))
+    {
+        std::cerr << "Another testcase is using ID " << id << "\n";
+        id = std::rand();
+    }
+
+    uint64_t timestamp{100};
+    std::string message{"test error"};
+    std::string fwLevel{"level42"};
+    std::string path{"/tmp/99"};
+    std::map<std::string, std::string> testData{{"additional", "data"}};
+    phosphor::logging::AssociationList associations{};
+
+    Entry elog{bus,
+               std::string(OBJ_ENTRY) + '/' + std::to_string(id),
+               id,
+               timestamp,
+               Entry::Level::Informational,
+               std::move(message),
+               std::move(testData),
+               std::move(associations),
+               fwLevel,
+               path,
+               manager};
+
+    Extensions ext{deleteIsProhibitedMock};
+
+    EXPECT_THROW(elog.resolved(true),
+                 sdbusplus::xyz::openbmc_project::Common::Error::Unavailable);
+
+    Extensions::getDeleteProhibitedFunctions().clear();
+
+    Extensions e{deleteIsNotProhibitedMock};
+
+    EXPECT_NO_THROW(elog.resolved(true));
+    EXPECT_EQ(elog.resolved(), true);
+
+    // Leave the directory in case other CI instances are running
+    fs::remove(persist_path / std::to_string(id));
+}
 } // namespace test
 } // namespace logging
 } // namespace phosphor

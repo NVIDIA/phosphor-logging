@@ -153,6 +153,29 @@ const auto registryData = R"(
                     }
                 ]
             }
+        },
+
+        {
+            "Name": "org.open_power.PHAL.Info.ClockDailyLog",
+            "Subsystem": "cec_clocks",
+            "ComponentID": "0x3000",
+            "Severity": "non_error",
+            "ActionFlags": ["report", "call_home", "heartbeat_call_home"],
+
+            "SRC":
+            {
+                "ReasonCode": "0x300A",
+                "Words6To9": {}
+            },
+
+            "Documentation":
+            {
+                "Description": "Informational error to house clock debug info",
+                "Message": "Informational error to house clock debug info",
+                "Notes": [
+                    "User data includes processor and clock register state information."
+                ]
+            }
         }
     ]
 }
@@ -261,6 +284,12 @@ TEST_F(RegistryTest, TestFindEntry)
     entry = registry.lookup("0x2333", LookupType::reasonCode);
     ASSERT_TRUE(entry);
     EXPECT_EQ(entry->name, "xyz.openbmc_project.Power.OverVoltage");
+
+    entry = registry.lookup("org.open_power.PHAL.Info.ClockDailyLog",
+                            LookupType::name);
+    ASSERT_TRUE(entry);
+    EXPECT_EQ(entry->name, "org.open_power.PHAL.Info.ClockDailyLog");
+    EXPECT_EQ(*(entry->actionFlags), 0x2820);
 }
 
 // Check the entry that mostly uses defaults
@@ -269,8 +298,8 @@ TEST_F(RegistryTest, TestFindEntryMinimal)
     auto path = RegistryTest::writeData(registryData);
     Registry registry{path};
 
-    auto entry = registry.lookup("xyz.openbmc_project.Power.Fault",
-                                 LookupType::name);
+    auto entry =
+        registry.lookup("xyz.openbmc_project.Power.Fault", LookupType::name);
     ASSERT_TRUE(entry);
     EXPECT_EQ(entry->name, "xyz.openbmc_project.Power.Fault");
     EXPECT_EQ(entry->subsystem, 0x61);
@@ -318,6 +347,12 @@ TEST_F(RegistryTest, TestHelperFunctions)
     std::vector<std::string> flags{"service_action", "dont_report",
                                    "termination"};
     EXPECT_EQ(getActionFlags(flags), 0x9100);
+
+    flags.push_back("heartbeat_call_home");
+    EXPECT_EQ(getActionFlags(flags), 0x9120);
+    flags.clear();
+    flags.push_back("heartbeat_call_home");
+    EXPECT_EQ(getActionFlags(flags), 0x0020);
 
     flags.clear();
     flags.push_back("foo");
@@ -407,8 +442,8 @@ TEST_F(RegistryTest, TestGetComponentID)
     using namespace openpower::pels::message::helper;
 
     // Get it from the JSON
-    auto id = getComponentID(0xBD, 0x4200, R"({"ComponentID":"0x4200"})"_json,
-                             "foo");
+    auto id =
+        getComponentID(0xBD, 0x4200, R"({"ComponentID":"0x4200"})"_json, "foo");
     EXPECT_EQ(id, 0x4200);
 
     // Get it from the reason code on a 0xBD SRC
@@ -653,7 +688,7 @@ TEST_F(RegistryTest, TestGetCallouts)
 
         {
             // Find callouts for PROC_NUM 0 on system3
-            std::vector<std::string> adData{"PROC_NUM=0"};
+            std::map<std::string, std::string> adData{{"PROC_NUM", "0"}};
             AdditionalData ad{adData};
             systemNames[0] = "system3";
 
@@ -688,7 +723,7 @@ TEST_F(RegistryTest, TestGetCallouts)
         }
         {
             // Find callouts for PROC_NUM 1 that uses a default system entry.
-            std::vector<std::string> adData{"PROC_NUM=1"};
+            std::map<std::string, std::string> adData{{"PROC_NUM", "1"}};
             AdditionalData ad{adData};
             systemNames[0] = "system1";
 
@@ -702,7 +737,7 @@ TEST_F(RegistryTest, TestGetCallouts)
         }
         {
             // There is no entry for PROC_NUM 2, so no callouts
-            std::vector<std::string> adData{"PROC_NUM=2"};
+            std::map<std::string, std::string> adData{{"PROC_NUM", "2"}};
             AdditionalData ad{adData};
 
             auto callouts = Registry::getCallouts(json, systemNames, ad);
@@ -748,7 +783,7 @@ TEST_F(RegistryTest, TestGetCallouts)
 
         // There isn't an entry in the JSON for a PROC_NUM of 8
         // so it should choose the P1-C1 callout.
-        std::vector<std::string> adData{"PROC_NUM=8"};
+        std::map<std::string, std::string> adData{{"PROC_NUM", "8"}};
         AdditionalData ad{adData};
         systemNames.clear();
 

@@ -21,6 +21,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <optional>
 
 #include <gtest/gtest.h>
 
@@ -161,7 +162,7 @@ TEST_F(PELTest, CreateFromRegistryTest)
     regEntry.src.type = 0xBD;
     regEntry.src.reasonCode = 0x1234;
 
-    std::vector<std::string> data{"KEY1=VALUE1"};
+    std::map<std::string, std::string> data{{"KEY1", "VALUE1"}};
     AdditionalData ad{data};
     NiceMock<MockDataInterface> dataIface;
     NiceMock<MockJournal> journal;
@@ -211,9 +212,10 @@ TEST_F(PELTest, CreateFromRegistryTest)
         // in the registry, so the constructor should set them.
         regEntry.actionFlags = std::nullopt;
 
-        PEL pel2{
-            regEntry, 42,   timestamp, phosphor::logging::Entry::Level::Error,
-            ad,       ffdc, dataIface, journal};
+        PEL pel2{regEntry,  42,
+                 timestamp, phosphor::logging::Entry::Level::Error,
+                 ad,        ffdc,
+                 dataIface, journal};
 
         EXPECT_EQ(pel2.userHeader().actionFlags(), 0xA800);
     }
@@ -235,10 +237,7 @@ TEST_F(PELTest, CreateTooBigADTest)
     PelFFDC ffdc;
 
     // Over the 16KB max PEL size
-    std::string bigAD{"KEY1="};
-    bigAD += std::string(17000, 'G');
-
-    std::vector<std::string> data{bigAD};
+    std::map<std::string, std::string> data{{"KEY1", std::string(17000, 'G')}};
     AdditionalData ad{data};
     NiceMock<MockDataInterface> dataIface;
     NiceMock<MockJournal> journal;
@@ -251,11 +250,11 @@ TEST_F(PELTest, CreateTooBigADTest)
 
     // Make sure that there are still 2 UD sections.
     const auto& optSections = pel.optionalSections();
-    auto udCount = std::count_if(optSections.begin(), optSections.end(),
-                                 [](const auto& section) {
-        return section->header().id ==
-               static_cast<uint16_t>(SectionID::userData);
-    });
+    auto udCount = std::count_if(
+        optSections.begin(), optSections.end(), [](const auto& section) {
+            return section->header().id ==
+                   static_cast<uint16_t>(SectionID::userData);
+        });
 
     EXPECT_EQ(udCount, 2); // AD section and sysInfo section
 }
@@ -266,15 +265,15 @@ TEST_F(PELTest, GenericSectionTest)
 {
     auto data = pelDataFactory(TestPELType::pelSimple);
 
-    std::vector<uint8_t> section1{0x58, 0x58, // ID 'XX'
-                                  0x00, 0x18, // Size
-                                  0x01, 0x02, // version, subtype
-                                  0x03, 0x04, // comp ID
+    std::vector<uint8_t> section1{
+        0x58, 0x58, // ID 'XX'
+        0x00, 0x18, // Size
+        0x01, 0x02, // version, subtype
+        0x03, 0x04, // comp ID
 
-                                  // some data
-                                  0x20, 0x30, 0x05, 0x09, 0x11, 0x1E, 0x1, 0x63,
-                                  0x20, 0x31, 0x06, 0x0F, 0x09, 0x22, 0x3A,
-                                  0x00};
+        // some data
+        0x20, 0x30, 0x05, 0x09, 0x11, 0x1E, 0x1, 0x63, 0x20, 0x31, 0x06, 0x0F,
+        0x09, 0x22, 0x3A, 0x00};
 
     std::vector<uint8_t> section2{
         0x59, 0x59, // ID 'YY'
@@ -360,8 +359,10 @@ TEST_F(PELTest, InvalidGenericTest)
 // Create a UserData section out of AdditionalData
 TEST_F(PELTest, MakeUDSectionTest)
 {
-    std::vector<std::string> ad{"KEY1=VALUE1", "KEY2=VALUE2", "KEY3=VALUE3",
-                                "ESEL=TEST"};
+    std::map<std::string, std::string> ad{{"KEY1", "VALUE1"},
+                                          {"KEY2", "VALUE2"},
+                                          {"KEY3", "VALUE3"},
+                                          {"ESEL", "TEST"}};
     AdditionalData additionalData{ad};
 
     auto ud = util::makeADUserDataSection(additionalData);
@@ -407,8 +408,7 @@ TEST_F(PELTest, SysInfoSectionTest)
     EXPECT_CALL(dataIface, getSystemIMKeyword())
         .WillOnce(Return(std::vector<uint8_t>{0, 1, 0x55, 0xAA}));
 
-    std::string pid = "_PID=" + std::to_string(getpid());
-    std::vector<std::string> ad{pid};
+    std::map<std::string, std::string> ad{{"_PID", std::to_string(getpid())}};
     AdditionalData additionalData{ad};
 
     auto ud = util::makeSysInfoUserDataSection(additionalData, dataIface);
@@ -750,7 +750,7 @@ TEST_F(PELTest, CreateWithFFDCTest)
     regEntry.src.type = 0xBD;
     regEntry.src.reasonCode = 0x1234;
 
-    std::vector<std::string> additionalData{"KEY1=VALUE1"};
+    std::map<std::string, std::string> additionalData{{"KEY1", "VALUE1"}};
     AdditionalData ad{additionalData};
     NiceMock<MockDataInterface> dataIface;
     NiceMock<MockJournal> journal;
@@ -848,10 +848,10 @@ TEST_F(PELTest, CreateWithDevCalloutsTest)
         .WillOnce(Return(std::vector<std::string>{
             "/xyz/openbmc_project/inventory/chassis/motherboard/cpu0"}));
 
-    EXPECT_CALL(
-        dataIface,
-        getHWCalloutFields(
-            "/xyz/openbmc_project/inventory/chassis/motherboard/cpu0", _, _, _))
+    EXPECT_CALL(dataIface,
+                getHWCalloutFields(
+                    "/xyz/openbmc_project/inventory/chassis/motherboard/cpu0",
+                    _, _, _))
         .WillOnce(DoAll(SetArgReferee<1>("1234567"), SetArgReferee<2>("CCCC"),
                         SetArgReferee<3>("123456789ABC")));
 
@@ -861,16 +861,17 @@ TEST_F(PELTest, CreateWithDevCalloutsTest)
     file.close();
 
     {
-        std::vector<std::string> data{
-            "CALLOUT_ERRNO=5",
-            "CALLOUT_DEVICE_PATH=/sys/devices/platform/ahb/ahb:apb/"
-            "ahb:apb:bus@1e78a000/1e78a340.i2c-bus/i2c-14/14-0072"};
+        std::map<std::string, std::string> data{
+            {"CALLOUT_ERRNO", "5"},
+            {"CALLOUT_DEVICE_PATH",
+             "/sys/devices/platform/ahb/ahb:apb/ahb:apb:bus@1e78a000/1e78a340.i2c-bus/i2c-14/14-0072"}};
 
         AdditionalData ad{data};
 
-        PEL pel{
-            regEntry, 42,   timestamp, phosphor::logging::Entry::Level::Error,
-            ad,       ffdc, dataIface, journal};
+        PEL pel{regEntry,  42,
+                timestamp, phosphor::logging::Entry::Level::Error,
+                ad,        ffdc,
+                dataIface, journal};
 
         ASSERT_TRUE(pel.primarySRC().value()->callouts());
         auto& callouts = pel.primarySRC().value()->callouts()->callouts();
@@ -906,21 +907,25 @@ TEST_F(PELTest, CreateWithDevCalloutsTest)
             }
         )"_json;
 
-        EXPECT_EQ(actualJSON, expectedJSON);
+        EXPECT_TRUE(
+            actualJSON.contains("/PEL Internal Debug Data/SRC"_json_pointer));
+        EXPECT_EQ(actualJSON["PEL Internal Debug Data"]["SRC"],
+                  expectedJSON["PEL Internal Debug Data"]["SRC"]);
     }
 
     {
         // Device path not found (wrong i2c addr), so no callouts
-        std::vector<std::string> data{
-            "CALLOUT_ERRNO=5",
-            "CALLOUT_DEVICE_PATH=/sys/devices/platform/ahb/ahb:apb/"
-            "ahb:apb:bus@1e78a000/1e78a340.i2c-bus/i2c-14/14-0099"};
+        std::map<std::string, std::string> data{
+            {"CALLOUT_ERRNO", "5"},
+            {"CALLOUT_DEVICE_PATH",
+             "/sys/devices/platform/ahb/ahb:apb/ahb:apb:bus@1e78a000/1e78a340.i2c-bus/i2c-14/14-0099"}};
 
         AdditionalData ad{data};
 
-        PEL pel{
-            regEntry, 42,   timestamp, phosphor::logging::Entry::Level::Error,
-            ad,       ffdc, dataIface, journal};
+        PEL pel{regEntry,  42,
+                timestamp, phosphor::logging::Entry::Level::Error,
+                ad,        ffdc,
+                dataIface, journal};
 
         // no callouts
         EXPECT_FALSE(pel.primarySRC().value()->callouts());
@@ -943,7 +948,10 @@ TEST_F(PELTest, CreateWithDevCalloutsTest)
             "[\"Problem looking up I2C callouts on 14 153: "
             "[json.exception.out_of_range.403] key '153' not found\"]}}"_json;
 
-        EXPECT_EQ(actualJSON, expectedJSON);
+        EXPECT_TRUE(
+            actualJSON.contains("/PEL Internal Debug Data/SRC"_json_pointer));
+        EXPECT_EQ(actualJSON["PEL Internal Debug Data"]["SRC"],
+                  expectedJSON["PEL Internal Debug Data"]["SRC"]);
     }
 
     fs::remove_all(dataPath);
@@ -1139,7 +1147,7 @@ TEST_F(PELTest, CaptureJournalTest)
     regEntry.src.type = 0xBD;
     regEntry.src.reasonCode = 0x1234;
 
-    std::vector<std::string> data;
+    std::map<std::string, std::string> data{};
     AdditionalData ad{data};
     NiceMock<MockDataInterface> dataIface;
     NiceMock<MockJournal> journal;
@@ -1157,9 +1165,10 @@ TEST_F(PELTest, CaptureJournalTest)
 
         EXPECT_CALL(journal, getMessages("", 5)).WillOnce(Return(msgs));
 
-        PEL pel{
-            regEntry, 42,   timestamp, phosphor::logging::Entry::Level::Error,
-            ad,       ffdc, dataIface, journal};
+        PEL pel{regEntry,  42,
+                timestamp, phosphor::logging::Entry::Level::Error,
+                ad,        ffdc,
+                dataIface, journal};
 
         // Check the generated UserData section
         std::string expected{"test1 test2\ntest3 test4\ntest5 test6\n4\n5\n"};
@@ -1183,9 +1192,10 @@ TEST_F(PELTest, CaptureJournalTest)
             .WillOnce(
                 Return(std::vector<std::string>{std::string(20000, 'x')}));
 
-        PEL pel{
-            regEntry, 42,   timestamp, phosphor::logging::Entry::Level::Error,
-            ad,       ffdc, dataIface, journal};
+        PEL pel{regEntry,  42,
+                timestamp, phosphor::logging::Entry::Level::Error,
+                ad,        ffdc,
+                dataIface, journal};
 
         // Check for 1 fewer sections than in the previous PEL
         EXPECT_EQ(pel.privateHeader().sectionCount(), pelSectsWithOneUD - 1);
@@ -1214,11 +1224,13 @@ TEST_F(PELTest, CaptureJournalTest)
         EXPECT_CALL(journal, getMessages("app2", 4)).WillOnce(Return(app2));
         EXPECT_CALL(journal, getMessages("app3", 1)).WillOnce(Return(app3));
 
-        PEL pel{
-            regEntry, 42,   timestamp, phosphor::logging::Entry::Level::Error,
-            ad,       ffdc, dataIface, journal};
+        PEL pel{regEntry,  42,
+                timestamp, phosphor::logging::Entry::Level::Error,
+                ad,        ffdc,
+                dataIface, journal};
 
-        // Two more sections than the 1 extra UD section in the first testcase
+        // Two more sections than the 1 extra UD section in the first
+        // testcase
         ASSERT_EQ(pel.privateHeader().sectionCount(), pelSectsWithOneUD + 2);
 
         const auto& optionalSections = pel.optionalSections();
@@ -1250,13 +1262,250 @@ TEST_F(PELTest, CaptureJournalTest)
             .WillOnce(
                 Return(std::vector<std::string>{std::string(20000, 'x')}));
 
-        PEL pel{
-            regEntry, 42,   timestamp, phosphor::logging::Entry::Level::Error,
-            ad,       ffdc, dataIface, journal};
+        PEL pel{regEntry,  42,
+                timestamp, phosphor::logging::Entry::Level::Error,
+                ad,        ffdc,
+                dataIface, journal};
 
         // The last section should have been dropped, so same as first TC
         ASSERT_EQ(pel.privateHeader().sectionCount(), pelSectsWithOneUD);
 
         checkJournalSection(pel.optionalSections().back(), expected4);
+    }
+}
+
+// API to collect and parse the User Data section of the PEL.
+nlohmann::json getDIMMInfo(const auto& pel)
+{
+    nlohmann::json dimmInfo{};
+    auto hasDIMMInfo = [&dimmInfo](const auto& optionalSection) {
+        if (optionalSection->header().id !=
+            static_cast<uint16_t>(SectionID::userData))
+        {
+            return false;
+        }
+        else
+        {
+            auto userData = static_cast<UserData*>(optionalSection.get());
+
+            // convert the userdata section to string and then parse in to
+            // json format
+            std::string userDataString{userData->data().begin(),
+                                       userData->data().end()};
+            nlohmann::json userDataJson = nlohmann::json::parse(userDataString);
+
+            if (userDataJson.contains("DIMMs Additional Info"))
+            {
+                dimmInfo = userDataJson.at("DIMMs Additional Info");
+            }
+            else if (
+                userDataJson.contains(
+                    "/PEL Internal Debug Data/DIMMs Info Fetch Error"_json_pointer))
+            {
+                dimmInfo = userDataJson.at(
+                    "/PEL Internal Debug Data/DIMMs Info Fetch Error"_json_pointer);
+            }
+            else
+            {
+                return false;
+            }
+            return true;
+        }
+    };
+    std::ranges::any_of(pel.optionalSections(), hasDIMMInfo);
+
+    return dimmInfo;
+}
+
+// Test whether the DIMM callouts manufacturing info is getting added to the
+// SysInfo User Data section of the PEL
+TEST_F(PELTest, TestDimmsCalloutInfo)
+{
+    {
+        message::Entry entry;
+        uint64_t timestamp = 5;
+        AdditionalData ad;
+        NiceMock<MockDataInterface> dataIface;
+        NiceMock<MockJournal> journal;
+        PelFFDC ffdc;
+
+        // When callouts contain DIMM callouts.
+        entry.callouts = R"(
+        [
+            {
+                "CalloutList": [
+                    {
+                        "Priority": "high",
+                        "LocCode": "P0-DIMM0"
+                    },
+                    {
+                        "Priority": "low",
+                        "LocCode": "P0-DIMM1"
+                    }
+                ]
+            }
+        ]
+        )"_json;
+
+        EXPECT_CALL(dataIface, expandLocationCode("P0-DIMM0", 0))
+            .WillOnce(Return("U98D-P0-DIMM0"));
+        EXPECT_CALL(dataIface, expandLocationCode("P0-DIMM1", 0))
+            .WillOnce(Return("U98D-P0-DIMM1"));
+
+        EXPECT_CALL(dataIface, getInventoryFromLocCode("P0-DIMM0", 0, false))
+            .WillOnce(Return(std::vector<std::string>{
+                "/xyz/openbmc_project/inventory/system/chassis/motherboard/dimm0"}));
+        EXPECT_CALL(dataIface, getInventoryFromLocCode("P0-DIMM1", 0, false))
+            .WillOnce(Return(std::vector<std::string>{
+                "/xyz/openbmc_project/inventory/system/chassis/motherboard/dimm1"}));
+
+        std::vector<uint8_t> diValue{128, 74};
+        EXPECT_CALL(dataIface, getDIProperty("U98D-P0-DIMM0"))
+            .WillOnce(Return(diValue));
+        EXPECT_CALL(dataIface, getDIProperty("U98D-P0-DIMM1"))
+            .WillOnce(Return(diValue));
+
+        // Add some location code in expanded format to DIMM cache memory
+        dataIface.addDIMMLocCode("U98D-P0-DIMM0", true);
+        dataIface.addDIMMLocCode("U98D-P0-DIMM1", true);
+
+        PEL pel{entry, 42,   timestamp, phosphor::logging::Entry::Level::Error,
+                ad,    ffdc, dataIface, journal};
+        nlohmann::json dimmInfoJson = getDIMMInfo(pel);
+
+        nlohmann::json expected_data = R"(
+        [
+            {
+                "Location Code": "U98D-P0-DIMM0",
+                "DRAM Manufacturer ID": [
+                    "0x80",
+                    "0x4a"
+                ]
+            },
+            {
+                "Location Code": "U98D-P0-DIMM1",
+                "DRAM Manufacturer ID": [
+                    "0x80",
+                    "0x4a"
+                ]
+            }
+        ]
+        )"_json;
+        EXPECT_EQ(expected_data, dimmInfoJson);
+    }
+}
+
+// When PEL has FRU callouts but PHAL is not enabled.
+TEST_F(PELTest, TestNoDimmsCallout)
+{
+    message::Entry entry;
+    uint64_t timestamp = 5;
+    AdditionalData ad;
+    NiceMock<MockDataInterface> dataIface;
+    NiceMock<MockJournal> journal;
+    PelFFDC ffdc;
+
+    entry.callouts = R"(
+        [
+            {
+                "CalloutList": [
+                    {
+                        "Priority": "high",
+                        "LocCode": "P0-PROC0"
+                    }
+                ]
+            }
+        ]
+        )"_json;
+
+    EXPECT_CALL(dataIface, expandLocationCode("P0-PROC0", 0))
+        .WillOnce(Return("U98D-P0-PROC0"));
+
+    EXPECT_CALL(dataIface, getInventoryFromLocCode("P0-PROC0", 0, false))
+        .WillOnce(Return(std::vector<std::string>{
+            "/xyz/openbmc_project/inventory/system/chassis/motherboard/dcm0/cpu0"}));
+
+    // Add some location code in expanded format to DIMM cache memory
+    dataIface.addDIMMLocCode("U98D-P0-PROC0", false);
+
+    PEL pel{entry, 42,   timestamp, phosphor::logging::Entry::Level::Error,
+            ad,    ffdc, dataIface, journal};
+
+    nlohmann::json dimmInfoJson = getDIMMInfo(pel);
+
+    nlohmann::json expected_data{};
+
+    EXPECT_EQ(expected_data, dimmInfoJson);
+}
+
+// When the PEL doesn't contain any type of callouts
+TEST_F(PELTest, TestDimmsCalloutInfoWithNoCallouts)
+{
+    message::Entry entry;
+    uint64_t timestamp = 5;
+    AdditionalData ad;
+    NiceMock<MockDataInterface> dataIface;
+    NiceMock<MockJournal> journal;
+    PelFFDC ffdc;
+
+    PEL pel{entry, 42,   timestamp, phosphor::logging::Entry::Level::Error,
+            ad,    ffdc, dataIface, journal};
+
+    nlohmann::json dimmInfoJson = getDIMMInfo(pel);
+
+    nlohmann::json expected_data{};
+
+    EXPECT_EQ(expected_data, dimmInfoJson);
+}
+
+// When the PEL has DIMM callouts, but failed to fetch DI property value
+TEST_F(PELTest, TestDimmsCalloutInfoDIFailure)
+{
+    {
+        message::Entry entry;
+        uint64_t timestamp = 5;
+        AdditionalData ad;
+        NiceMock<MockDataInterface> dataIface;
+        NiceMock<MockJournal> journal;
+        PelFFDC ffdc;
+
+        entry.callouts = R"(
+        [
+            {
+                "CalloutList": [
+                    {
+                        "Priority": "high",
+                        "LocCode": "P0-DIMM0"
+                    }
+                ]
+            }
+        ]
+        )"_json;
+
+        EXPECT_CALL(dataIface, expandLocationCode("P0-DIMM0", 0))
+            .WillOnce(Return("U98D-P0-DIMM0"));
+
+        EXPECT_CALL(dataIface, getInventoryFromLocCode("P0-DIMM0", 0, false))
+            .WillOnce(Return(std::vector<std::string>{
+                "/xyz/openbmc_project/inventory/system/chassis/motherboard/dimm0"}));
+
+        EXPECT_CALL(dataIface, getDIProperty("U98D-P0-DIMM0"))
+            .WillOnce(Return(std::nullopt));
+
+        // Add some location code in expanded format to DIMM cache memory
+        dataIface.addDIMMLocCode("U98D-P0-DIMM0", true);
+
+        PEL pel{entry, 42,   timestamp, phosphor::logging::Entry::Level::Error,
+                ad,    ffdc, dataIface, journal};
+
+        nlohmann::json dimmInfoJson = getDIMMInfo(pel);
+
+        nlohmann::json expected_data = R"(
+            [
+                "Failed reading DI property from VINI Interface for the LocationCode:[U98D-P0-DIMM0]"
+            ]
+        )"_json;
+
+        EXPECT_EQ(expected_data, dimmInfoJson);
     }
 }

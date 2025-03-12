@@ -435,8 +435,8 @@ class SRC : public Section
      * @param[in] regEntry - The message registry entry for the error
      * @return std::optional<std::string> - Error message
      */
-    std::optional<std::string>
-        getErrorMessage(const message::Entry& regEntry) const;
+    std::optional<std::string> getErrorMessage(
+        const message::Entry& regEntry) const;
 
     /**
      * @brief Get Callout info in JSON
@@ -470,12 +470,12 @@ class SRC : public Section
      * @param[in] dataIface - The DataInterface object
      * @param[in] mrus - The MRUs to add to the callout
      */
-    void
-        addInventoryCallout(const std::string& inventoryPath,
-                            const std::optional<CalloutPriority>& priority,
-                            const std::optional<std::string>& locationCode,
-                            const DataInterfaceBase& dataIface,
-                            const std::vector<src::MRU::MRUCallout>& mrus = {});
+    void addInventoryCallout(
+        const std::string& inventoryPath,
+        const std::optional<CalloutPriority>& priority,
+        const std::optional<std::string>& locationCode,
+        const DataInterfaceBase& dataIface,
+        const std::vector<src::MRU::MRUCallout>& mrus = {});
 
     /**
      * @brief Returns the callouts to use from the registry entry.
@@ -484,10 +484,9 @@ class SRC : public Section
      * @param[in] additionalData - The AdditionalData property
      * @param[in] dataIface - The DataInterface object
      */
-    std::vector<message::RegistryCallout>
-        getRegistryCallouts(const message::Entry& regEntry,
-                            const AdditionalData& additionalData,
-                            const DataInterfaceBase& dataIface);
+    std::vector<message::RegistryCallout> getRegistryCallouts(
+        const message::Entry& regEntry, const AdditionalData& additionalData,
+        const DataInterfaceBase& dataIface);
 
     /**
      * @brief Adds the FRU callouts from the list of registry callouts
@@ -582,15 +581,8 @@ class SRC : public Section
      *
      * @param[in] mruJSON - The JSON array
      */
-    std::vector<src::MRU::MRUCallout>
-        getMRUsFromJSON(const nlohmann::json& mruJSON);
-
-    /**
-     * @brief Sets the dump status
-     *
-     * @param[in] dataIface - The DataInterface object
-     */
-    void setDumpStatus(const DataInterfaceBase& dataIface);
+    std::vector<src::MRU::MRUCallout> getMRUsFromJSON(
+        const nlohmann::json& mruJSON);
 
     /**
      * @brief The SRC version field

@@ -4,6 +4,8 @@
 
 #include <libpldm/instance-id.h>
 #include <libpldm/pldm.h>
+#include <libpldm/transport.h>
+#include <libpldm/transport/mctp-demux.h>
 
 #include <sdeventplus/clock.hpp>
 #include <sdeventplus/source/io.hpp>
@@ -93,9 +95,10 @@ class PLDMInterface : public HostInterface
      * @param[in] io - The event source object
      * @param[in] fd - The FD used
      * @param[in] revents - The event bits
+     * @param[in] transport - The transport data pointer
      */
-    void receive(sdeventplus::source::IO& io, int fd,
-                 uint32_t revents) override;
+    void receive(sdeventplus::source::IO& io, int fd, uint32_t revents,
+                 pldm_transport* transport) override;
 
     /**
      * @brief Function called when the receive timer expires.
@@ -122,6 +125,11 @@ class PLDMInterface : public HostInterface
      * @brief Opens the PLDM file descriptor
      */
     void open();
+
+    /** @brief Opens the MCTP socket for sending and receiving messages.
+     *
+     */
+    int openMctpDemuxTransport();
 
     /**
      * @brief Encodes and sends the PLDM 'new file available' cmd
@@ -184,7 +192,7 @@ class PLDMInterface : public HostInterface
     /**
      * @brief The command timeout value
      */
-    const std::chrono::milliseconds _receiveTimeout{10000};
+    const std::chrono::milliseconds _receiveTimeout{45000};
 
     /**
      * @brief The libpldm instance ID database.
@@ -200,6 +208,18 @@ class PLDMInterface : public HostInterface
      * @brief The size of the PEL to notify the host of.
      */
     uint32_t _pelSize = 0;
+
+    /**
+     * @brief pldm transport instance.
+     */
+    pldm_transport* pldmTransport = nullptr;
+
+    pldm_transport_mctp_demux* mctpDemux = nullptr;
+
+    /**
+     * @brief The header for the most recent request.
+     */
+    pldm_msg_hdr _requestHeader{};
 };
 
 } // namespace openpower::pels

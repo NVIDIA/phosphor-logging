@@ -66,6 +66,12 @@ class MockDataInterface : public DataInterfaceBase
     MOCK_METHOD(std::vector<uint32_t>, getLogIDWithHwIsolation, (),
                 (const override));
     MOCK_METHOD(std::vector<uint8_t>, getRawProgressSRC, (), (const override));
+    MOCK_METHOD(std::optional<std::vector<uint8_t>>, getDIProperty,
+                (const std::string&), (const override));
+    MOCK_METHOD(DBusPathList, getAssociatedPaths,
+                (const DBusPath&, const DBusPath&, int32_t,
+                 const DBusInterfaceList&),
+                (const override));
 
     void changeHostState(bool newState)
     {
@@ -202,10 +208,10 @@ class MockHostInterface : public HostInterface
         int fd = open(_fifo.c_str(), O_NONBLOCK | O_RDWR);
         EXPECT_TRUE(fd >= 0) << "Unable to open FIFO";
 
-        auto callback = [this](sdeventplus::source::IO& source, int fd,
-                               uint32_t events) {
-            this->receive(source, fd, events);
-        };
+        auto callback =
+            [this](sdeventplus::source::IO& source, int fd, uint32_t events) {
+                this->receive(source, fd, events, nullptr);
+            };
 
         try
         {
@@ -242,7 +248,7 @@ class MockHostInterface : public HostInterface
      * @param[in] events - The event bits
      */
     void receive(sdeventplus::source::IO& /*source*/, int /*fd*/,
-                 uint32_t events) override
+                 uint32_t events, pldm_transport* /*transport*/) override
     {
         if (!(events & EPOLLIN))
         {

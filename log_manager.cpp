@@ -6,6 +6,8 @@
 #include "elog_meta.hpp"
 #include "elog_serialize.hpp"
 #include "extensions.hpp"
+#include "lib/lg2_commit.hpp"
+#include "paths.hpp"
 #include "util.hpp"
 
 #include <systemd/sd-bus.h>
@@ -26,6 +28,7 @@
 #include <future>
 #include <iostream>
 #include <map>
+#include <ranges>
 #include <set>
 #include <string>
 #include <string_view>
@@ -86,7 +89,7 @@ Manager::Manager(sdbusplus::bus::bus& bus, const std::string& objPath) :
     details::ServerObject<details::ManagerIface>(bus, objPath.c_str()),
     busLog(bus), entryId(0), lastCreatedTimeStamp(0),
     fwVersion(readFWVersion()),
-    defaultBin(DEFAULT_BIN_NAME, ERROR_CAP, ERROR_INFO_CAP, ERRLOG_PERSIST_PATH,
+    defaultBin(DEFAULT_BIN_NAME, ERROR_CAP, ERROR_INFO_CAP, phosphor::logging::paths::error(),
                true),
 #ifdef ENABLE_LOG_STREAMING
     logSocket(LOG_STREAMER_SOCKET_PATH),
@@ -211,7 +214,7 @@ uint32_t Manager::commitWithLvl(uint64_t transactionId, std::string errMsg,
 void Manager::_commit(uint64_t transactionId [[maybe_unused]],
                       std::string&& errMsg, Entry::Level errLvl)
 {
-    std::vector<std::string> additionalData{};
+    std::map<std::string, std::string> additionalData{};
 
     // When running as a test-case, the system may have a LOT of journal
     // data and we may not have permissions to do some of the journal sync
@@ -298,7 +301,13 @@ void Manager::_commit(uint64_t transactionId [[maybe_unused]],
                 }
 
                 // Metadata variable found, save it and remove it from the set.
-                additionalData.emplace_back(data, length);
+                std::string metadata(data, length);
+                if (auto pos = metadata.find('='); pos != std::string::npos)
+                {
+                    auto key = metadata.substr(0, pos);
+                    auto value = metadata.substr(pos + 1);
+                    additionalData.emplace(std::move(key), std::move(value));
+                }
                 i = metalist.erase(i);
             }
             if (metalist.empty())
@@ -389,30 +398,23 @@ std::string Manager::getSelPolicy()
     return std::get<std::string>(property);
 }
 
-void Manager::createEntry(std::string errMsg, Entry::Level errLvl,
-                          std::vector<std::string> additionalData,
+auto Manager::createEntry(std::string errMsg, Entry::Level errLvl,
+                          std::map<std::string, std::string> additionalData,
                           const FFDCEntries& ffdc)
+    -> sdbusplus::message::object_path
 {
     // For the incoming entry, find the bin associated with the entry
     // Set entryBinName as default
     std::string entryBinName = DEFAULT_BIN_NAME;
     Bin* entryBin = &(binNameMap[entryBinName]);
 
-    constexpr auto separator = '=';
-    for (const auto& entryItem : additionalData)
+    for (const auto& [key, value] : additionalData)
     {
-        auto found = entryItem.find(separator);
-        if (std::string::npos != found)
+        if ((key == DEFAULT_BIN_KEY) &&
+            (binNameMap.find(value) != binNameMap.end()))
         {
-            auto key = entryItem.substr(0, found);
-            auto val = entryItem.substr(found + 1, entryItem.size());
-            // If key name matches and the val is a an existing bin
-            if ((key == DEFAULT_BIN_KEY) &&
-                (binNameMap.find(val) != binNameMap.end()))
-            {
-                entryBinName = val;
-                entryBin = &(binNameMap[val]);
-            }
+            entryBinName = value;
+            entryBin = &(binNameMap[value]);
         }
     }
 
@@ -430,7 +432,7 @@ void Manager::createEntry(std::string errMsg, Entry::Level errLvl,
                 {
                     lg2::info("Error Capacity limit reached: {BIN_NAME}",
                               "BIN_NAME", entryBinName);
-                    return;
+                    return sdbusplus::message::object_path("/");
                 }
             }
             else
@@ -440,7 +442,7 @@ void Manager::createEntry(std::string errMsg, Entry::Level errLvl,
                     lg2::info(
                         "Information Error Capacity limit reached: {BIN_NAME}",
                         "BIN_NAME", entryBinName);
-                    return;
+                    return sdbusplus::message::object_path("/");
                 }
             }
         }
@@ -489,18 +491,24 @@ void Manager::createEntry(std::string errMsg, Entry::Level errLvl,
 
     AssociationList objects{};
 
+    // Convert additionalData map to vector format if needed for processing
+    auto additionalDataVec = util::additional_data::combine(additionalData);
+
+    // Setup function map for FQPN processing
     std::map<std::string,
              const std::function<std::string(Entry&, std::string&)>>
         fnMap;
     fnMap.insert(std::make_pair(std::string(FQPN_PREFIX) + "Resolution",
                                 [](Entry& entry, std::string& s) {
-        return entry.resolution(s, true);
-    }));
+                                    return entry.resolution(s, true);
+                                }));
     fnMap.insert(std::make_pair(
         std::string(FQPN_PREFIX) + "EventId",
         [](Entry& entry, std::string& s) { return entry.eventId(s, true); }));
 
-    auto foundFQPNs = processMetadata(errMsg, additionalData, fnMap, objects);
+    // Process metadata and get FQPNs
+    auto foundFQPNs =
+        processMetadata(errMsg, additionalDataVec, fnMap, objects);
 
     auto e = std::make_unique<Entry>(
         busLog, objPath, entryId,
@@ -521,7 +529,7 @@ void Manager::createEntry(std::string errMsg, Entry::Level errLvl,
     callFQPNsMethods(foundFQPNs, e, fnMap);
     e->emit_object_added();
 
-    auto entryPath = std::string(ERRLOG_PERSIST_PATH) + entryBinName;
+    auto entryPath = std::string(phosphor::logging::paths::error()) + entryBinName;
 
     // lg2::info("Writing Entry on FS on Path: {ENTRY_PATH}", "ENTRY_PATH",
     //           entryPath);
@@ -531,8 +539,6 @@ void Manager::createEntry(std::string errMsg, Entry::Level errLvl,
         auto path = serialize(*e, fs::path(entryPath));
         e->path(path);
     }
-
-    serialize(*e);
 
 #ifdef ENABLE_LOG_STREAMING
     if (entryBinName == "/SEL")
@@ -561,6 +567,16 @@ void Manager::createEntry(std::string errMsg, Entry::Level errLvl,
     doExtensionLogCreate(*entries.find(entryId)->second, ffdc);
 
     // Note: No need to close the file descriptors in the FFDC.
+
+    return objPath;
+}
+
+auto Manager::createFromEvent(
+    sdbusplus::exception::generated_event_base&& event)
+    -> sdbusplus::message::object_path
+{
+    auto [msg, level, data] = lg2::details::extractEvent(std::move(event));
+    return this->createEntry(msg, level, std::move(data));
 }
 
 bool Manager::isQuiesceOnErrorEnabled()
@@ -597,7 +613,7 @@ bool Manager::isQuiesceOnErrorEnabled()
 
 bool Manager::isCalloutPresent(const Entry& entry)
 {
-    for (const auto& c : entry.additionalData())
+    for (const auto& c : std::views::keys(entry.additionalData()))
     {
         if (c.find("CALLOUT_") != std::string::npos)
         {
@@ -692,8 +708,8 @@ void Manager::quiesceOnError(const uint32_t entryId)
     // Verify we don't already have this entry blocking
     auto it = find_if(this->blockingErrors.begin(), this->blockingErrors.end(),
                       [&](const std::unique_ptr<Block>& obj) {
-        return obj->entryId == entryId;
-    });
+                          return obj->entryId == entryId;
+                      });
     if (it != this->blockingErrors.end())
     {
         // Already recorded so just return
@@ -704,8 +720,8 @@ void Manager::quiesceOnError(const uint32_t entryId)
 
     lg2::info("QuiesceOnError set and callout present");
 
-    auto blockPath = std::string(OBJ_LOGGING) + "/block" +
-                     std::to_string(entryId);
+    auto blockPath =
+        std::string(OBJ_LOGGING) + "/block" + std::to_string(entryId);
     auto blockObj = std::make_unique<Block>(this->busLog, blockPath, entryId);
     this->blockingErrors.push_back(std::move(blockObj));
 
@@ -741,7 +757,7 @@ void Manager::doExtensionLogCreate(const Entry& entry, const FFDCEntries& ffdc)
         try
         {
             create(entry.message(), entry.id(), entry.timestamp(),
-                   entry.severity(), entry.additionalData(), assocs, ffdc);
+                   entry.severity(), entry.additionalData2(), assocs, ffdc);
         }
         catch (const std::exception& e)
         {
@@ -796,8 +812,8 @@ void Manager::checkAndRemoveBlockingError(uint32_t entryId)
     // First look for blocking object and remove
     auto it = find_if(blockingErrors.begin(), blockingErrors.end(),
                       [&](const std::unique_ptr<Block>& obj) {
-        return obj->entryId == entryId;
-    });
+                          return obj->entryId == entryId;
+                      });
     if (it != blockingErrors.end())
     {
         blockingErrors.erase(it);
@@ -813,6 +829,72 @@ void Manager::checkAndRemoveBlockingError(uint32_t entryId)
     return;
 }
 
+size_t Manager::eraseAll()
+{
+    std::vector<uint32_t> logIDWithHwIsolation;
+    for (auto& func : Extensions::getLogIDWithHwIsolationFunctions())
+    {
+        try
+        {
+            func(logIDWithHwIsolation);
+        }
+        catch (const std::exception& e)
+        {
+            lg2::error("An extension's LogIDWithHwIsolation function threw an "
+                       "exception: {ERROR}",
+                       "ERROR", e);
+        }
+    }
+    size_t entriesSize = entries.size();
+    auto iter = entries.begin();
+    if (logIDWithHwIsolation.empty())
+    {
+        while (iter != entries.end())
+        {
+            auto e = iter->first;
+            ++iter;
+            erase(e);
+        }
+        entryId = 0;
+    }
+    else
+    {
+        while (iter != entries.end())
+        {
+            auto e = iter->first;
+            ++iter;
+            try
+            {
+                if (!std::ranges::contains(logIDWithHwIsolation, e))
+                {
+                    erase(e);
+                }
+                else
+                {
+                    entriesSize--;
+                }
+            }
+            catch (const sdbusplus::xyz::openbmc_project::Common::Error::
+                       Unavailable& e)
+            {
+                entriesSize--;
+            }
+        }
+        if (!entries.empty())
+        {
+            entryId = std::ranges::max_element(entries, [](const auto& a,
+                                                           const auto& b) {
+                          return a.first < b.first;
+                      })->first;
+        }
+        else
+        {
+            entryId = 0;
+        }
+    }
+    return entriesSize;
+}
+
 void Manager::erase(uint32_t entryId)
 {
     auto entryFound = entries.find(entryId);
@@ -821,7 +903,7 @@ void Manager::erase(uint32_t entryId)
     {
         auto binName = binEntryMap[entryId];
         auto* entryBin = &(binNameMap[binName]);
-        std::string deletePath = ERRLOG_PERSIST_PATH;
+        std::string deletePath = phosphor::logging::paths::error();
 
         for (auto& func : Extensions::getDeleteProhibitedFunctions())
         {
@@ -831,8 +913,14 @@ void Manager::erase(uint32_t entryId)
                 func(entryId, prohibited);
                 if (prohibited)
                 {
-                    return;
+                    throw sdbusplus::xyz::openbmc_project::Common::Error::
+                        Unavailable();
                 }
+            }
+            catch (const sdbusplus::xyz::openbmc_project::Common::Error::
+                       Unavailable& e)
+            {
+                throw;
             }
             catch (const std::exception& e)
             {
@@ -844,7 +932,7 @@ void Manager::erase(uint32_t entryId)
 
         if (!(binName.compare(DEFAULT_BIN_NAME) == 0))
         {
-            deletePath = std::string(ERRLOG_PERSIST_PATH) + "/" + binName;
+            deletePath = std::string(phosphor::logging::paths::error()) + "/" + binName;
         }
 
         // lg2::info("Deleting Entry of Bin: {BIN_NAME}", "BIN_NAME", binName);
@@ -913,7 +1001,7 @@ void Manager::restore()
         return id == restoredId;
     };
 
-    fs::path dir(ERRLOG_PERSIST_PATH);
+    fs::path dir(paths::error());
     if (!fs::exists(dir) || fs::is_empty(dir))
     {
         return;
@@ -942,10 +1030,10 @@ void Manager::restore()
         }
 
         auto parentPath = std::string(file.path().parent_path());
-        eraseSubStr(parentPath, std::string(ERRLOG_PERSIST_PATH) + "/");
+        eraseSubStr(parentPath, std::string(phosphor::logging::paths::error()) + "/");
         std::string restoreBinName = DEFAULT_BIN_NAME;
 
-        if (parentPath.compare(std::string(ERRLOG_PERSIST_PATH)) != 0)
+        if (parentPath.compare(std::string(phosphor::logging::paths::error())) != 0)
         {
             restoreBinName = parentPath;
             // If restoreBinName isn't present in the binNameMap then skip
@@ -1104,8 +1192,8 @@ bool Manager::deleteAll(
 // std::map<std::string, std::variant<std::vector<std::string>,
 // bool, std::string, std::vector<uint8_t>, int64_t, uint32_t>>>>;
 // This function will return filtered URI
-phosphor::logging::ManagedObject
-    Manager::getAll(NamespaceIface::ResolvedFilterType rfilter)
+phosphor::logging::ManagedObject Manager::getAll(
+    NamespaceIface::ResolvedFilterType rfilter)
 {
     phosphor::logging::ManagedObject ret_obj;
 
@@ -1150,7 +1238,7 @@ phosphor::logging::ManagedObject
         prop["Message"] = v;
 
         // AdditionalData
-        v = iter->second->additionalData();
+        v = util::additional_data::combine(iter->second->additionalData());
         prop["AdditionalData"] = v;
 
         // Resolution
@@ -1185,9 +1273,8 @@ phosphor::logging::ManagedObject
 // std::map<std::string, std::variant<std::vector<std::string>,
 // bool, std::string, std::vector<uint8_t>, int64_t, uint32_t>>>>;
 
-phosphor::logging::ManagedObject
-    Manager::getAll(const std::string& nspace,
-                    NamespaceIface::ResolvedFilterType rfilter)
+phosphor::logging::ManagedObject Manager::getAll(
+    const std::string& nspace, NamespaceIface::ResolvedFilterType rfilter)
 {
     std::string entryBinName = DEFAULT_BIN_NAME;
     Bin* thisBin = &(binNameMap[entryBinName]);
@@ -1246,7 +1333,8 @@ phosphor::logging::ManagedObject
             prop["Message"] = v;
 
             // AdditionalData
-            v = entryFound->second->additionalData();
+            v = util::additional_data::combine(
+                entryFound->second->additionalData());
             prop["AdditionalData"] = v;
 
             // Resolution
@@ -1265,9 +1353,9 @@ phosphor::logging::ManagedObject
             // UpdateTimeStamp
             v = entryFound->second->updateTimestamp();
             prop["UpdateTimeStamp"] = v;
-            obj.insert(
-                obj.begin(),
-                std::make_pair("xyz.openbmc_project.Logging.Entry", prop));
+            obj.insert(obj.begin(),
+                       std::make_pair("xyz.openbmc_project.Logging.Entry",
+                                      prop));
 
             ret_obj[sdbusplus::message::object_path(
                 std::string(OBJ_ENTRY) + '/' +
@@ -1318,7 +1406,8 @@ phosphor::logging::ManagedObject
             prop["Message"] = v;
 
             // AdditionalData
-            v = entryFound->second->additionalData();
+            v = util::additional_data::combine(
+                entryFound->second->additionalData());
             prop["AdditionalData"] = v;
 
             // Resolution
@@ -1338,9 +1427,9 @@ phosphor::logging::ManagedObject
             v = entryFound->second->updateTimestamp();
             prop["UpdateTimeStamp"] = v;
 
-            obj.insert(
-                obj.begin(),
-                std::make_pair("xyz.openbmc_project.Logging.Entry", prop));
+            obj.insert(obj.begin(),
+                       std::make_pair("xyz.openbmc_project.Logging.Entry",
+                                      prop));
 
             ret_obj[sdbusplus::message::object_path(
                 std::string(OBJ_ENTRY) + '/' +
@@ -1395,15 +1484,11 @@ std::tuple<uint32_t, uint64_t> Manager::getStats(const std::string& nspace)
     }
 }
 
-void Manager::create(const std::string& message, Entry::Level severity,
+auto Manager::create(const std::string& message, Entry::Level severity,
                      const std::map<std::string, std::string>& additionalData,
-                     const FFDCEntries& ffdc)
+                     const FFDCEntries& ffdc) -> sdbusplus::message::object_path
 {
-    // Convert the map into a vector of "key=value" strings
-    std::vector<std::string> ad;
-    metadata::associations::combine(additionalData, ad);
-
-    createEntry(message, severity, ad, ffdc);
+    return createEntry(message, severity, additionalData, ffdc);
 }
 
 size_t Manager::getInfoLogCapacity()
@@ -1473,8 +1558,7 @@ void Manager::rfSendEvent(std::string rfMessage, Entry::Level rfSeverity,
         return;
     }
 
-    metadata::associations::combine(rfAdditionalData, ad);
-    createEntry(rfMessage, rfSeverity, ad);
+    createEntry(rfMessage, rfSeverity, rfAdditionalData);
 }
 
 } // namespace internal

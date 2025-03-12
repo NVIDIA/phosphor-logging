@@ -1,4 +1,4 @@
-if not get_option('openpower-pel-extension').disabled()
+if get_option('openpower-pel-extension').allowed()
     subdir('openpower-pels')
 endif
 
