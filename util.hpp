@@ -1,5 +1,7 @@
 #pragma once
 
+#include "bin.hpp"
+
 #include <fstream>
 #include <map>
 #include <optional>
@@ -43,5 +45,28 @@ auto parse(const std::vector<std::string>& data)
 auto combine(const std::map<std::string, std::string>& data)
     -> std::vector<std::string>;
 } // namespace additional_data
+#ifdef ENABLE_ERASE_WITH_MULTIPLE_PROCESS
+/**
+ * @brief Check and remove the temporary files for deletion.
+ * @param[in] nspace - The namespace to check for temporary files
+ * @param[in] binNameMap - Map of bin names to their configurations
+ */
+void removeStagedForEraseEntries(
+    const std::string& nspace,
+    const std::map<std::string, phosphor::logging::internal::Bin>& binNameMap);
+
+/**
+ * @brief Erase logs with multiple processes
+ * @details Erases logs from disk using a child process while the parent process
+ *          handles DBus operations. This allows for safe log deletion in a
+ *          multi-process environment.
+ *
+ * @param[in] nspace - The namespace to check for temporary files
+ * @param[in] binNameMap - Map of bin names to their configurations
+ */
+void eraseAllInChildProcess(
+    const std::string& nspace,
+    const std::map<std::string, phosphor::logging::internal::Bin>& binNameMap);
+#endif
 
 } // namespace phosphor::logging::util

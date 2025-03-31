@@ -27,9 +27,13 @@
 #include <sdbusplus/bus.hpp>
 
 #include <chrono>
+#include <filesystem>
+#include <vector>
 
 namespace phosphor::logging::util
 {
+
+namespace fs = std::filesystem;
 
 std::optional<std::string> getOSReleaseValue(const std::string& key)
 {
@@ -234,5 +238,142 @@ auto combine(const std::map<std::string, std::string>& data)
     return metadata;
 }
 } // namespace additional_data
+#ifdef ENABLE_ERASE_WITH_MULTIPLE_PROCESS
+void removeStagedFiles(const fs::path& path)
+{
+    int maxRetry = 3;
+    int sleepTime = 3;
+    std::error_code ec;
+    if (fs::exists(path, ec))
+    {
+        if (ec.value() != 0)
+        {
+            lg2::error(
+                "Failed to check if the temporary file for deletion exists: {ERROR}",
+                "ERROR", ec.message());
+            return;
+        }
+        else
+        {
+            int i = 0;
+            do
+            {
+                fs::remove_all(path, ec);
+                sleep(sleepTime);
+            } while (ec.value() && fs::exists(path) && i++ < maxRetry);
+        }
+    }
+}
+
+void removeStagedForEraseEntries(
+    const std::string& nspace,
+    const std::map<std::string, phosphor::logging::internal::Bin>& binNameMap)
+{
+    if (nspace.compare(DEFAULT_BIN_NAME) != 0)
+    {
+        std::string tempPath = std::string(ERRLOG_PERSIST_PATH) + "_" + nspace +
+                               "_temp";
+        fs::path errorToRemovePath(tempPath);
+        removeStagedFiles(errorToRemovePath);
+    }
+    else
+    {
+        for (const auto& entry : binNameMap)
+        {
+            std::string tempPath = ERRLOG_PERSIST_PATH;
+            if (entry.first.compare(DEFAULT_BIN_NAME) != 0)
+            {
+                tempPath = tempPath + "_" + entry.first;
+            }
+            tempPath = tempPath + "_temp";
+            fs::path errorToRemovePath(tempPath);
+            removeStagedFiles(errorToRemovePath);
+        }
+    }
+}
+
+void eraseAllInChildProcess(
+    const std::string& nspace,
+    const std::map<std::string, phosphor::logging::internal::Bin>& binNameMap)
+{
+    try
+    {
+        std::error_code ec;
+        std::string tempPath = std::string(ERRLOG_PERSIST_PATH);
+        fs::path errorPath;
+        if (nspace.compare(DEFAULT_BIN_NAME) != 0)
+        {
+            tempPath = tempPath + "_" + nspace + "_temp";
+            errorPath = std::string(ERRLOG_PERSIST_PATH) + "/" + nspace;
+        }
+        else
+        {
+            tempPath = tempPath + "_temp";
+            errorPath = std::string(ERRLOG_PERSIST_PATH);
+        }
+        fs::path errorToRemovePath(tempPath);
+
+        // Remove any existing temp files
+        removeStagedForEraseEntries(nspace, binNameMap);
+
+        fs::rename(errorPath, errorToRemovePath, ec);
+        if (ec.value() != 0)
+        {
+            lg2::error("Failed to rename the error path: {ERROR}", "ERROR",
+                       ec.message());
+            return;
+        }
+
+        if (nspace.compare(DEFAULT_BIN_NAME) != 0)
+        {
+            // Recreate the log directory
+            fs::create_directories(errorPath, ec);
+            if (ec.value() != 0)
+            {
+                lg2::error("Failed to create the error path: {ERROR}", "ERROR",
+                           ec.message());
+                return;
+            }
+        }
+        else
+        {
+            // Create directories for all bins
+            for (const auto& entry : binNameMap)
+            {
+                if (entry.first.compare(DEFAULT_BIN_NAME) != 0)
+                {
+                    fs::create_directories(std::string(ERRLOG_PERSIST_PATH) +
+                                               "/" + entry.first,
+                                           ec);
+                    if (ec.value() != 0)
+                    {
+                        lg2::error("Failed to create the error path: {ERROR}",
+                                   "ERROR", ec.message());
+                        return;
+                    }
+                }
+            }
+        }
+
+        // Fork a child process to handle the actual deletion
+        pid_t pid = fork();
+        if (pid == 0)
+        {
+            // Child process - remove the temp directory
+            removeStagedForEraseEntries(DEFAULT_BIN_NAME, binNameMap);
+            _exit(0);
+        }
+        else if (pid < 0)
+        {
+            lg2::error("Failed to create child process");
+        }
+    }
+    catch (const std::exception& e)
+    {
+        lg2::error("Failed to erase all logs: {ERROR}", "ERROR", e.what());
+        throw;
+    }
+}
+#endif
 
 } // namespace phosphor::logging::util
