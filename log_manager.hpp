@@ -3,6 +3,7 @@
 #include "bin.hpp"
 #include "elog_block.hpp"
 #include "elog_entry.hpp"
+#include "util.hpp"
 #ifdef ENABLE_LOG_STREAMING
 #include "log_streamer.hpp"
 #endif
@@ -413,75 +414,54 @@ class Manager : public details::ServerObject<details::ManagerIface>
     void restore();
 
 #ifdef ENABLE_ERASE_WITH_MULTIPLE_PROCESS
-    /** @brief Check and remove the temporary files for deletion.
-     */
-    void removeStagedForEraseEntries()
-    {
-        std::string tempPath = std::string(ERRLOG_PERSIST_PATH) + "_temp";
-        fs::path errorToRemovePath(tempPath);
-        std::error_code ec;
-        if (fs::exists(errorToRemovePath))
-        {
-            int maxRetry = 3;
-            int i = 0;
-            do
-            {
-                fs::remove_all(errorToRemovePath, ec);
-            } while (ec.value() && fs::exists(errorToRemovePath) &&
-                     i++ < maxRetry);
-        }
-    }
-
     /** @brief Erase logs with multiple processes, erase logs from dbus with
      *         parent process and erase logs from disk with child process.
      */
-    void eraseAllInChildProcess()
+    void eraseAllInChildProcess(const std::string& binName = DEFAULT_BIN_NAME)
     {
-        try
+        util::eraseAllInChildProcess(binName, binNameMap);
+
+        if (binName == DEFAULT_BIN_NAME)
         {
-            std::string deletePath = ERRLOG_PERSIST_PATH;
-            fs::path errorPath(deletePath);
-            std::string tempPath = std::string(ERRLOG_PERSIST_PATH) + "_temp";
-            fs::path errorToRemovePath(tempPath);
-            removeStagedForEraseEntries();
-            fs::rename(errorPath, errorToRemovePath);
-            fs::create_directories(errorPath);
-            std::error_code ec;
-            for (const auto& entry : binNameMap)
+            auto iter = entries.begin();
+            while (iter != entries.end())
             {
-                if (entry.first.compare(DEFAULT_BIN_NAME) != 0)
-                {
-                    fs::create_directories(std::string(ERRLOG_PERSIST_PATH) +
-                                           "/" + entry.first);
-                }
+                auto e = iter->first;
+                ++iter;
+                erase(e, false);
             }
-            pid_t pid = fork();
-            if (pid == 0)
-            {
-                removeStagedForEraseEntries();
-                _exit(0);
-            }
-            else if (pid > 0)
-            {
-                auto iter = entries.begin();
-                while (iter != entries.end())
-                {
-                    auto e = iter->first;
-                    ++iter;
-                    erase(e, false);
-                }
-                entryId = 0;
-                lastCreatedTimeStamp = 0;
-            }
-            else
-            {
-                lg2::error("Failed to create child process");
-            }
+            entryId = 0;
+            lastCreatedTimeStamp = 0;
         }
-        catch (const std::exception& e)
+        else
         {
-            lg2::error("Failed to erase all logs: {ERROR}", "ERROR", e.what());
-            throw;
+            auto binPresent = false;
+            Bin* thisBin;
+            for (auto& pair : binNameMap)
+            {
+                if (pair.first == binName)
+                {
+                    binPresent = true;
+                    thisBin = &(pair.second);
+                    break;
+                }
+            }
+            // If bin is not present then return error
+            if (!binPresent)
+            {
+                throw sdbusplus::xyz::openbmc_project::Common::Error::
+                    ResourceNotFound();
+            }
+            // Info Errors
+            while (getInfoErrSize(binName) != 0)
+            {
+                erase(*(thisBin->infoEntries.begin()), false);
+            }
+            // Real Errors
+            while (getRealErrSize(binName) != 0)
+            {
+                erase(*(thisBin->errorEntries.begin()), false);
+            }
         }
     }
 #endif
@@ -505,7 +485,7 @@ class Manager : public details::ServerObject<details::ManagerIface>
         entryId = 0;
         lastCreatedTimeStamp = 0;
 #else
-        eraseAllInChildProcess();
+        eraseAllInChildProcess(DEFAULT_BIN_NAME);
 #endif
         return entriesSize;
     }
@@ -583,16 +563,25 @@ class Manager : public details::ServerObject<details::ManagerIface>
         return binNameMap[binName];
     }
 
+    /** @brief Delete logs of serverity per namespace
+     *
+     * Some description
+     *
+     * @param[in] nspace - Namespace String
+     * @param[in] severity - Log Severity
+     */
+    bool
+        deleteAll(const std::string& nspace,
+                  sdbusplus::xyz::openbmc_project::Logging::server::Entry::Level
+                      severity);
+
     /** @brief Delete logs per namespace
      *
      * Some description
      *
      * @param[in] nspace - Namespace String
      */
-    bool
-        deleteAll(const std::string& nspace,
-                  sdbusplus::xyz::openbmc_project::Logging::server::Entry::Level
-                      severity);
+    bool deleteAllTypes(const std::string& nspace);
 
     /** @brief Get logs per namespace
      *
@@ -965,6 +954,15 @@ class Manager :
                       severity) override
     {
         return manager.deleteAll(nspace, severity);
+    }
+
+    /** @brief deleteAll method call implementation to delete all logs per
+     * namespace
+     *
+     */
+    bool deleteAllTypes(std::string nspace) override
+    {
+        return manager.deleteAllTypes(nspace);
     }
 
     /** @brief D-Bus method call implementation to create an event log.

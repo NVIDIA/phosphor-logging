@@ -6,7 +6,6 @@
 #include "elog_meta.hpp"
 #include "elog_serialize.hpp"
 #include "extensions.hpp"
-#include "util.hpp"
 
 #include <systemd/sd-bus.h>
 #include <systemd/sd-journal.h>
@@ -923,7 +922,7 @@ void Manager::restore()
 
 #ifdef ENABLE_ERASE_WITH_MULTIPLE_PROCESS
     // Check and remove the temporary files for deletion.
-    removeStagedForEraseEntries();
+    util::removeStagedForEraseEntries(DEFAULT_BIN_NAME, binNameMap);
 #endif
 
     // using recursive_directory_iterator to get every directory
@@ -1104,6 +1103,42 @@ bool Manager::deleteAll(
         }
     }
 
+    return true;
+}
+
+bool Manager::deleteAllTypes(const std::string& nspace)
+{
+#ifndef ENABLE_ERASE_WITH_MULTIPLE_PROCESS
+    auto binPresent = false;
+    Bin* thisBin;
+    for (auto& pair : binNameMap)
+    {
+        if (pair.first == nspace)
+        {
+            binPresent = true;
+            thisBin = &(pair.second);
+            break;
+        }
+    }
+    // If bin is not present then return error
+    if (!binPresent)
+    {
+        throw sdbusplus::xyz::openbmc_project::Common::Error::
+            ResourceNotFound();
+    }
+    // Info Errors
+    while (getInfoErrSize(nspace) != 0)
+    {
+        erase(*(thisBin->infoEntries.begin()));
+    }
+    // Real Errors
+    while (getRealErrSize(nspace) != 0)
+    {
+        erase(*(thisBin->errorEntries.begin()));
+    }
+#else
+    eraseAllInChildProcess(nspace);
+#endif
     return true;
 }
 
