@@ -487,6 +487,7 @@ class Manager : public details::ServerObject<details::ManagerIface>
 #else
         eraseAllInChildProcess(DEFAULT_BIN_NAME);
 #endif
+        doExtensionLogDeleteAll();
         return entriesSize;
     }
 
@@ -718,6 +719,9 @@ class Manager : public details::ServerObject<details::ManagerIface>
     {
         return logSocket.start();
     }
+
+    /** @brief Socket for SEL logging */
+    LogStreamer logSocket;
 #endif
 
   private:
@@ -755,6 +759,16 @@ class Manager : public details::ServerObject<details::ManagerIface>
      */
     static std::string readFWVersion();
 
+    /** @brief Call any prepare() functions provided by any extensions.
+     *   This is called right before an event log is created to allow
+     *   extensions to modify the additional data in log entry.
+     *
+     *   @param[in] logManager - the log manager to use
+     *   @param[in] additionalData - the additional data in event log entry
+     */
+    void doExtensionLogPrepare(internal::Manager& logManager,
+                               std::vector<std::string>& additionalData);
+
     /** @brief Call any create() functions provided by any extensions.
      *  This is called right after an event log is created to allow
      *  extensions to create their own log based on this one.
@@ -763,6 +777,11 @@ class Manager : public details::ServerObject<details::ManagerIface>
      *  @param[in] ffdc - A vector of FFDC file info
      */
     void doExtensionLogCreate(const Entry& entry, const FFDCEntries& ffdc);
+
+    /** @brief Call any deleteAll() functions provided by any extensions.
+     *   This is called right after all event logs are erased.
+     */
+    void doExtensionLogDeleteAll();
 
     /** @brief Common wrapper for creating an Entry object
      *
@@ -831,10 +850,7 @@ class Manager : public details::ServerObject<details::ManagerIface>
     const std::string fwVersion;
 
     phosphor::logging::internal::Bin defaultBin;
-#ifdef ENABLE_LOG_STREAMING
-    /** @brief Socket for SEL logging */
-    LogStreamer logSocket;
-#endif
+
     /** @brief Array of blocking errors */
     std::vector<std::unique_ptr<Block>> blockingErrors;
 

@@ -83,13 +83,13 @@ inline auto getLevel(const std::string& errMsg)
  */
 Manager::Manager(sdbusplus::bus::bus& bus, const std::string& objPath) :
     details::ServerObject<details::ManagerIface>(bus, objPath.c_str()),
+#ifdef ENABLE_LOG_STREAMING
+    logSocket(LOG_STREAMER_SOCKET_PATH),
+#endif
     busLog(bus), entryId(0), lastCreatedTimeStamp(0),
     fwVersion(readFWVersion()),
     defaultBin(DEFAULT_BIN_NAME, ERROR_CAP, ERROR_INFO_CAP, ERRLOG_PERSIST_PATH,
                true),
-#ifdef ENABLE_LOG_STREAMING
-    logSocket(LOG_STREAMER_SOCKET_PATH),
-#endif
     _autoPurgeResolved(LOG_PURGE_POLICY_DEFAULT),
     _autoPurgeEventSource(
         sdeventplus::Event::get_default(),
@@ -414,7 +414,6 @@ void Manager::createEntry(std::string errMsg, Entry::Level errLvl,
             }
         }
     }
-
     // lg2::info("Bin of Incoming Entry: {BIN_NAME}", "BIN_NAME", entryBinName);
 
     // Corresponding to the bin found, use capacity limits
@@ -463,12 +462,6 @@ void Manager::createEntry(std::string errMsg, Entry::Level errLvl,
     }
 
     entryId++;
-    if ((entryBinName.compare("SEL") == 0) &&
-        (entryId >= std::numeric_limits<uint16_t>::max()))
-    {
-        // The SEL ID should be from 0x1 to 0xfffe
-        entryId = entryId % std::numeric_limits<uint16_t>::max() + 1;
-    }
     if (errLvl >= Entry::sevLowerLimit)
     {
         entryBin->infoEntries.insert(entryId);
@@ -481,6 +474,7 @@ void Manager::createEntry(std::string errMsg, Entry::Level errLvl,
     // Insert Entry into binEntryMap to track which Bin this entry went into
     binEntryMap.insert(std::make_pair(entryId, entryBinName));
 
+    doExtensionLogPrepare(*this, additionalData);
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                   std::chrono::system_clock::now().time_since_epoch())
                   .count();
@@ -530,21 +524,6 @@ void Manager::createEntry(std::string errMsg, Entry::Level errLvl,
         auto path = serialize(*e, fs::path(entryPath));
         e->path(path);
     }
-
-#ifdef ENABLE_LOG_STREAMING
-    if (entryBinName == "/SEL")
-    {
-        /* Creates SEL data for streaming */
-        std::string msg = " EntryId:" + std::to_string(entryId);
-
-        /* Stream SEL data */
-        std::vector<uint8_t> msgVec(msg.begin(), msg.end());
-        if (!logSocket.sendMessage(msgVec))
-        {
-            lg2::error("Failed to stream SEL data");
-        }
-    }
-#endif
 
     if (isQuiesceOnErrorEnabled() && (errLvl < Entry::sevLowerLimit) &&
         isCalloutPresent(*e))
@@ -721,6 +700,24 @@ void Manager::quiesceOnError(const uint32_t entryId)
     checkAndQuiesceHost();
 }
 
+void Manager::doExtensionLogPrepare(internal::Manager& logManager,
+                                    std::vector<std::string>& additionalData)
+{
+    for (auto& prepare : Extensions::getPrepareFunctions())
+    {
+        try
+        {
+            prepare(logManager, additionalData);
+        }
+        catch (const std::exception& e)
+        {
+            lg2::error(
+                "An extension's prepare function threw an exception: {ERROR}",
+                "ERROR", e);
+        }
+    }
+}
+
 void Manager::doExtensionLogCreate(const Entry& entry, const FFDCEntries& ffdc)
 {
     // Make the association <endpointpath>/<endpointtype> paths
@@ -744,6 +741,23 @@ void Manager::doExtensionLogCreate(const Entry& entry, const FFDCEntries& ffdc)
         {
             lg2::error(
                 "An extension's create function threw an exception: {ERROR}",
+                "ERROR", e);
+        }
+    }
+}
+
+void Manager::doExtensionLogDeleteAll()
+{
+    for (auto& deleteAll : Extensions::getDeleteAllFunctions())
+    {
+        try
+        {
+            deleteAll();
+        }
+        catch (const std::exception& e)
+        {
+            lg2::error(
+                "An extension's deleteAll function threw an exception: {ERROR}",
                 "ERROR", e);
         }
     }
@@ -1102,7 +1116,6 @@ bool Manager::deleteAll(
             erase(*(thisBin->errorEntries.begin()));
         }
     }
-
     return true;
 }
 
@@ -1139,6 +1152,7 @@ bool Manager::deleteAllTypes(const std::string& nspace)
 #else
     eraseAllInChildProcess(nspace);
 #endif
+    doExtensionLogDeleteAll();
     return true;
 }
 

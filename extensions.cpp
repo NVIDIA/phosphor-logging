@@ -11,6 +11,12 @@ StartupFunctions& Extensions::getStartupFunctions()
     return startupFunctions;
 }
 
+PrepareFunctions& Extensions::getPrepareFunctions()
+{
+    static PrepareFunctions prepareFunctions{};
+    return prepareFunctions;
+}
+
 CreateFunctions& Extensions::getCreateFunctions()
 {
     static CreateFunctions createFunctions{};
@@ -27,6 +33,12 @@ DeleteProhibitedFunctions& Extensions::getDeleteProhibitedFunctions()
 {
     static DeleteProhibitedFunctions deleteProhibitedFunctions{};
     return deleteProhibitedFunctions;
+}
+
+DeleteAllFunctions& Extensions::getDeleteAllFunctions()
+{
+    static DeleteAllFunctions deleteAllFunctions{};
+    return deleteAllFunctions;
 }
 
 Extensions::DefaultErrorCaps& Extensions::getDefaultErrorCaps()
