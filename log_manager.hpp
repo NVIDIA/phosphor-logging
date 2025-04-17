@@ -466,6 +466,7 @@ class Manager : public details::ServerObject<details::ManagerIface>
     }
 #endif
 
+
     /** @brief  Erase all error log entries
      *
      *  @return size_t - count of erased entries
