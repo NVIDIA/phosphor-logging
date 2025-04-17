@@ -14,6 +14,8 @@
 #include "xyz/openbmc_project/Logging/Namespace/server.hpp"
 #include "xyz/openbmc_project/Logging/error.hpp"
 
+#include <unistd.h>
+
 #include <nlohmann/json.hpp>
 #include <phosphor-logging/lg2.hpp>
 #include <phosphor-logging/log.hpp>
@@ -457,6 +459,7 @@ class Manager : public details::ServerObject<details::ManagerIface>
             if (pid == 0)
             {
                 removeStagedForEraseEntries();
+                _exit(0);
             }
             else if (pid > 0)
             {
