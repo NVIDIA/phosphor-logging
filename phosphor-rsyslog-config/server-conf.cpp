@@ -15,6 +15,9 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
+#include <stdplus/net/addr/ip.hpp>
+#include <stdplus/util/string.hpp>
+
 #include <optional>
 #include <string>
 
@@ -229,7 +232,22 @@ std::string Server::address(std::string value)
         {
             return serverAddress;
         }
-
+        if (!value.empty())
+        {
+            // Check for valid IPv4/IPv6 address and address string is not empty
+            try
+            {
+                stdplus::fromStr<stdplus::InAnyAddr>(value);
+            }
+            catch (const std::exception& e)
+            {
+                log<level::ERR>("Invalid IP address",
+                                entry("NET_IP=%s", value.c_str()),
+                                entry("ERROR=%s", e.what()));
+                elog<InvalidArgument>(Argument::ARGUMENT_NAME("Address"),
+                                      Argument::ARGUMENT_VALUE(value.c_str()));
+            }
+        }
         if (!value.empty() && !addressValid(value))
         {
             elog<InvalidArgument>(Argument::ARGUMENT_NAME("Address"),
