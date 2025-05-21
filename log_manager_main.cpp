@@ -18,12 +18,6 @@ int main(int argc, char* argv[])
 {
     PHOSPHOR_LOG2_USING_WITH_FLAGS;
 
-    if (argc >= 2)
-    {
-        PERSIST_PATH_ROOT = strdup(argv[1]);
-        info("Using temporary {PATH} for logs", "PATH", PERSIST_PATH_ROOT);
-    }
-
     auto bus = sdbusplus::bus::new_default();
     auto event = sdeventplus::Event::get_default();
     bus.attach_event(event.get(), SD_EVENT_PRIORITY_NORMAL);
@@ -55,9 +49,6 @@ int main(int argc, char* argv[])
                       "FILE", path);
         }
     };
-
-    // Create a directory to persist errors.
-    std::filesystem::create_directories(phosphor::logging::paths::error());
 
     if (argc == 2)
     {
