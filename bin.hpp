@@ -35,13 +35,13 @@ class Bin
         name(DEFAULT_BIN_NAME), errorCap(ERROR_CAP),
         errorInfoCap(ERROR_INFO_CAP),
         persistLocation(phosphor::logging::paths::error()), errorEntries({}),
-        infoEntries({}), persistInfoLog(true) {};
+        infoEntries({}), persistInfoLog(true), defaultCapacity(0) {};
 
     Bin(const std::string& str, uint32_t errCap, uint32_t errInfCap,
-        const std::string& loc, bool persistInfoLog) :
+        const std::string& loc, bool persistInfoLog, uint32_t defaultCapacity) :
         name(str), errorCap(errCap), errorInfoCap(errInfCap),
         persistLocation(loc), errorEntries({}), infoEntries({}),
-        persistInfoLog(persistInfoLog) {};
+        persistInfoLog(persistInfoLog), defaultCapacity(defaultCapacity) {};
 
     std::string name;
     uint32_t errorCap;
@@ -51,6 +51,7 @@ class Bin
     std::set<uint32_t> errorEntries;
     std::set<uint32_t> infoEntries;
     bool persistInfoLog;
+    uint32_t defaultCapacity;
 };
 
 } // namespace phosphor::logging::internal

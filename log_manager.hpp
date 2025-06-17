@@ -157,13 +157,19 @@ class Manager : public details::ServerObject<details::ManagerIface>
 
                     dirsToPreserve.push_back(item.value()["ID"]);
 
-                    auto errorCap =
-                        item.value()["ErrorCapacity"]
-                            .get_ptr<nlohmann::json::number_unsigned_t*>();
+                    uint32_t errorCap = 0;
+                    if (item.value().contains("ErrorCapacity"))
+                    {
+                        errorCap =
+                            item.value()["ErrorCapacity"].get<uint32_t>();
+                    }
 
-                    auto errorInfoCap =
-                        item.value()["InfoErrorCapacity"]
-                            .get_ptr<nlohmann::json::number_unsigned_t*>();
+                    uint32_t errorInfoCap = 0;
+                    if (item.value().contains("InfoErrorCapacity"))
+                    {
+                        errorInfoCap =
+                            item.value()["InfoErrorCapacity"].get<uint32_t>();
+                    }
 
                     bool persistInfoLog =
                         true; // by default persist all info logs
@@ -171,11 +177,19 @@ class Manager : public details::ServerObject<details::ManagerIface>
                     {
                         persistInfoLog = item.value()["PersistInfoLog"];
                     }
+
+                    uint32_t defaultCapacity = 0;
+                    if (item.value().contains("DefaultCapacity"))
+                    {
+                        defaultCapacity =
+                            item.value()["DefaultCapacity"].get<uint32_t>();
+                    }
+
                     auto bin = phosphor::logging::internal::Bin(
-                        std::string(*id), *errorCap, *errorInfoCap,
+                        std::string(*id), errorCap, errorInfoCap,
                         std::string(phosphor::logging::paths::error()) + "/" +
                             std::string(*id),
-                        persistInfoLog);
+                        persistInfoLog, defaultCapacity);
 
                     if (std::string(*id) == "SEL")
                     {

@@ -70,7 +70,8 @@ TEST_F(TestPolicy, testLinearPolicy)
     auto totalCapacity = 500;
     auto bin = phosphor::logging::internal::Bin(
         binName, binErrorCapacity, binInfoCapacity,
-        std::string(phosphor::logging::paths::error()) + "/" + binName, true);
+        std::string(phosphor::logging::paths::error()) + "/" + binName, true,
+        0);
 
     // Add Bin to the Manager
     manager.addBin(bin);
@@ -159,6 +160,109 @@ TEST_F(TestPolicy, testLinearPolicy)
         countFilesinDirectory(fs::path(
             std::string(phosphor::logging::paths::error()) + "/" + binName)),
         binInfoCapacity + binErrorCapacity);
+
+    manager.eraseAll();
+}
+
+TEST_F(TestPolicy, testLinearPolicyWithTotalCapacity)
+{
+    // Create the Bin
+    std::string binName = "LinearPolicyWithTotalCapacityTest";
+    auto binErrorCapacity = 20;
+    auto binInfoCapacity = 20;
+    auto binTotalCapacity = 10;
+    auto totalCapacity = 100;
+    auto bin = phosphor::logging::internal::Bin(
+        binName, binErrorCapacity, binInfoCapacity,
+        std::string(phosphor::logging::paths::error()) + "/" + binName, true,
+        binTotalCapacity);
+
+    // Add Bin to the Manager
+    manager.addBin(bin);
+
+    // Create errors
+    // - N Informational Logs in Bin 'binName'
+    // - N Informational Logs in default bin
+    for (size_t i = 0; i < (size_t)totalCapacity; i++)
+    {
+        manager.create("create Informational Error Event",
+                       Entry::Level::Informational,
+                       {{DEFAULT_BIN_KEY, binName}});
+    }
+
+    // Test 1: Test Information size
+    // As total capacity is 10, 'Informational Size' must be 10.
+    EXPECT_EQ(manager.getInfoErrSize(std::string(binName)), binTotalCapacity);
+
+    // Creating 5 more entries
+    for (size_t i = 0; i < 5; i++)
+    {
+        manager.create("create Informational Error Event",
+                       Entry::Level::Informational,
+                       {{DEFAULT_BIN_KEY, binName}});
+    }
+    // Test 2: Test Information size
+    // As total capacity is 10, 'Informational Size' must be 10
+    EXPECT_EQ(manager.getInfoErrSize(std::string(binName)), binTotalCapacity);
+
+    // 5 entries deleted from 'Informational'
+    for (size_t i = 0; i < 5; i++)
+    {
+        manager.erase(i + 1);
+    }
+
+    // Test 3: Test  Information size after deleting 5 entries
+    // Now 'Information Size' become 5
+    EXPECT_EQ(manager.getInfoErrSize(std::string(binName)),
+              binTotalCapacity - 5);
+
+    // Test 4: Count number of FS entries in created in bin
+    EXPECT_EQ(
+        countFilesinDirectory(fs::path(
+            std::string(phosphor::logging::paths::error()) + "/" + binName)),
+        binTotalCapacity - 5);
+
+    manager.eraseAll();
+
+    // Create errors
+    // - N Error Logs in Bin 'binName'
+    // - N Error Logs in default bin
+    for (size_t i = 0; i < (size_t)totalCapacity; i++)
+    {
+        manager.create("Create Error Event", Entry::Level::Error,
+                       {{DEFAULT_BIN_KEY, binName}});
+    }
+
+    // Test 5: Test Error size
+    // As total capacity is 10, 'Error Size' must be 10.
+    EXPECT_EQ(manager.getRealErrSize(std::string(binName)), binTotalCapacity);
+
+    // Creating 5 more entries
+    for (size_t i = 0; i < 5; i++)
+    {
+        manager.create("Create Error Event", Entry::Level::Error,
+                       {{DEFAULT_BIN_KEY, binName}});
+    }
+    // Test 6: Test Error size
+    // As total capacity is 10, 'Error Size' must be 10
+    EXPECT_EQ(manager.getRealErrSize(std::string(binName)), binTotalCapacity);
+
+    // 5 entries deleted from 'Error'
+    for (size_t i = 0; i < 5; i++)
+    {
+        manager.erase(i + 1);
+    }
+
+    // Test 7: Test  Error size after deleting 5 entries
+    // Now 'Error Size' become 5
+    EXPECT_EQ(manager.getRealErrSize(std::string(binName)),
+              binTotalCapacity - 5);
+
+    // Test 8: Count number of FS entries in created in bin
+    EXPECT_EQ(
+        countFilesinDirectory(fs::path(
+            std::string(phosphor::logging::paths::error()) + "/" + binName)),
+        binTotalCapacity - 5);
 
     manager.eraseAll();
 }

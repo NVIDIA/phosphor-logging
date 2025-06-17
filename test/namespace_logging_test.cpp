@@ -62,7 +62,8 @@ TEST_F(TestNamespaceLogging, testBinCreation)
     auto binInfoCapacity = 20;
     auto bin = phosphor::logging::internal::Bin(
         binName, binErrorCapacity, binInfoCapacity,
-        std::string(phosphor::logging::paths::error()) + "/" + binName, true);
+        std::string(phosphor::logging::paths::error()) + "/" + binName, true,
+        0);
 
     // Add Bin to the Manager
     manager.addBin(bin);
@@ -104,7 +105,8 @@ TEST_F(TestNamespaceLogging, testEraseAll)
     auto binInfoCapacity = 20;
     auto bin = phosphor::logging::internal::Bin(
         binName, binErrorCapacity, binInfoCapacity,
-        std::string(phosphor::logging::paths::error()) + "/" + binName, true);
+        std::string(phosphor::logging::paths::error()) + "/" + binName, true,
+        0);
 
     // Add Bin to the Manager
     manager.addBin(bin);
@@ -151,7 +153,8 @@ TEST_F(TestNamespaceLogging, testBinCapacity)
     auto binInfoCapacity = 20;
     auto bin = phosphor::logging::internal::Bin(
         binName, binErrorCapacity, binInfoCapacity,
-        std::string(phosphor::logging::paths::error()) + "/" + binName, true);
+        std::string(phosphor::logging::paths::error()) + "/" + binName, true,
+        0);
 
     // Add Bin to the Manager
     manager.addBin(bin);
@@ -205,6 +208,65 @@ TEST_F(TestNamespaceLogging, testBinCapacity)
     manager.eraseAll();
 }
 
+TEST_F(TestNamespaceLogging, testTotalCapacity)
+{
+    // Create the Bin
+    std::string binName = "tempBin";
+    auto binErrorCapacity = 20;
+    auto binInfoCapacity = 20;
+    auto binTotalCapacity = 10;
+    auto bin = phosphor::logging::internal::Bin(
+        binName, binErrorCapacity, binInfoCapacity,
+        std::string(phosphor::logging::paths::error()) + "/" + binName, true,
+        binTotalCapacity);
+
+    // Add Bin to the Manager
+    manager.addBin(bin);
+
+    // Create errors
+    // - N Informational Logs in Bin 'binName'
+    // - N Informational Logs in default bin
+    for (size_t i = 0; i < (size_t)binInfoCapacity; i++)
+    {
+        manager.create("Test Informational Error Event",
+                       Entry::Level::Informational,
+                       {{DEFAULT_BIN_KEY, binName}});
+        manager.create("Test Informational Error Event",
+                       Entry::Level::Informational,
+                       {{DEFAULT_BIN_KEY, DEFAULT_BIN_NAME}});
+    }
+
+    // Test 1: Test Bin Information Error Capacity
+    EXPECT_EQ(manager.getInfoErrSize(std::string(binName)), binTotalCapacity);
+
+    // Create errors
+    // - N Error Logs in Bin 'binName'
+    // - N Error Logs in default bin
+    for (size_t i = 0; i < (size_t)binErrorCapacity; i++)
+    {
+        manager.create("Test Error Event", Entry::Level::Error,
+                       {{DEFAULT_BIN_KEY, binName}});
+        manager.create("Test Error Event", Entry::Level::Error, {});
+    }
+
+    // Test 2: Test Bin Real Error Capacity
+    EXPECT_EQ(manager.getRealErrSize(std::string(binName)), binTotalCapacity);
+
+    // Test 3: Negative Test Information Error Capacity
+    EXPECT_NE(manager.getInfoErrSize(std::string(binName)), binInfoCapacity);
+
+    // Test 4: Negative Test Real Error Capacity
+    EXPECT_NE(manager.getRealErrSize(std::string(binName)), binErrorCapacity);
+
+    // Test 5: Count number of FS entries in created in bin
+    EXPECT_EQ(
+        countFilesinDirectory(fs::path(
+            std::string(phosphor::logging::paths::error()) + "/" + binName)),
+        binTotalCapacity);
+
+    manager.eraseAll();
+}
+
 TEST_F(TestNamespaceLogging, testLogPersistency)
 {
     // Create the Bin
@@ -213,7 +275,8 @@ TEST_F(TestNamespaceLogging, testLogPersistency)
     auto binInfoCapacity = 20;
     auto bin = phosphor::logging::internal::Bin(
         binName, binErrorCapacity, binInfoCapacity,
-        std::string(phosphor::logging::paths::error()) + "/" + binName, false);
+        std::string(phosphor::logging::paths::error()) + "/" + binName, false,
+        0);
 
     // Add Bin to the Manager
     manager.addBin(bin);
