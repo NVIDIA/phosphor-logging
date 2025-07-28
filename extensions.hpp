@@ -22,6 +22,14 @@ using AssociationEndpointsArg = std::vector<std::string>;
 using FFDCArg = FFDCEntries;
 
 /**
+ * @brief The function type that will be called before an event log
+ *         is created.
+ * @param[in] const additionalData& - The Additional data in Entry object
+ */
+using PrepareFunction =
+    std::function<void(internal::Manager&, std::map<std::string, std::string>&)>;
+
+/**
  *  @brief The function type that will be called after an event log
  *         is created.
  * @param[in] const std::string& - The Message property
@@ -64,10 +72,18 @@ using LogIDWithHwIsolationFunction =
 using LogIDsWithHwIsolationFunctions =
     std::vector<LogIDWithHwIsolationFunction>;
 
+/**
+ * @brief The function type that will be called after all event logs are
+ * deleted.
+ */
+using DeleteAllFunction = std::function<void(void)>;
+
 using StartupFunctions = std::vector<StartupFunction>;
+using PrepareFunctions = std::vector<PrepareFunction>;
 using CreateFunctions = std::vector<CreateFunction>;
 using DeleteFunctions = std::vector<DeleteFunction>;
 using DeleteProhibitedFunctions = std::vector<DeleteProhibitedFunction>;
+using DeleteAllFunctions = std::vector<DeleteAllFunction>;
 
 /**
  * @brief Register an extension hook function
@@ -133,6 +149,19 @@ class Extensions
     }
 
     /**
+     * @brief Constructor to register a prepare function
+     *
+     * Functions registered with this contructor will be called
+     * after phosphor-log-manager creates an event log.
+     *
+     * @param[in] func - The pre create function to register
+     */
+    explicit Extensions(PrepareFunction func)
+    {
+        getPrepareFunctions().push_back(func);
+    }
+
+    /**
      * @brief Constructor to register a create function
      *
      * Functions registered with this contructor will be called
@@ -186,6 +215,19 @@ class Extensions
     }
 
     /**
+     * @brief Constructor to register a deleteAll function
+     *
+     * Functions registered with this contructor will be called
+     * after phosphor-log-manager deletes all event logs.
+     *
+     * @param[in] func - The delete function to register
+     */
+    explicit Extensions(DeleteAllFunction func)
+    {
+        getDeleteAllFunctions().push_back(func);
+    }
+
+    /**
      * @brief Constructor to disable event log capping
      *
      * This constructor should only be called by the
@@ -204,6 +246,12 @@ class Extensions
      * @return StartupFunctions - the Startup functions
      */
     static StartupFunctions& getStartupFunctions();
+
+    /**
+     * @brief Returns the Prepare functions
+     * @return PrepareFunctions - the Prepare functions
+     */
+    static PrepareFunctions& getPrepareFunctions();
 
     /**
      * @brief Returns the Create functions
@@ -229,6 +277,12 @@ class Extensions
      * functions
      */
     static LogIDsWithHwIsolationFunctions& getLogIDWithHwIsolationFunctions();
+
+    /**
+     * @brief Returns the DeleteAll functions
+     * @return DeleteAllFunctions - the DeleteAll functions
+     */
+    static DeleteAllFunctions& getDeleteAllFunctions();
 
     /**
      * @brief Returns the DefaultErrorCaps value

@@ -93,8 +93,8 @@ class Server : public Iface
      *  @param[in] value - UDP/TCP.
      *  @returns protocol value
      */
-    virtual TransportProtocol transportProtocol(
-        TransportProtocol protocol) override;
+    virtual TransportProtocol
+        transportProtocol(TransportProtocol protocol) override;
 
     /** Set value of Enabled */
     virtual bool enabled(bool value) override;

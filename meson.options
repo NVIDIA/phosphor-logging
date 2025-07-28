@@ -14,6 +14,13 @@ option(
     value: 'disabled'
 )
 
+option(
+    'sel-extension',
+    type: 'feature',
+    description: 'Enable SEL support',
+    value: 'enabled'
+)
+
 option('yamldir', type: 'string', description: 'Path to YAML')
 option(
     'callout_yaml',

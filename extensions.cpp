@@ -11,6 +11,12 @@ StartupFunctions& Extensions::getStartupFunctions()
     return startupFunctions;
 }
 
+PrepareFunctions& Extensions::getPrepareFunctions()
+{
+    static PrepareFunctions prepareFunctions{};
+    return prepareFunctions;
+}
+
 CreateFunctions& Extensions::getCreateFunctions()
 {
     static CreateFunctions createFunctions{};
@@ -33,6 +39,12 @@ LogIDsWithHwIsolationFunctions& Extensions::getLogIDWithHwIsolationFunctions()
 {
     static LogIDsWithHwIsolationFunctions logIDWithHwIsolationFunctions{};
     return logIDWithHwIsolationFunctions;
+}
+
+DeleteAllFunctions& Extensions::getDeleteAllFunctions()
+{
+    static DeleteAllFunctions deleteAllFunctions{};
+    return deleteAllFunctions;
 }
 
 Extensions::DefaultErrorCaps& Extensions::getDefaultErrorCaps()

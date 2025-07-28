@@ -18,6 +18,8 @@
 
 #include <unistd.h>
 
+#include <unistd.h>
+
 #include <nlohmann/json.hpp>
 #include <phosphor-logging/lg2.hpp>
 #include <phosphor-logging/log.hpp>
@@ -466,7 +468,6 @@ class Manager : public details::ServerObject<details::ManagerIface>
     }
 #endif
 
-
     /** @brief  Erase all error log entries
      *
      *  @return size_t - count of erased entries
@@ -703,6 +704,9 @@ class Manager : public details::ServerObject<details::ManagerIface>
     {
         return logSocket.start();
     }
+
+    /** @brief Socket for SEL logging */
+    LogStreamer logSocket;
 #endif
 
   private:
@@ -728,7 +732,7 @@ class Manager : public details::ServerObject<details::ManagerIface>
      *  @param[out] objects - list of error's association objects
      */
     std::vector<std::string> processMetadata(
-        const std::string& errorName, std::vector<std::string>& additionalData,
+        const std::string& errorName, std::map<std::string, std::string>& additionalData,
         const std::map<std::string,
                        const std::function<std::string(Entry&, std::string&)>>&
             fnMap,
@@ -740,6 +744,16 @@ class Manager : public details::ServerObject<details::ManagerIface>
      */
     static std::string readFWVersion();
 
+    /** @brief Call any prepare() functions provided by any extensions.
+     *   This is called right before an event log is created to allow
+     *   extensions to modify the additional data in log entry.
+     *
+     *   @param[in] logManager - the log manager to use
+     *   @param[in] additionalData - the additional data in event log entry
+     */
+    void doExtensionLogPrepare(internal::Manager& logManager,
+                               std::map<std::string, std::string>& additionalData);
+
     /** @brief Call any create() functions provided by any extensions.
      *  This is called right after an event log is created to allow
      *  extensions to create their own log based on this one.
@@ -748,6 +762,11 @@ class Manager : public details::ServerObject<details::ManagerIface>
      *  @param[in] ffdc - A vector of FFDC file info
      */
     void doExtensionLogCreate(const Entry& entry, const FFDCEntries& ffdc);
+
+    /** @brief Call any deleteAll() functions provided by any extensions.
+     *   This is called right after all event logs are erased.
+     */
+    void doExtensionLogDeleteAll();
 
     /** @brief Common wrapper for creating an Entry object
      *
@@ -785,11 +804,11 @@ class Manager : public details::ServerObject<details::ManagerIface>
     /** @brief Implementation for rfSendEvent
      *  Write the dbus log when resource created/deleted/modified or rebooted.
      *  The dbus log will be picked by the RF event framework and generates the
-     event
+     *  event
      *  @param[in] rfMessage - The Message property of the event entry.
      *  @param[in] rfSeverity - The Severity property of the event entry.
      *  @param[in] rfAdditionalData - The AdditionalData property of the event
-     entry. entry. e.g.:
+     *  entry. entry. e.g.:
                 {
                 "key1": "value1",
                 "key2": "value2"
@@ -817,10 +836,7 @@ class Manager : public details::ServerObject<details::ManagerIface>
     const std::string fwVersion;
 
     phosphor::logging::internal::Bin defaultBin;
-#ifdef ENABLE_LOG_STREAMING
-    /** @brief Socket for SEL logging */
-    LogStreamer logSocket;
-#endif
+
     /** @brief Array of blocking errors */
     std::vector<std::unique_ptr<Block>> blockingErrors;
 

@@ -87,13 +87,13 @@ inline auto getLevel(const std::string& errMsg)
  */
 Manager::Manager(sdbusplus::bus::bus& bus, const std::string& objPath) :
     details::ServerObject<details::ManagerIface>(bus, objPath.c_str()),
+#ifdef ENABLE_LOG_STREAMING
+    logSocket(LOG_STREAMER_SOCKET_PATH),
+#endif
     busLog(bus), entryId(0), lastCreatedTimeStamp(0),
     fwVersion(readFWVersion()),
     defaultBin(DEFAULT_BIN_NAME, ERROR_CAP, ERROR_INFO_CAP, phosphor::logging::paths::error(),
                true),
-#ifdef ENABLE_LOG_STREAMING
-    logSocket(LOG_STREAMER_SOCKET_PATH),
-#endif
     _autoPurgeResolved(LOG_PURGE_POLICY_DEFAULT),
     _autoPurgeEventSource(
         sdeventplus::Event::get_default(),
@@ -417,7 +417,6 @@ auto Manager::createEntry(std::string errMsg, Entry::Level errLvl,
             entryBin = &(binNameMap[value]);
         }
     }
-
     // lg2::info("Bin of Incoming Entry: {BIN_NAME}", "BIN_NAME", entryBinName);
 
     // Corresponding to the bin found, use capacity limits
@@ -466,12 +465,6 @@ auto Manager::createEntry(std::string errMsg, Entry::Level errLvl,
     }
 
     entryId++;
-    if ((entryBinName.compare("SEL") == 0) &&
-        (entryId >= std::numeric_limits<uint16_t>::max()))
-    {
-        // The SEL ID should be from 0x1 to 0xfffe
-        entryId = entryId % std::numeric_limits<uint16_t>::max() + 1;
-    }
     if (errLvl >= Entry::sevLowerLimit)
     {
         entryBin->infoEntries.insert(entryId);
@@ -491,8 +484,7 @@ auto Manager::createEntry(std::string errMsg, Entry::Level errLvl,
 
     AssociationList objects{};
 
-    // Convert additionalData map to vector format if needed for processing
-    auto additionalDataVec = util::additional_data::combine(additionalData);
+    doExtensionLogPrepare(*this, additionalData);
 
     // Setup function map for FQPN processing
     std::map<std::string,
@@ -508,7 +500,7 @@ auto Manager::createEntry(std::string errMsg, Entry::Level errLvl,
 
     // Process metadata and get FQPNs
     auto foundFQPNs =
-        processMetadata(errMsg, additionalDataVec, fnMap, objects);
+        processMetadata(errMsg, additionalData, fnMap, objects);
 
     auto e = std::make_unique<Entry>(
         busLog, objPath, entryId,
@@ -740,6 +732,24 @@ void Manager::quiesceOnError(const uint32_t entryId)
     checkAndQuiesceHost();
 }
 
+void Manager::doExtensionLogPrepare(internal::Manager& logManager,
+                                    std::map<std::string, std::string>& additionalData)
+{
+    for (auto& prepare : Extensions::getPrepareFunctions())
+    {
+        try
+        {
+            prepare(logManager, additionalData);
+        }
+        catch (const std::exception& e)
+        {
+            lg2::error(
+                "An extension's prepare function threw an exception: {ERROR}",
+                "ERROR", e);
+        }
+    }
+}
+
 void Manager::doExtensionLogCreate(const Entry& entry, const FFDCEntries& ffdc)
 {
     // Make the association <endpointpath>/<endpointtype> paths
@@ -768,42 +778,59 @@ void Manager::doExtensionLogCreate(const Entry& entry, const FFDCEntries& ffdc)
     }
 }
 
+void Manager::doExtensionLogDeleteAll()
+{
+    for (auto& deleteAll : Extensions::getDeleteAllFunctions())
+    {
+        try
+        {
+            deleteAll();
+        }
+        catch (const std::exception& e)
+        {
+            lg2::error(
+                "An extension's deleteAll function threw an exception: {ERROR}",
+                "ERROR", e);
+        }
+    }
+}
+
 std::vector<std::string> Manager::processMetadata(
-    const std::string& /*errorName*/, std::vector<std::string>& additionalData,
+    const std::string& /*errorName*/, std::map<std::string, std::string>& additionalData,
     const std::map<std::string,
                    const std::function<std::string(Entry&, std::string&)>>&
         fnMap,
     AssociationList& objects) const
 {
-    // additionalData is a list of "metadata=value"
-    constexpr auto separator = '=';
     std::vector<std::string> seenFQPNs;
-    for (const auto& entryItem : additionalData)
+    
+    for (const auto& [key, value] : additionalData)
     {
-        auto found = entryItem.find(separator);
-        if (std::string::npos != found)
+        if (fnMap.count(key) > 0)
         {
-            auto metadata = entryItem.substr(0, found);
+            seenFQPNs.push_back(key + "=" + value);
+        }
 
-            if (fnMap.count(metadata) > 0)
-            {
-                seenFQPNs.push_back(entryItem);
-            }
-
-            auto iter = meta.find(metadata);
-            if (meta.end() != iter)
-            {
-                (iter->second)(metadata, additionalData, objects);
-            }
+        auto iter = meta.find(key);
+        if (meta.end() != iter)
+        {
+            // Convert map to vector for meta functions that expect std::vector<std::string>&
+            auto additionalDataVec = util::additional_data::combine(additionalData);
+            (iter->second)(key, additionalDataVec, objects);
         }
     }
-    const std::vector<std::string>& v = seenFQPNs;
-    auto isFQPN = [&](std::string& s) {
-        return std::find(v.begin(), v.end(), s) != v.end();
-    };
-    additionalData.erase(
-        std::remove_if(additionalData.begin(), additionalData.end(), isFQPN),
-        additionalData.end());
+    
+    // Remove processed FQPNs from additionalData
+    for (const auto& fqpn : seenFQPNs)
+    {
+        auto found = fqpn.find('=');
+        if (found != std::string::npos)
+        {
+            auto key = fqpn.substr(0, found);
+            additionalData.erase(key);
+        }
+    }
+    
     return seenFQPNs;
 }
 
@@ -1020,7 +1047,6 @@ void Manager::restore()
     util::removeStagedForEraseEntries(DEFAULT_BIN_NAME, binNameMap);
 #endif
 
-
     // using recursive_directory_iterator to get every directory
     for (const auto& file : std::filesystem::recursive_directory_iterator(dir))
     {
@@ -1198,7 +1224,6 @@ bool Manager::deleteAll(
             erase(*(thisBin->errorEntries.begin()));
         }
     }
-
     return true;
 }
 
@@ -1235,6 +1260,7 @@ bool Manager::deleteAllTypes(const std::string& nspace)
 #else
     eraseAllInChildProcess(nspace);
 #endif
+    doExtensionLogDeleteAll();
     return true;
 }
 
