@@ -858,6 +858,7 @@ void Manager::checkAndRemoveBlockingError(uint32_t entryId)
 
 size_t Manager::eraseAll()
 {
+    size_t entriesSize = entries.size();
 #ifndef ENABLE_ERASE_WITH_MULTIPLE_PROCESS
     std::vector<uint32_t> logIDWithHwIsolation;
     for (auto& func : Extensions::getLogIDWithHwIsolationFunctions())
@@ -873,7 +874,6 @@ size_t Manager::eraseAll()
                        "ERROR", e);
         }
     }
-    size_t entriesSize = entries.size();
     auto iter = entries.begin();
     if (logIDWithHwIsolation.empty())
     {
