@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 #include "config.h"
-#include "paths.hpp"
+
 #include "util.hpp"
+
+#include "paths.hpp"
 
 #include <poll.h>
 #include <sys/inotify.h>
@@ -271,8 +273,8 @@ void removeStagedForEraseEntries(
 {
     if (nspace.compare(DEFAULT_BIN_NAME) != 0)
     {
-        std::string tempPath = std::string(paths::error()) + "_" + nspace +
-                               "_temp";
+        std::string tempPath =
+            std::string(paths::error()) + "_" + nspace + "_temp";
         fs::path errorToRemovePath(tempPath);
         removeStagedFiles(errorToRemovePath);
     }
@@ -342,9 +344,8 @@ void eraseAllInChildProcess(
             {
                 if (entry.first.compare(DEFAULT_BIN_NAME) != 0)
                 {
-                    fs::create_directories(std::string(paths::error()) +
-                                               "/" + entry.first,
-                                           ec);
+                    fs::create_directories(
+                        std::string(paths::error()) + "/" + entry.first, ec);
                     if (ec.value() != 0)
                     {
                         lg2::error("Failed to create the error path: {ERROR}",

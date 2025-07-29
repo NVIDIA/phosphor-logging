@@ -92,8 +92,8 @@ Manager::Manager(sdbusplus::bus::bus& bus, const std::string& objPath) :
 #endif
     busLog(bus), entryId(0), lastCreatedTimeStamp(0),
     fwVersion(readFWVersion()),
-    defaultBin(DEFAULT_BIN_NAME, ERROR_CAP, ERROR_INFO_CAP, phosphor::logging::paths::error(),
-               true),
+    defaultBin(DEFAULT_BIN_NAME, ERROR_CAP, ERROR_INFO_CAP,
+               phosphor::logging::paths::error(), true),
     _autoPurgeResolved(LOG_PURGE_POLICY_DEFAULT),
     _autoPurgeEventSource(
         sdeventplus::Event::get_default(),
@@ -499,8 +499,7 @@ auto Manager::createEntry(std::string errMsg, Entry::Level errLvl,
         [](Entry& entry, std::string& s) { return entry.eventId(s, true); }));
 
     // Process metadata and get FQPNs
-    auto foundFQPNs =
-        processMetadata(errMsg, additionalData, fnMap, objects);
+    auto foundFQPNs = processMetadata(errMsg, additionalData, fnMap, objects);
 
     auto e = std::make_unique<Entry>(
         busLog, objPath, entryId,
@@ -521,7 +520,8 @@ auto Manager::createEntry(std::string errMsg, Entry::Level errLvl,
     callFQPNsMethods(foundFQPNs, e, fnMap);
     e->emit_object_added();
 
-    auto entryPath = std::string(phosphor::logging::paths::error()) + entryBinName;
+    auto entryPath =
+        std::string(phosphor::logging::paths::error()) + entryBinName;
 
     // lg2::info("Writing Entry on FS on Path: {ENTRY_PATH}", "ENTRY_PATH",
     //           entryPath);
@@ -732,8 +732,9 @@ void Manager::quiesceOnError(const uint32_t entryId)
     checkAndQuiesceHost();
 }
 
-void Manager::doExtensionLogPrepare(internal::Manager& logManager,
-                                    std::map<std::string, std::string>& additionalData)
+void Manager::doExtensionLogPrepare(
+    internal::Manager& logManager,
+    std::map<std::string, std::string>& additionalData)
 {
     for (auto& prepare : Extensions::getPrepareFunctions())
     {
@@ -796,14 +797,15 @@ void Manager::doExtensionLogDeleteAll()
 }
 
 std::vector<std::string> Manager::processMetadata(
-    const std::string& /*errorName*/, std::map<std::string, std::string>& additionalData,
+    const std::string& /*errorName*/,
+    std::map<std::string, std::string>& additionalData,
     const std::map<std::string,
                    const std::function<std::string(Entry&, std::string&)>>&
         fnMap,
     AssociationList& objects) const
 {
     std::vector<std::string> seenFQPNs;
-    
+
     for (const auto& [key, value] : additionalData)
     {
         if (fnMap.count(key) > 0)
@@ -814,12 +816,14 @@ std::vector<std::string> Manager::processMetadata(
         auto iter = meta.find(key);
         if (meta.end() != iter)
         {
-            // Convert map to vector for meta functions that expect std::vector<std::string>&
-            auto additionalDataVec = util::additional_data::combine(additionalData);
+            // Convert map to vector for meta functions that expect
+            // std::vector<std::string>&
+            auto additionalDataVec =
+                util::additional_data::combine(additionalData);
             (iter->second)(key, additionalDataVec, objects);
         }
     }
-    
+
     // Remove processed FQPNs from additionalData
     for (const auto& fqpn : seenFQPNs)
     {
@@ -830,7 +834,7 @@ std::vector<std::string> Manager::processMetadata(
             additionalData.erase(key);
         }
     }
-    
+
     return seenFQPNs;
 }
 
@@ -921,7 +925,7 @@ size_t Manager::eraseAll()
         }
     }
 #else
-        eraseAllInChildProcess(DEFAULT_BIN_NAME);
+    eraseAllInChildProcess(DEFAULT_BIN_NAME);
 #endif
     return entriesSize;
 }
@@ -965,7 +969,8 @@ void Manager::erase(uint32_t entryId, bool removePersistentFiles)
         {
             if (!(binName.compare(DEFAULT_BIN_NAME) == 0))
             {
-                deletePath = std::string(phosphor::logging::paths::error()) + "/" + binName;
+                deletePath = std::string(phosphor::logging::paths::error()) +
+                             "/" + binName;
             }
 
             // lg2::info("Deleting Entry of Bin: {BIN_NAME}", "BIN_NAME",
@@ -1070,10 +1075,12 @@ void Manager::restore()
         }
 
         auto parentPath = std::string(file.path().parent_path());
-        eraseSubStr(parentPath, std::string(phosphor::logging::paths::error()) + "/");
+        eraseSubStr(parentPath,
+                    std::string(phosphor::logging::paths::error()) + "/");
         std::string restoreBinName = DEFAULT_BIN_NAME;
 
-        if (parentPath.compare(std::string(phosphor::logging::paths::error())) != 0)
+        if (parentPath.compare(
+                std::string(phosphor::logging::paths::error())) != 0)
         {
             restoreBinName = parentPath;
             // If restoreBinName isn't present in the binNameMap then skip

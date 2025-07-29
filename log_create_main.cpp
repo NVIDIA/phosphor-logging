@@ -18,7 +18,6 @@ void list_all()
     {
         std::cout << "    " << e << std::endl;
     }
-
 }
 
 int generate_event(const std::string& eventId, const nlohmann::json& data)

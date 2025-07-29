@@ -17,12 +17,13 @@
 #include "config.h"
 
 #include "log_manager.hpp"
+#include "paths.hpp"
 
 #include <sdbusplus/bus.hpp>
 #include <sdbusplus/test/sdbus_mock.hpp>
 
 #include <filesystem>
-#include "paths.hpp"
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -42,7 +43,7 @@ class TestNamespaceLogging : public testing::Test
     sdbusplus::bus::bus mockedBus = sdbusplus::get_mocked_new(&sdbusMock);
     phosphor::logging::internal::Manager manager;
 
-    TestNamespaceLogging() : manager(mockedBus, OBJ_INTERNAL){};
+    TestNamespaceLogging() : manager(mockedBus, OBJ_INTERNAL) {};
 
     ~TestNamespaceLogging() {}
 };
@@ -80,17 +81,19 @@ TEST_F(TestNamespaceLogging, testBinCreation)
     EXPECT_EQ(manager.getBin("tempBin").infoEntries.size(), 1);
 
     // Test 3: Make sure one new entry was created
-    EXPECT_EQ(countFilesinDirectory(
-                  fs::path(std::string(phosphor::logging::paths::error()) + "/" + binName)),
-              1);
+    EXPECT_EQ(
+        countFilesinDirectory(fs::path(
+            std::string(phosphor::logging::paths::error()) + "/" + binName)),
+        1);
 
     // Erase all entries
     manager.eraseAll();
 
     // Test 4: Make sure entries got erased
-    EXPECT_EQ(countFilesinDirectory(
-                  fs::path(std::string(phosphor::logging::paths::error()) + "/" + binName)),
-              0);
+    EXPECT_EQ(
+        countFilesinDirectory(fs::path(
+            std::string(phosphor::logging::paths::error()) + "/" + binName)),
+        0);
 }
 
 TEST_F(TestNamespaceLogging, testEraseAll)
@@ -134,9 +137,10 @@ TEST_F(TestNamespaceLogging, testEraseAll)
               0);
 
     // Test 3: Test 'binName' FS files are 0
-    EXPECT_EQ(countFilesinDirectory(
-                  fs::path(std::string(phosphor::logging::paths::error()) + "/" + binName)),
-              0);
+    EXPECT_EQ(
+        countFilesinDirectory(fs::path(
+            std::string(phosphor::logging::paths::error()) + "/" + binName)),
+        0);
 }
 
 TEST_F(TestNamespaceLogging, testBinCapacity)
@@ -193,9 +197,10 @@ TEST_F(TestNamespaceLogging, testBinCapacity)
     EXPECT_EQ(manager.lastEntryID(), 4 * (ERROR_CAP + binErrorCapacity));
 
     // Test 8: Count number of FS entries in created in bin
-    EXPECT_EQ(countFilesinDirectory(
-                  fs::path(std::string(phosphor::logging::paths::error()) + "/" + binName)),
-              binInfoCapacity + binErrorCapacity);
+    EXPECT_EQ(
+        countFilesinDirectory(fs::path(
+            std::string(phosphor::logging::paths::error()) + "/" + binName)),
+        binInfoCapacity + binErrorCapacity);
 
     manager.eraseAll();
 }
@@ -227,9 +232,10 @@ TEST_F(TestNamespaceLogging, testLogPersistency)
     EXPECT_EQ(manager.getBin("tempBin").infoEntries.size(), 1);
 
     // Test 3: Since log is informational it should not be present in directory
-    EXPECT_EQ(countFilesinDirectory(
-                  fs::path(std::string(phosphor::logging::paths::error()) + "/" + binName)),
-              0);
+    EXPECT_EQ(
+        countFilesinDirectory(fs::path(
+            std::string(phosphor::logging::paths::error()) + "/" + binName)),
+        0);
     manager.eraseAll();
     // Create Error log in Bin 'binName'
     manager.create("Test Error", Entry::Level::Error,
@@ -241,9 +247,10 @@ TEST_F(TestNamespaceLogging, testLogPersistency)
     EXPECT_EQ(manager.getBin("tempBin").errorEntries.size(), 1);
 
     // Test 6: Since log is error it should be present in directory
-    EXPECT_EQ(countFilesinDirectory(
-                  fs::path(std::string(phosphor::logging::paths::error()) + "/" + binName)),
-              1);
+    EXPECT_EQ(
+        countFilesinDirectory(fs::path(
+            std::string(phosphor::logging::paths::error()) + "/" + binName)),
+        1);
 }
 
 } // namespace test

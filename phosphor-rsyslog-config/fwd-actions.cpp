@@ -33,8 +33,8 @@ bool RsyslogFwdAction::enabled(bool value)
     return ret;
 }
 
-RsyslogFwd::TransportProtocol
-    RsyslogFwdAction::transportProtocol(RsyslogFwd::TransportProtocol value)
+RsyslogFwd::TransportProtocol RsyslogFwdAction::transportProtocol(
+    RsyslogFwd::TransportProtocol value)
 {
     auto ret = RsyslogFwd::transportProtocol(value);
     if (parent->overrideConfigFile(logType()))
@@ -44,8 +44,8 @@ RsyslogFwd::TransportProtocol
     return ret;
 }
 
-RsyslogFwd::NetworkProtocol
-    RsyslogFwdAction::networkProtocol(RsyslogFwd::NetworkProtocol value)
+RsyslogFwd::NetworkProtocol RsyslogFwdAction::networkProtocol(
+    RsyslogFwd::NetworkProtocol value)
 {
     auto ret = RsyslogFwd::networkProtocol(value);
     if (parent->overrideConfigFile(logType()))

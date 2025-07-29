@@ -1,11 +1,11 @@
 #pragma once
 
 #include "bin.hpp"
-#include "paths.hpp"
 #include "elog_block.hpp"
 #include "elog_entry.hpp"
-#include "xyz/openbmc_project/Logging/Internal/Manager/server.hpp"
+#include "paths.hpp"
 #include "util.hpp"
+#include "xyz/openbmc_project/Logging/Internal/Manager/server.hpp"
 #ifdef ENABLE_LOG_STREAMING
 #include "log_streamer.hpp"
 #endif
@@ -15,8 +15,6 @@
 #include "xyz/openbmc_project/Logging/Entry/server.hpp"
 #include "xyz/openbmc_project/Logging/Namespace/server.hpp"
 #include "xyz/openbmc_project/Logging/event.hpp"
-
-#include <unistd.h>
 
 #include <unistd.h>
 
@@ -193,7 +191,8 @@ class Manager : public details::ServerObject<details::ManagerIface>
             return 3;
         }
 
-        std::filesystem::path logDir(std::string{phosphor::logging::paths::error()});
+        std::filesystem::path logDir(
+            std::string{phosphor::logging::paths::error()});
 
         // clear errlog path, skip configured dirnames, skip non-dirs
         for (const auto& p : std::filesystem::directory_iterator(logDir))
@@ -554,10 +553,10 @@ class Manager : public details::ServerObject<details::ManagerIface>
      * @param[in] nspace - Namespace String
      * @param[in] severity - Log Severity
      */
-    bool
-        deleteAll(const std::string& nspace,
-                  sdbusplus::xyz::openbmc_project::Logging::server::Entry::Level
-                      severity);
+    bool deleteAll(
+        const std::string& nspace,
+        sdbusplus::xyz::openbmc_project::Logging::server::Entry::Level
+            severity);
 
     bool deleteAllTypes(const std::string& nspace);
 
@@ -732,7 +731,8 @@ class Manager : public details::ServerObject<details::ManagerIface>
      *  @param[out] objects - list of error's association objects
      */
     std::vector<std::string> processMetadata(
-        const std::string& errorName, std::map<std::string, std::string>& additionalData,
+        const std::string& errorName,
+        std::map<std::string, std::string>& additionalData,
         const std::map<std::string,
                        const std::function<std::string(Entry&, std::string&)>>&
             fnMap,
@@ -751,8 +751,9 @@ class Manager : public details::ServerObject<details::ManagerIface>
      *   @param[in] logManager - the log manager to use
      *   @param[in] additionalData - the additional data in event log entry
      */
-    void doExtensionLogPrepare(internal::Manager& logManager,
-                               std::map<std::string, std::string>& additionalData);
+    void doExtensionLogPrepare(
+        internal::Manager& logManager,
+        std::map<std::string, std::string>& additionalData);
 
     /** @brief Call any create() functions provided by any extensions.
      *  This is called right after an event log is created to allow

@@ -15,7 +15,6 @@
  */
 #include "config.h"
 
-
 #include "../bcd_time.hpp"
 #include "../json_utils.hpp"
 #include "../paths.hpp"

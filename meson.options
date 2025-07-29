@@ -11,14 +11,14 @@ option(
     'nvbmc-logging-extension',
     type: 'feature',
     description: 'Enable NVBMC Device Event Log Extensions for BootEntryID support',
-    value: 'disabled'
+    value: 'disabled',
 )
 
 option(
     'sel-extension',
     type: 'feature',
     description: 'Enable SEL support',
-    value: 'enabled'
+    value: 'enabled',
 )
 
 option('yamldir', type: 'string', description: 'Path to YAML')
@@ -81,21 +81,21 @@ option(
     'enable_rsyslog_fwd_actions_conf',
     type: 'boolean',
     value: false,
-    description: 'Enable the creation of fwd actions conf files by phosphor-rsyslog-config'
+    description: 'Enable the creation of fwd actions conf files by phosphor-rsyslog-config',
 )
 
 option(
     'enable_log_streaming',
     type: 'boolean',
     value: false,
-    description: 'Enable log socket'
+    description: 'Enable log socket',
 )
 
 option(
     'enable_erase_with_multiple_process',
     type: 'boolean',
     value: false,
-    description: 'Enable erase persistent log files with multiple processes'
+    description: 'Enable erase persistent log files with multiple processes',
 )
 
 option(

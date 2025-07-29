@@ -64,9 +64,9 @@ bool LogStreamer::sendMessage(const std::vector<uint8_t>& message)
         return false;
     }
 
-    ssize_t bytesSent = sendto(sockfd, message.data(), message.size(), 0,
-                               (struct sockaddr*)&serverAddr,
-                               sizeof(serverAddr));
+    ssize_t bytesSent =
+        sendto(sockfd, message.data(), message.size(), 0,
+               (struct sockaddr*)&serverAddr, sizeof(serverAddr));
     if (bytesSent == -1)
     {
         lg2::error("Failed to send message: {ERROR}", "ERROR", strerror(errno));

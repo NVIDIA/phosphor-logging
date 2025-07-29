@@ -26,8 +26,8 @@ using FFDCArg = FFDCEntries;
  *         is created.
  * @param[in] const additionalData& - The Additional data in Entry object
  */
-using PrepareFunction =
-    std::function<void(internal::Manager&, std::map<std::string, std::string>&)>;
+using PrepareFunction = std::function<void(
+    internal::Manager&, std::map<std::string, std::string>&)>;
 
 /**
  *  @brief The function type that will be called after an event log

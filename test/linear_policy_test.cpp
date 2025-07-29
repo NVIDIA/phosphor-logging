@@ -18,6 +18,7 @@
 
 #include "log_manager.hpp"
 #include "paths.hpp"
+
 #include <sdbusplus/bus.hpp>
 #include <sdbusplus/test/sdbus_mock.hpp>
 
@@ -41,7 +42,7 @@ class MockPolicy : public phosphor::logging::internal::Manager
 {
   public:
     MockPolicy(sdbusplus::bus::bus& bus, const char* objPath) :
-        Manager(bus, objPath){};
+        Manager(bus, objPath) {};
 
     std::string getSelPolicy() override
     {
@@ -154,9 +155,10 @@ TEST_F(TestPolicy, testLinearPolicy)
     EXPECT_EQ(manager.getRealErrSize(std::string(binName)), binErrorCapacity);
 
     // Test 9: Count number of FS entries in created in bin
-    EXPECT_EQ(countFilesinDirectory(
-                  fs::path(std::string(phosphor::logging::paths::error()) + "/" + binName)),
-              binInfoCapacity + binErrorCapacity);
+    EXPECT_EQ(
+        countFilesinDirectory(fs::path(
+            std::string(phosphor::logging::paths::error()) + "/" + binName)),
+        binInfoCapacity + binErrorCapacity);
 
     manager.eraseAll();
 }

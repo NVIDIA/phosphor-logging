@@ -9,14 +9,12 @@ sources = [
 
 # Conditionally add source files
 if enable_rsyslog_fwd_actions_conf
-    sources += [
-        'conf.cpp',
-        'fwd-actions.cpp',
-    ]
+    sources += ['conf.cpp', 'fwd-actions.cpp']
 endif
 
 # Define the executable
-executable('phosphor-rsyslog-conf',
+executable(
+    'phosphor-rsyslog-conf',
     sources,
     include_directories: include_directories('..'),
     dependencies: [

@@ -398,8 +398,8 @@ RsyslogClient::SeverityType Server::severity(RsyslogClient::SeverityType value)
     return value;
 }
 
-std::vector<RsyslogClient::FacilityType>
-    Server::facility(std::vector<RsyslogClient::FacilityType> value)
+std::vector<RsyslogClient::FacilityType> Server::facility(
+    std::vector<RsyslogClient::FacilityType> value)
 {
     std::vector<RsyslogClient::FacilityType> currentFacility;
     try
@@ -442,8 +442,8 @@ std::vector<RsyslogClient::FacilityType>
     return value;
 }
 
-NetworkClient::TransportProtocol
-    Server::transportProtocol(NetworkClient::TransportProtocol value)
+NetworkClient::TransportProtocol Server::transportProtocol(
+    NetworkClient::TransportProtocol value)
 {
     TransportProtocol result{};
 

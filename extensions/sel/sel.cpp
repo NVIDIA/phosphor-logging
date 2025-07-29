@@ -84,7 +84,8 @@ void selPrepare([[maybe_unused]] internal::Manager& logManager,
         // SEL_RECORD_ID.
         if ((key == DEFAULT_BIN_KEY) && (value == "SEL"))
         {
-            additionalData.emplace("SEL_RECORD_ID", std::to_string(selRecordId));
+            additionalData.emplace("SEL_RECORD_ID",
+                                   std::to_string(selRecordId));
 #ifdef ENABLE_LOG_STREAMING
             /* Creates SEL data for streaming */
             std::string msg = " SelRecordId:" + std::to_string(selRecordId);

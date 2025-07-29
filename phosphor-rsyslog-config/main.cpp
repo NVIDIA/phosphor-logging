@@ -1,6 +1,5 @@
 #include "config.h"
 
-
 #include "server-conf.hpp"
 
 #include <sdbusplus/bus.hpp>

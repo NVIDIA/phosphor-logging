@@ -93,8 +93,8 @@ class Server : public Iface
      *  @param[in] value - UDP/TCP.
      *  @returns protocol value
      */
-    virtual TransportProtocol
-        transportProtocol(TransportProtocol protocol) override;
+    virtual TransportProtocol transportProtocol(
+        TransportProtocol protocol) override;
 
     /** Set value of Enabled */
     virtual bool enabled(bool value) override;
@@ -106,8 +106,8 @@ class Server : public Iface
     virtual SeverityType severity(SeverityType value) override;
 
     /** Set value of Facility */
-    virtual std::vector<FacilityType>
-        facility(std::vector<FacilityType> value) override;
+    virtual std::vector<FacilityType> facility(
+        std::vector<FacilityType> value) override;
 
   private:
     /** @brief Update remote server address and port in

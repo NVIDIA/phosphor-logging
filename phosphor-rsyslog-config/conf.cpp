@@ -45,9 +45,8 @@ const std::unordered_map<RsyslogFwd::NetworkProtocol, std::string>
 
 /* Converts enum values to strings */
 template <typename T>
-std::string
-    enumToString(T value,
-                 const std::unordered_map<T, std::string>& enumStringMap)
+std::string enumToString(
+    T value, const std::unordered_map<T, std::string>& enumStringMap)
 {
     auto it = enumStringMap.find(value);
     if (it != enumStringMap.end())
@@ -152,9 +151,9 @@ void Conf::removeRsyslogFwd(size_t index, RsyslogFwd::LogType logType)
     /* Finds the relevant ptr in fwdActions */
     auto it = std::find_if(fwdActions.begin(), fwdActions.end(),
                            [index, logType](const auto& fwdActionPtr) {
-        return (fwdActionPtr->index() == index) &&
-               (fwdActionPtr->logType() == logType);
-    });
+                               return (fwdActionPtr->index() == index) &&
+                                      (fwdActionPtr->logType() == logType);
+                           });
 
     if (it == fwdActions.end())
     {
@@ -171,9 +170,9 @@ bool Conf::actionExists(size_t index, RsyslogFwd::LogType logType)
 {
     auto it = std::find_if(fwdActions.begin(), fwdActions.end(),
                            [index, logType](const auto& fwdActionPtr) {
-        return fwdActionPtr->index() == index &&
-               fwdActionPtr->logType() == logType;
-    });
+                               return fwdActionPtr->index() == index &&
+                                      fwdActionPtr->logType() == logType;
+                           });
 
     return (it != fwdActions.end()) ? true : false;
 }
@@ -327,8 +326,8 @@ bool Conf::createObjectsFromConfigFiles()
                 filenameStr.substr(4);         /* Removes "fwd_" prefix */
             logTypeName = logTypeName.substr(
                 0, logTypeName.find(".conf")); /* Removes ".conf" suffix */
-            RsyslogFwd::LogType logType = stringToEnum(logTypeName,
-                                                       logTypeStringMap);
+            RsyslogFwd::LogType logType =
+                stringToEnum(logTypeName, logTypeStringMap);
 
             std::string line;
             while (std::getline(configFile, line))

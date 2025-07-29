@@ -47,7 +47,7 @@ class TestLogPurgePolicy : public testing::Test
         ("test_log_purge_json_" + std::to_string(std::rand()));
     phosphor::logging::internal::Manager manager;
 
-    TestLogPurgePolicy() : manager(mockedBus, OBJ_INTERNAL){};
+    TestLogPurgePolicy() : manager(mockedBus, OBJ_INTERNAL) {};
 
     ~TestLogPurgePolicy()
     {

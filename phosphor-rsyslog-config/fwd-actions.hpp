@@ -58,15 +58,15 @@ class RsyslogFwdAction : public RsyslogFwdActionInherit
         return RsyslogFwd::enabled();
     }
 
-    RsyslogFwd::TransportProtocol
-        transportProtocol(RsyslogFwd::TransportProtocol value) override;
+    RsyslogFwd::TransportProtocol transportProtocol(
+        RsyslogFwd::TransportProtocol value) override;
     RsyslogFwd::TransportProtocol transportProtocol() const override
     {
         return RsyslogFwd::transportProtocol();
     }
 
-    RsyslogFwd::NetworkProtocol
-        networkProtocol(RsyslogFwd::NetworkProtocol value) override;
+    RsyslogFwd::NetworkProtocol networkProtocol(
+        RsyslogFwd::NetworkProtocol value) override;
     RsyslogFwd::NetworkProtocol networkProtocol() const override
     {
         return RsyslogFwd::networkProtocol();

@@ -17,7 +17,9 @@
 #pragma once
 
 #include "config.h"
+
 #include "paths.hpp"
+
 #include <cstdint>
 #include <set>
 #include <string>
@@ -31,14 +33,15 @@ class Bin
     ~Bin() = default;
     Bin() :
         name(DEFAULT_BIN_NAME), errorCap(ERROR_CAP),
-        errorInfoCap(ERROR_INFO_CAP), persistLocation(phosphor::logging::paths::error()),
-        errorEntries({}), infoEntries({}), persistInfoLog(true){};
+        errorInfoCap(ERROR_INFO_CAP),
+        persistLocation(phosphor::logging::paths::error()), errorEntries({}),
+        infoEntries({}), persistInfoLog(true) {};
 
     Bin(const std::string& str, uint32_t errCap, uint32_t errInfCap,
         const std::string& loc, bool persistInfoLog) :
-        name(str),
-        errorCap(errCap), errorInfoCap(errInfCap), persistLocation(loc),
-        errorEntries({}), infoEntries({}), persistInfoLog(persistInfoLog){};
+        name(str), errorCap(errCap), errorInfoCap(errInfCap),
+        persistLocation(loc), errorEntries({}), infoEntries({}),
+        persistInfoLog(persistInfoLog) {};
 
     std::string name;
     uint32_t errorCap;

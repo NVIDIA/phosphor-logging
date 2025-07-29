@@ -3,6 +3,7 @@
 #include "elog_serialize.hpp"
 
 #include "paths.hpp"
+
 #include <cereal/archives/binary.hpp>
 #include <cereal/types/map.hpp>
 #include <cereal/types/string.hpp>
@@ -128,7 +129,8 @@ fs::path serialize(const Entry& e)
     auto path = e.path();
     if (std::string(path) == "")
     {
-        path = std::string(phosphor::logging::paths::error()) + std::to_string(e.id());
+        path = std::string(phosphor::logging::paths::error()) +
+               std::to_string(e.id());
     }
     auto pathStr = std::string(path);
     std::ofstream os(path.c_str(), std::ios::binary);

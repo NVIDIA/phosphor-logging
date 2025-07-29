@@ -80,15 +80,15 @@ void sendEvent(const std::shared_ptr<sdbusplus::asio::connection>& connObject,
     addData["REDFISH_ORIGIN_OF_CONDITION"] = dbusObjectPath;
     connObject->async_method_call(
         [](boost::system::error_code ec) {
-        if (ec)
-        {
-            log<level::ERR>("Failed to create RF event log ");
-        }
-        else
-        {
-            log<level::INFO>("Successfully created RF event log ");
-        }
-    },
+            if (ec)
+            {
+                log<level::ERR>("Failed to create RF event log ");
+            }
+            else
+            {
+                log<level::INFO>("Successfully created RF event log ");
+            }
+        },
         BUSNAME_LOGGING, OBJ_INTERNAL, IFACE_INTERNAL, "RFSendEvent",
         messageMap[message], severityMap[severity], addData);
 }
@@ -128,15 +128,15 @@ void sendEvent(MESSAGE_TYPE message, Entry::Level severity,
     addData["REDFISH_ORIGIN_OF_CONDITION"] = dbusObjectPath;
     connObject->async_method_call(
         [](boost::system::error_code ec) {
-        if (ec)
-        {
-            log<level::ERR>("Failed to create RF event log ");
-        }
-        else
-        {
-            log<level::INFO>("Successfully created RF event log ");
-        }
-    },
+            if (ec)
+            {
+                log<level::ERR>("Failed to create RF event log ");
+            }
+            else
+            {
+                log<level::INFO>("Successfully created RF event log ");
+            }
+        },
         BUSNAME_LOGGING, OBJ_INTERNAL, IFACE_INTERNAL, "RFSendEvent",
         messageMap[message], severityMap[severity], addData);
 }
