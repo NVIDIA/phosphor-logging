@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #include "config.h"
-
+#include "paths.hpp"
 #include "util.hpp"
 
 #include <poll.h>
@@ -271,7 +271,7 @@ void removeStagedForEraseEntries(
 {
     if (nspace.compare(DEFAULT_BIN_NAME) != 0)
     {
-        std::string tempPath = std::string(ERRLOG_PERSIST_PATH) + "_" + nspace +
+        std::string tempPath = std::string(paths::error()) + "_" + nspace +
                                "_temp";
         fs::path errorToRemovePath(tempPath);
         removeStagedFiles(errorToRemovePath);
@@ -280,7 +280,7 @@ void removeStagedForEraseEntries(
     {
         for (const auto& entry : binNameMap)
         {
-            std::string tempPath = ERRLOG_PERSIST_PATH;
+            std::string tempPath = paths::error();
             if (entry.first.compare(DEFAULT_BIN_NAME) != 0)
             {
                 tempPath = tempPath + "_" + entry.first;
@@ -299,17 +299,17 @@ void eraseAllInChildProcess(
     try
     {
         std::error_code ec;
-        std::string tempPath = std::string(ERRLOG_PERSIST_PATH);
+        std::string tempPath = std::string(paths::error());
         fs::path errorPath;
         if (nspace.compare(DEFAULT_BIN_NAME) != 0)
         {
             tempPath = tempPath + "_" + nspace + "_temp";
-            errorPath = std::string(ERRLOG_PERSIST_PATH) + "/" + nspace;
+            errorPath = std::string(paths::error()) + "/" + nspace;
         }
         else
         {
             tempPath = tempPath + "_temp";
-            errorPath = std::string(ERRLOG_PERSIST_PATH);
+            errorPath = std::string(paths::error());
         }
         fs::path errorToRemovePath(tempPath);
 
@@ -342,7 +342,7 @@ void eraseAllInChildProcess(
             {
                 if (entry.first.compare(DEFAULT_BIN_NAME) != 0)
                 {
-                    fs::create_directories(std::string(ERRLOG_PERSIST_PATH) +
+                    fs::create_directories(std::string(paths::error()) +
                                                "/" + entry.first,
                                            ec);
                     if (ec.value() != 0)
