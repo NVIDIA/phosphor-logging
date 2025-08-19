@@ -163,6 +163,18 @@ bool deserialize(const fs::path& path, Entry& e)
         fs::remove(path);
         return false;
     }
+    catch (const std::bad_alloc& ex)
+    {
+        lg2::error("{EXCEPTION}", "EXCEPTION", ex);
+        fs::remove(path);
+        return false;
+    }
+    catch (const std::exception& ex)
+    {
+        lg2::error("{EXCEPTION}", "EXCEPTION", ex);
+        fs::remove(path);
+        return false;
+    }
 }
 
 } // namespace logging
