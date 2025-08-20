@@ -112,7 +112,7 @@ callouts_gen = custom_target(
     'callouts-gen.hpp'.underscorify(),
     input: [
         'callouts/callouts.py',
-        'callouts/callouts-gen.mako.hpp',
+        'callouts/callouts-gen.hpp.mako',
         get_option('callout_yaml'),
     ],
     output: 'callouts-gen.hpp',
@@ -123,7 +123,7 @@ elog_lookup_gen = custom_target(
     'elog-lookup.cpp'.underscorify(),
     input: files(
         'tools/elog-gen.py',
-        'tools/phosphor-logging/templates/elog-lookup-template.mako.cpp',
+        'tools/phosphor-logging/templates/elog-lookup-template.cpp.mako',
     ),
     output: 'elog-lookup.cpp',
     command: [
@@ -146,7 +146,7 @@ elog_process_gen = custom_target(
     'elog-process-metadata.cpp'.underscorify(),
     input: files(
         'tools/elog-gen.py',
-        'tools/phosphor-logging/templates/elog-process-metadata.mako.cpp',
+        'tools/phosphor-logging/templates/elog-process-metadata.cpp.mako',
     ),
     output: 'elog-process-metadata.cpp',
     command: [
@@ -224,6 +224,13 @@ executable(
         phosphor_logging_dep,
         sdbusplus_dep,
     ],
+    install: true,
+)
+
+executable(
+    'log-resolve',
+    'log_resolve_main.cpp',
+    dependencies: [CLI11_dep, pdi_dep, phosphor_logging_dep],
     install: true,
 )
 

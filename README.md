@@ -8,7 +8,6 @@ logging.
 - [Building](#to-build)
 - [Structured Logging](#structured-logging)
 - [Event Logs](#event-logs)
-- [Application Specific Error YAML](#adding-application-specific-error-yaml)
 - [Event Log Extensions](#event-log-extensions)
 - [Remote Logging](#remote-logging-via-rsyslog)
 - [Boot Fail on Hardware Errors](#boot-fail-on-hardware-errors)
@@ -41,7 +40,8 @@ The interfaces are:
   - The main event log interface.
 - [xyz.openbmc_project.Association.Definitions]
   - Used for specifying inventory items as the cause of the event.
-  - For more information on associations, see [here][associations-doc].
+  - For more information on associations, see the [associations
+    doc][associations-doc].
 - [xyz.openbmc_project.Object.Delete]
   - Provides a Delete method to delete the event.
 - [xyz.openbmc_project.Software.Version]
@@ -55,8 +55,8 @@ event logs, in addition to the event log extensions mentioned
 
 The logging daemon has the ability to add `callout` associations to an event log
 based on text in the AdditionalData property. A callout is a link to the
-inventory item(s) that were the cause of the event log. See [here][callout-doc]
-for details.
+inventory item(s) that were the cause of the event log. See [callout
+doc][callout-doc] for details.
 
 ### Creating Event Logs In Code
 
@@ -78,6 +78,28 @@ log-entry can be resolved with the helper `lg2::resolve` fuction.
 ```cpp
 lg2::resolve(logPath);
 ```
+
+### Event Log Filtering
+
+Vendors customizing phosphor-logging for their platforms may decide that they
+would like to prevent certain events from being added to the event log. This is
+especially true for informational / tracing events. The `lg2::commit` supports a
+compile-time event filtering mechanism that can accomplish this.
+
+The meson option `event-filter` can be used to specify a file containing
+filtering policy. When left unspecified, the [default
+policy][default-policy-json] of "allow all" is enabled. For both events and
+errors, a default policy of "allowed" or "blocked" can be specified and an
+additional set of events can be given for which the non-defaulted action should
+be taken. A JSON-Schema is available for the [policy
+JSON][filter-policy-schema].
+
+[default-policy-json]:
+  https://github.com/openbmc/phosphor-logging/blob/master/tools/phosphor-logging/default-eventfilter.json
+[filter-policy-schema]:
+  https://github.com/openbmc/phosphor-logging/blob/master/tools/phosphor-logging/schemas/eventfilter.schema.yaml
+
+### Deprecated Methods for Creating Event Logs
 
 There are two other, but now deprecated, methods to creating event logs in
 OpenBMC code. The first makes use of the systemd journal to store metadata
@@ -142,9 +164,8 @@ Metadata can be added to event logs to add debug data captured at the time of
 the event. It shows up in the AdditionalData property in the
 `xyz.openbmc_project.Logging.Entry` interface. Metadata is passed in via the
 `elog()` or `report()` functions, which write it to the journal. The metadata
-must be predefined for the error in the [metadata YAML](#event-log-definition)
-so that the daemon knows to look for it in the journal when it creates the event
-log.
+must be predefined for the error in the metadata YAML so that the daemon knows
+to look for it in the journal when it creates the event log.
 
 Example:
 
@@ -198,16 +219,13 @@ that uses them. To do that, one must:
 2. Run the sdbus++ script within the makefile to create the error.hpp and .cpp
    files from the local YAML, and include the error.cpp file in the application
    that uses it. See [openpower-occ-control] for an example.
-3. Tell phosphor-logging about the error. This is done by either:
-   - Following the [directions](#adding-application-specific-error-yaml) defined
-     in this README, or
-   - Running the script yourself:
-   1. Run phosphor-logging\'s `elog-gen.py` script on the local yaml to generate
+3. Tell phosphor-logging about the error:
+   1. Run phosphor-logging's `elog-gen.py` script on the local yaml to generate
       an elog-errors.hpp file that just contains the local errors, and check
       that into the repository and include it where the errors are needed.
    2. Create a recipe that copies the local YAML files to a place that
-      phosphor-logging can find it during the build. See [here][led-link] for an
-      example.
+      phosphor-logging can find it during the build. See sample [LED
+      YAML][led-link] for an example.
 
 #### D-Bus Event Log Creation [deprecated]
 
@@ -391,8 +409,8 @@ The supported extensions are:
 
 - OpenPower PELs
   - Enabled with --enable-openpower-pel-extension
-  - Detailed information can be found
-    [here](extensions/openpower-pels/README.md)
+  - Detailed information can be found in
+    [extensions/openpower-pels](extensions/openpower-pels/README.md).
 
 ## Remote Logging via Rsyslog
 
@@ -468,8 +486,8 @@ found within the entry, ensuring the system will not power on. Entries with
 severities of Informational or Debug will not block boots, even if they have
 callouts.
 
-The full design for this can be found
-[here](https://github.com/openbmc/docs/blob/master/designs/fail-boot-on-hw-error.md)
+The full design for this can be found in
+[docs](https://github.com/openbmc/docs/blob/master/designs/fail-boot-on-hw-error.md).
 
 To enable this function:
 

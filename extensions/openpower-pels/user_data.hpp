@@ -23,7 +23,7 @@ class UserData : public Section
 {
   public:
     UserData() = delete;
-    ~UserData() = default;
+    ~UserData() override = default;
     UserData(const UserData&) = default;
     UserData& operator=(const UserData&) = default;
     UserData(UserData&&) = default;
@@ -67,7 +67,7 @@ class UserData : public Section
      */
     size_t flattenedSize()
     {
-        return Section::flattenedSize() + _data.size();
+        return Section::headerSize() + _data.size();
     }
 
     /**
@@ -117,7 +117,7 @@ class UserData : public Section
      *
      * Updates _valid (in Section) with the results.
      */
-    void validate() override;
+    void validate();
 
     /**
      * @brief The section data

@@ -81,7 +81,7 @@ uint64_t fileNameToTimestamp(const std::string& fileName)
 
         try
         {
-            auto tmp = std::stoul(token.substr(i, 2), 0, 16);
+            auto tmp = std::stoul(token.substr(i, 2), nullptr, 16);
             bcdTime |= (static_cast<uint64_t>(tmp) << 56);
         }
         catch (const std::exception& err)
@@ -91,7 +91,7 @@ uint64_t fileNameToTimestamp(const std::string& fileName)
         i += 2;
         try
         {
-            auto tmp = std::stoul(token.substr(i, 2), 0, 16);
+            auto tmp = std::stoul(token.substr(i, 2), nullptr, 16);
             bcdTime |= (static_cast<uint64_t>(tmp) << 48);
         }
         catch (const std::exception& err)
@@ -101,7 +101,7 @@ uint64_t fileNameToTimestamp(const std::string& fileName)
         i += 2;
         try
         {
-            auto tmp = std::stoul(token.substr(i, 2), 0, 16);
+            auto tmp = std::stoul(token.substr(i, 2), nullptr, 16);
             bcdTime |= (static_cast<uint64_t>(tmp) << 40);
         }
         catch (const std::exception& err)
@@ -111,7 +111,7 @@ uint64_t fileNameToTimestamp(const std::string& fileName)
         i += 2;
         try
         {
-            auto tmp = std::stoul(token.substr(i, 2), 0, 16);
+            auto tmp = std::stoul(token.substr(i, 2), nullptr, 16);
             bcdTime |= (static_cast<uint64_t>(tmp) << 32);
         }
         catch (const std::exception& err)
@@ -121,7 +121,7 @@ uint64_t fileNameToTimestamp(const std::string& fileName)
         i += 2;
         try
         {
-            auto tmp = std::stoul(token.substr(i, 2), 0, 16);
+            auto tmp = std::stoul(token.substr(i, 2), nullptr, 16);
             bcdTime |= (tmp << 24);
         }
         catch (const std::exception& err)
@@ -131,7 +131,7 @@ uint64_t fileNameToTimestamp(const std::string& fileName)
         i += 2;
         try
         {
-            auto tmp = std::stoul(token.substr(i, 2), 0, 16);
+            auto tmp = std::stoul(token.substr(i, 2), nullptr, 16);
             bcdTime |= (tmp << 16);
         }
         catch (const std::exception& err)
@@ -141,7 +141,7 @@ uint64_t fileNameToTimestamp(const std::string& fileName)
         i += 2;
         try
         {
-            auto tmp = std::stoul(token.substr(i, 2), 0, 16);
+            auto tmp = std::stoul(token.substr(i, 2), nullptr, 16);
             bcdTime |= (tmp << 8);
         }
         catch (const std::exception& err)
@@ -151,7 +151,7 @@ uint64_t fileNameToTimestamp(const std::string& fileName)
         i += 2;
         try
         {
-            auto tmp = std::stoul(token.substr(i, 2), 0, 16);
+            auto tmp = std::stoul(token.substr(i, 2), nullptr, 16);
             bcdTime |= tmp;
         }
         catch (const std::exception& err)
@@ -172,7 +172,7 @@ uint32_t fileNameToPELId(const std::string& fileName)
     uint32_t num = 0;
     try
     {
-        num = std::stoul(fileName.substr(fileName.find("_") + 1), 0, 16);
+        num = std::stoul(fileName.substr(fileName.find("_") + 1), nullptr, 16);
     }
     catch (const std::exception& err)
     {

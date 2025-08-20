@@ -21,7 +21,7 @@ class FailingMTMS : public Section
 {
   public:
     FailingMTMS() = delete;
-    ~FailingMTMS() = default;
+    ~FailingMTMS() override = default;
     FailingMTMS(const FailingMTMS&) = default;
     FailingMTMS& operator=(const FailingMTMS&) = default;
     FailingMTMS(FailingMTMS&&) = default;
@@ -58,7 +58,7 @@ class FailingMTMS : public Section
      */
     static constexpr size_t flattenedSize()
     {
-        return Section::flattenedSize() + MTMS::flattenedSize();
+        return Section::headerSize() + MTMS::flattenedSize();
     }
 
     /**
@@ -96,7 +96,7 @@ class FailingMTMS : public Section
      *
      * Updates _valid (in Section) with the results.
      */
-    void validate() override;
+    void validate();
 
     /**
      * @brief Fills in the object from the stream data

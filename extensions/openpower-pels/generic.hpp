@@ -20,7 +20,7 @@ class Generic : public Section
 {
   public:
     Generic() = delete;
-    ~Generic() = default;
+    ~Generic() override = default;
     Generic(const Generic&) = default;
     Generic& operator=(const Generic&) = default;
     Generic(Generic&&) = default;
@@ -49,7 +49,7 @@ class Generic : public Section
      */
     size_t flattenedSize()
     {
-        return Section::flattenedSize() + _data.size();
+        return Section::headerSize() + _data.size();
     }
 
     /**
@@ -75,7 +75,7 @@ class Generic : public Section
      *
      * Updates _valid (in Section) with the results.
      */
-    void validate() override;
+    void validate();
 
     /**
      * @brief The section data

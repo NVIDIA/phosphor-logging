@@ -38,7 +38,7 @@ class PrivateHeader : public Section
 {
   public:
     PrivateHeader() = delete;
-    ~PrivateHeader() = default;
+    ~PrivateHeader() override = default;
     PrivateHeader(const PrivateHeader&) = default;
     PrivateHeader& operator=(const PrivateHeader&) = default;
     PrivateHeader(PrivateHeader&&) = default;
@@ -212,7 +212,7 @@ class PrivateHeader : public Section
      */
     static constexpr size_t flattenedSize()
     {
-        return Section::flattenedSize() + sizeof(_createTimestamp) +
+        return Section::headerSize() + sizeof(_createTimestamp) +
                sizeof(_commitTimestamp) + sizeof(_creatorID) +
                sizeof(_logType) + sizeof(_reservedByte) +
                sizeof(_sectionCount) + sizeof(_obmcLogID) +
@@ -241,7 +241,7 @@ class PrivateHeader : public Section
      *
      * Updates _valid (in Section) with the results.
      */
-    void validate() override;
+    void validate();
 
     /**
      * @brief The creation time timestamp

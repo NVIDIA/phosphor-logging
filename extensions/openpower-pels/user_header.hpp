@@ -2,7 +2,6 @@
 
 #include "data_interface.hpp"
 #include "elog_entry.hpp"
-#include "pel_values.hpp"
 #include "registry.hpp"
 #include "section.hpp"
 #include "stream.hpp"
@@ -31,7 +30,7 @@ class UserHeader : public Section
 {
   public:
     UserHeader() = delete;
-    ~UserHeader() = default;
+    ~UserHeader() override = default;
     UserHeader(const UserHeader&) = default;
     UserHeader& operator=(const UserHeader&) = default;
     UserHeader(UserHeader&&) = default;
@@ -211,7 +210,7 @@ class UserHeader : public Section
      */
     static constexpr size_t flattenedSize()
     {
-        return Section::flattenedSize() + sizeof(_eventSubsystem) +
+        return Section::headerSize() + sizeof(_eventSubsystem) +
                sizeof(_eventScope) + sizeof(_eventSeverity) +
                sizeof(_eventType) + sizeof(_reserved4Byte1) +
                sizeof(_problemDomain) + sizeof(_problemVector) +
@@ -240,7 +239,7 @@ class UserHeader : public Section
      *
      * Updates _valid (in Section) with the results.
      */
-    void validate() override;
+    void validate();
 
     /**
      * @brief Returns the severity value to use from the list

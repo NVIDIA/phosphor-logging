@@ -1,6 +1,5 @@
 #pragma once
 
-#include "util.hpp"
 #include "xyz/openbmc_project/Logging/Entry/server.hpp"
 #include "xyz/openbmc_project/Object/Delete/server.hpp"
 #include "xyz/openbmc_project/Software/Version/server.hpp"
@@ -77,7 +76,6 @@ class Entry : public EntryIfaces
         updateTimestamp(timestampErr, true);
         message(std::move(msgErr), true);
         additionalData(std::move(additionalDataErr), true);
-        additionalData2(additionalData(), true);
         associations(std::move(objects), true);
         // Store a copy of associations in case we need to recreate
         assocs = associations();

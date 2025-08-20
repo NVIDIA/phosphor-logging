@@ -125,7 +125,7 @@ class Section
     /**
      * @brief Returns the flattened size of the section header
      */
-    static constexpr size_t flattenedSize()
+    static constexpr size_t headerSize()
     {
         return SectionHeader::flattenedSize();
     }
@@ -140,13 +140,6 @@ class Section
     {
         _debugData.push_back(data);
     }
-
-    /**
-     * @brief Used to validate the section.
-     *
-     * Implemented by derived classes.
-     */
-    virtual void validate() = 0;
 
     /**
      * @brief The section header structure.

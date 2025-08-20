@@ -24,7 +24,7 @@ class ExtendedUserData : public Section
 {
   public:
     ExtendedUserData() = delete;
-    ~ExtendedUserData() = default;
+    ~ExtendedUserData() override = default;
     ExtendedUserData(const ExtendedUserData&) = default;
     ExtendedUserData& operator=(const ExtendedUserData&) = default;
     ExtendedUserData(ExtendedUserData&&) = default;
@@ -68,7 +68,7 @@ class ExtendedUserData : public Section
      */
     size_t flattenedSize()
     {
-        return Section::flattenedSize() + sizeof(_creatorID) +
+        return Section::headerSize() + sizeof(_creatorID) +
                sizeof(_reserved1B) + sizeof(_reserved2B) + _data.size();
     }
 
@@ -124,7 +124,7 @@ class ExtendedUserData : public Section
             {
                 // Use shrink to handle 4B alignment and update the header size
                 auto status =
-                    shrink(Section::flattenedSize() + 4 + newData.size());
+                    shrink(Section::headerSize() + 4 + newData.size());
                 if (status)
                 {
                     origDataSize = _data.size();
@@ -174,7 +174,7 @@ class ExtendedUserData : public Section
      *
      * Updates _valid (in Section) with the results.
      */
-    void validate() override;
+    void validate();
 
     /**
      * @brief The subsystem creator ID of the code that

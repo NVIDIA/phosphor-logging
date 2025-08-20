@@ -2,7 +2,6 @@
 
 #include "bcd_time.hpp"
 #include "data_interface.hpp"
-#include "elog_entry.hpp"
 #include "mtms.hpp"
 #include "registry.hpp"
 #include "section.hpp"
@@ -31,7 +30,7 @@ class ExtendedUserHeader : public Section
 {
   public:
     ExtendedUserHeader() = delete;
-    ~ExtendedUserHeader() = default;
+    ~ExtendedUserHeader() override = default;
     ExtendedUserHeader(const ExtendedUserHeader&) = default;
     ExtendedUserHeader& operator=(const ExtendedUserHeader&) = default;
     ExtendedUserHeader(ExtendedUserHeader&&) = default;
@@ -70,7 +69,7 @@ class ExtendedUserHeader : public Section
      */
     size_t flattenedSize()
     {
-        return Section::flattenedSize() + _mtms.flattenedSize() +
+        return Section::headerSize() + _mtms.flattenedSize() +
                _serverFWVersion.size() + _subsystemFWVersion.size() +
                sizeof(_reserved4B) + sizeof(_refTime) + sizeof(_reserved1B1) +
                sizeof(_reserved1B2) + sizeof(_reserved1B3) +
@@ -177,7 +176,7 @@ class ExtendedUserHeader : public Section
      *
      * Updates _valid (in Section) with the results.
      */
-    void validate() override;
+    void validate();
 
     /**
      * @brief Builds the symptom ID

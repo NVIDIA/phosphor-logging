@@ -3,6 +3,7 @@
 #include "elog_serialize.hpp"
 
 #include "paths.hpp"
+#include "util.hpp"
 
 #include <cereal/archives/binary.hpp>
 #include <cereal/types/map.hpp>
@@ -33,9 +34,10 @@ namespace logging
 template <class Archive>
 void save(Archive& a, const Entry& e, const std::uint32_t /*version*/)
 {
-    a(e.id(), e.severity(), e.timestamp(), e.message(), e.additionalData2(),
-      e.associations(), e.resolved(), e.version(), e.updateTimestamp(),
-      e.eventId(), e.resolution());
+    a(e.id(), e.severity(), e.timestamp(), e.message(),
+      util::additional_data::combine(e.additionalData()), e.associations(),
+      e.resolved(), e.version(), e.updateTimestamp(), e.eventId(),
+      e.resolution());
 }
 
 /** @brief Function required by Cereal to perform deserialization.
@@ -100,10 +102,19 @@ void load(Archive& a, Entry& e, const std::uint32_t version)
           resolved, fwVersion, updateTimestamp, eventId, resolution);
         additionalData = util::additional_data::parse(additionalData_old);
     }
-    else
+    else if (version ==
+             std::stoul(FIRST_CEREAL_CLASS_VERSION_WITH_METADATA_DICT))
     {
         a(id, severity, timestamp, message, additionalData, associations,
           resolved, fwVersion, updateTimestamp, eventId, resolution);
+    }
+    else
+    {
+        // Go back to reading a vector for additionalData
+        std::vector<std::string> additionalData_old{};
+        a(id, severity, timestamp, message, additionalData_old, associations,
+          resolved, fwVersion, updateTimestamp, eventId, resolution);
+        additionalData = util::additional_data::parse(additionalData_old);
     }
 
     e.id(id, true);
@@ -111,7 +122,6 @@ void load(Archive& a, Entry& e, const std::uint32_t version)
     e.timestamp(timestamp, true);
     e.message(message, true);
     e.additionalData(additionalData, true);
-    e.additionalData2(additionalData, true);
     e.sdbusplus::server::xyz::openbmc_project::logging::Entry::resolved(
         resolved, true);
     e.associations(associations, true);
@@ -166,22 +176,13 @@ bool deserialize(const fs::path& path, Entry& e)
         }
         return false;
     }
-    catch (const cereal::Exception& ex)
+    catch (const std::exception& ex)
     {
-        lg2::error("{EXCEPTION}", "EXCEPTION", ex);
-        fs::remove(path);
-        return false;
-    }
-    catch (const std::length_error& ex)
-    {
-        // Running into: USCiLab/cereal#192
-        // This may be indicating some other issue in the
-        // way vector may have been used inside the logging.
-        // possibly associations ??. But handling it here for
-        // now since we are anyway tossing the log
-        // TODO: openbmc/phosphor-logging#8
-        lg2::error("{EXCEPTION}", "EXCEPTION", ex);
-        fs::remove(path);
+        lg2::error("Failed restoring {PATH}: {EXCEPTION}", "PATH", path,
+                   "EXCEPTION", ex);
+        // Save it for later debug. Just write over any previous ones.
+        auto saveDir = paths::error().parent_path();
+        fs::rename(path, saveDir / "corrupt_error");
         return false;
     }
 }

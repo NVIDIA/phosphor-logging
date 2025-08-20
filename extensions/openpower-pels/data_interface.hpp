@@ -473,7 +473,7 @@ class DataInterfaceBase
      * @param[in] srcStruct - Full SRC base structure
      */
     virtual void createProgressSRC(
-        const uint64_t& priSRC,
+        const std::vector<uint8_t>& priSRC,
         const std::vector<uint8_t>& srcStruct) const = 0;
 
     /**
@@ -690,11 +690,11 @@ class DataInterface : public DataInterfaceBase
 {
   public:
     DataInterface() = delete;
-    ~DataInterface() = default;
-    DataInterface(const DataInterface&) = default;
-    DataInterface& operator=(const DataInterface&) = default;
-    DataInterface(DataInterface&&) = default;
-    DataInterface& operator=(DataInterface&&) = default;
+    ~DataInterface() override = default;
+    DataInterface(const DataInterface&) = delete;
+    DataInterface& operator=(const DataInterface&) = delete;
+    DataInterface(DataInterface&&) = delete;
+    DataInterface& operator=(DataInterface&&) = delete;
 
     /**
      * @brief Constructor
@@ -887,7 +887,7 @@ class DataInterface : public DataInterfaceBase
      * @param[in] srcStruct - Full SRC base structure
      */
     void createProgressSRC(
-        const uint64_t& priSRC,
+        const std::vector<uint8_t>& priSRC,
         const std::vector<uint8_t>& srcStruct) const override;
 
     /**

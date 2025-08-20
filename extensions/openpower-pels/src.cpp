@@ -17,7 +17,6 @@
 
 #include "device_callouts.hpp"
 #include "json_utils.hpp"
-#include "paths.hpp"
 #include "pel_values.hpp"
 #ifdef PELTOOL
 #include <Python.h>
@@ -196,6 +195,12 @@ std::optional<std::string> getPythonJSON(std::vector<std::string>& hexwords,
             {
                 std::unique_ptr<PyObject, decltype(&pyDecRef)> resPtr(
                     pResult, &pyDecRef);
+
+                if (pResult == Py_None)
+                {
+                    return std::nullopt;
+                }
+
                 PyObject* pBytes =
                     PyUnicode_AsEncodedString(pResult, "utf-8", "~E~");
                 std::unique_ptr<PyObject, decltype(&pyDecRef)> pyBytePtr(
@@ -361,7 +366,7 @@ SRC::SRC(const message::Entry& regEntry, const AdditionalData& additionalData,
     auto ss = additionalData.getValue("PEL_SUBSYSTEM");
     if (ss)
     {
-        auto eventSubsystem = std::stoul(*ss, NULL, 16);
+        auto eventSubsystem = std::stoul(*ss, nullptr, 16);
         std::string subsystem =
             pv::getValue(eventSubsystem, pel_values::subsystemValues);
         if (subsystem == "invalid")
@@ -379,7 +384,7 @@ SRC::SRC(const message::Entry& regEntry, const AdditionalData& additionalData,
 
     _size = baseSRCSize;
     _size += _callouts ? _callouts->flattenedSize() : 0;
-    _header.size = Section::flattenedSize() + _size;
+    _header.size = Section::headerSize() + _size;
 
     _valid = true;
 }
@@ -429,7 +434,7 @@ void SRC::setMotherboardCCIN(const DataInterfaceBase& dataIface)
     {
         if (ccinString.size() == ccinSize)
         {
-            ccin = std::stoi(ccinString, 0, 16);
+            ccin = std::stoi(ccinString, nullptr, 16);
         }
     }
     catch (const std::exception& e)
@@ -867,6 +872,17 @@ void SRC::addCallouts(const message::Entry& regEntry,
     }
 }
 
+void SRC::addLocationCodeOnlyCallout(const std::string& locationCode,
+                                     const CalloutPriority priority)
+{
+    std::string empty;
+    std::vector<src::MRU::MRUCallout> mrus;
+    auto callout = std::make_unique<src::Callout>(priority, locationCode, empty,
+                                                  empty, empty, mrus);
+    createCalloutsObject();
+    _callouts->addCallout(std::move(callout));
+}
+
 void SRC::addInventoryCallout(const std::string& inventoryPath,
                               const std::optional<CalloutPriority>& priority,
                               const std::optional<std::string>& locationCode,
@@ -1006,6 +1022,7 @@ void SRC::addRegistryCallout(
 {
     std::unique_ptr<src::Callout> callout;
     auto locCode = regCallout.locCode;
+    bool locExpanded = true;
 
     if (!locCode.empty())
     {
@@ -1018,7 +1035,7 @@ void SRC::addRegistryCallout(
             auto msg = "Unable to expand location code " + locCode + ": " +
                        e.what();
             addDebugData(msg);
-            return;
+            locExpanded = false;
         }
     }
 
@@ -1045,6 +1062,7 @@ void SRC::addRegistryCallout(
     else if (!regCallout.symbolicFRUTrusted.empty())
     {
         // Symbolic FRU with trusted location code callout
+        bool trusted = false;
 
         // Use the location code from the inventory path if there is one.
         if (trustedSymbolicFRUInvPath)
@@ -1052,6 +1070,7 @@ void SRC::addRegistryCallout(
             try
             {
                 locCode = dataIface.getLocationCode(*trustedSymbolicFRUInvPath);
+                trusted = true;
             }
             catch (const std::exception& e)
             {
@@ -1062,14 +1081,29 @@ void SRC::addRegistryCallout(
             }
         }
 
+        // Can only trust the location code if it isn't empty and is expanded.
+        if (!locCode.empty() && locExpanded)
+        {
+            trusted = true;
+        }
+
         // The registry wants it to be trusted, but that requires a valid
         // location code for it to actually be.
         callout = std::make_unique<src::Callout>(
-            priority, regCallout.symbolicFRUTrusted, locCode, !locCode.empty());
+            priority, regCallout.symbolicFRUTrusted, locCode, trusted);
     }
     else
     {
         // A hardware callout
+
+        // If couldn't expand the location code, don't bother
+        // looking up the inventory path.
+        if (!locExpanded && !locCode.empty())
+        {
+            addLocationCodeOnlyCallout(locCode, priority);
+            return;
+        }
+
         std::vector<std::string> inventoryPaths;
 
         try
@@ -1084,6 +1118,11 @@ void SRC::addRegistryCallout(
                 "Unable to get inventory path from location code: " + locCode +
                 ": " + e.what();
             addDebugData(msg);
+            if (!locCode.empty())
+            {
+                // Still add a callout with just the location code.
+                addLocationCodeOnlyCallout(locCode, priority);
+            }
             return;
         }
 
@@ -1178,8 +1217,9 @@ void SRC::addDevicePathCallouts(const AdditionalData& additionalData,
             }
             else
             {
-                std::string msg =
-                    "Invalid priority found in dev callout JSON: " +
+                auto msg =
+                    std::string{
+                        "Invalid priority found in dev callout JSON: "} +
                     callout.priority[0];
                 addDebugData(msg);
             }
@@ -1196,6 +1236,10 @@ void SRC::addDevicePathCallouts(const AdditionalData& additionalData,
             auto msg = std::format("Unable to expand location code {}: {}",
                                    callout.locationCode, e.what());
             addDebugData(msg);
+
+            // Add the callout with just the unexpanded location code.
+            addLocationCodeOnlyCallout(callout.locationCode, priority);
+            continue;
         }
 
         try
@@ -1214,6 +1258,9 @@ void SRC::addDevicePathCallouts(const AdditionalData& additionalData,
                 "Unable to get inventory path from location code: " +
                 callout.locationCode + ": " + e.what();
             addDebugData(msg);
+            // Add the callout with just the location code.
+            addLocationCodeOnlyCallout(callout.locationCode, priority);
+            continue;
         }
 
         // Until the code is there to convert these MRU value strings to
@@ -1352,10 +1399,11 @@ void SRC::addJSONCallout(const nlohmann::json& jsonCallout,
             }
             catch (const std::exception& e)
             {
-                throw std::runtime_error{
-                    std::format("Unable to get inventory path from "
-                                "location code: {}: {}",
-                                unexpandedLocCode, e.what())};
+                addDebugData(std::format("Unable to get inventory path from "
+                                         "location code: {}: {}",
+                                         unexpandedLocCode, e.what()));
+                addLocationCodeOnlyCallout(locCode, priority);
+                return;
             }
         }
 

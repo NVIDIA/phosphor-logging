@@ -5,7 +5,6 @@
 
 #include <cassert>
 #include <cstring>
-#include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -52,9 +51,9 @@ class Stream
     Stream() = delete;
     ~Stream() = default;
     Stream(const Stream&) = default;
-    Stream& operator=(const Stream&) = default;
-    Stream(Stream&&) = default;
-    Stream& operator=(Stream&&) = default;
+    Stream& operator=(const Stream&) = delete;
+    Stream(Stream&&) = delete;
+    Stream& operator=(Stream&&) = delete;
 
     /**
      * @brief Constructor

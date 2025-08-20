@@ -71,7 +71,7 @@ class SRC : public Section
     };
 
     SRC() = delete;
-    ~SRC() = default;
+    ~SRC() override = default;
     SRC(const SRC&) = delete;
     SRC& operator=(const SRC&) = delete;
     SRC(SRC&&) = delete;
@@ -428,7 +428,7 @@ class SRC : public Section
      *
      * Updates _valid (in Section) with the results.
      */
-    void validate() override;
+    void validate();
 
     /**
      * @brief Get error description from message registry
@@ -564,6 +564,18 @@ class SRC : public Section
      */
     void addJSONCallout(const nlohmann::json& jsonCallout,
                         const DataInterfaceBase& dataIface);
+
+    /**
+     * @brief Adds a FRU callout with only the location code
+     *
+     * Used when it's known not all of the data is available,
+     * including possibly the expanded location code.
+     *
+     * @param[in] locationCode - The location code
+     * @param[in] priority - The callout priority
+     */
+    void addLocationCodeOnlyCallout(const std::string& locationCode,
+                                    const CalloutPriority priority);
 
     /**
      * @brief Extracts a CalloutPriority value from the json

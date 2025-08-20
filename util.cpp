@@ -29,8 +29,7 @@
 #include <sdbusplus/bus.hpp>
 
 #include <chrono>
-#include <filesystem>
-#include <vector>
+#include <fstream>
 
 namespace phosphor::logging::util
 {

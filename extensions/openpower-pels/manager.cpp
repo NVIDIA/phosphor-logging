@@ -20,6 +20,7 @@
 #include "json_utils.hpp"
 #include "pel.hpp"
 #include "pel_entry.hpp"
+#include "pel_values.hpp"
 #include "service_indicators.hpp"
 #include "severity.hpp"
 
@@ -33,7 +34,6 @@
 #include <filesystem>
 #include <format>
 #include <fstream>
-#include <locale>
 
 namespace openpower
 {
@@ -246,7 +246,7 @@ void Manager::addESELPEL(const std::string& esel, uint32_t obmcLogID)
 
     try
     {
-        data = std::move(eselToRawData(esel));
+        data = eselToRawData(esel);
     }
     catch (const std::exception& e)
     {
@@ -308,6 +308,11 @@ void Manager::getLogIDWithHwIsolation(std::vector<uint32_t>& idsWithHwIsoEntry)
 
 bool Manager::isDeleteProhibited(uint32_t obmcLogID)
 {
+    Repository::LogID id{Repository::LogID::Obmc(obmcLogID)};
+    if (!_repo.hasPEL(id))
+    {
+        return false;
+    }
     auto entryPath{std::string(OBJ_ENTRY) + '/' + std::to_string(obmcLogID)};
     auto entry = _pelEntries.find(entryPath);
     if (entry != _pelEntries.end())
@@ -364,6 +369,7 @@ void Manager::createPEL(
     const std::map<std::string, std::string>& additionalData,
     const std::vector<std::string>& /*associations*/, const FFDCEntries& ffdc)
 {
+    auto start = std::chrono::steady_clock::now();
     auto entry = _registry.lookup(message, rg::LookupType::name);
     auto pelFFDC = convertToPelFFDC(ffdc);
     AdditionalData ad{additionalData};
@@ -402,19 +408,6 @@ void Manager::createPEL(
         scheduleRepoPrune();
     }
 
-    auto src = pel->primarySRC();
-    if (src)
-    {
-        auto asciiString = (*src)->asciiString();
-        while (asciiString.back() == ' ')
-        {
-            asciiString.pop_back();
-        }
-        lg2::info("Created PEL {ID} (BMC ID {BMCID}) with SRC {SRC}", "ID",
-                  lg2::hex, pel->id(), "BMCID", pel->obmcLogID(), "SRC",
-                  asciiString);
-    }
-
     // Check for severity 0x51 and update boot progress SRC
     updateProgressSRC(pel);
 
@@ -427,6 +420,22 @@ void Manager::createPEL(
     updateResolution(*pel);
     serializeLogEntry(obmcLogID);
     createPELEntry(obmcLogID);
+
+    auto src = pel->primarySRC();
+    if (src)
+    {
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - start);
+
+        auto asciiString = (*src)->asciiString();
+        while (asciiString.back() == ' ')
+        {
+            asciiString.pop_back();
+        }
+        lg2::info("Created PEL {ID} (BMC ID {BMCID}) with SRC {SRC}", "ID",
+                  lg2::hex, pel->id(), "BMCID", pel->obmcLogID(), "SRC",
+                  asciiString, "PEL_CREATE_DURATION", duration.count());
+    }
 
     // Check if firmware should quiesce system due to error
     checkPelAndQuiesce(pel);
@@ -1007,6 +1016,9 @@ uint32_t Manager::getBMCLogIdFromPELId(uint32_t pelId)
 void Manager::updateProgressSRC(
     std::unique_ptr<openpower::pels::PEL>& pel) const
 {
+    const size_t refcodeBegin = 40;
+    const size_t refcodeSize = 8;
+
     // Check for pel severity of type - 0x51 = critical error, system
     // termination
     if (pel->userHeader().severity() == 0x51)
@@ -1015,14 +1027,19 @@ void Manager::updateProgressSRC(
         if (src)
         {
             std::vector<uint8_t> asciiSRC = (*src)->getSrcStruct();
-            uint64_t srcRefCode = 0;
 
-            // Read bytes from offset [40-47] e.g. BD8D1001
-            for (int i = 0; i < 8; i++)
+            if (asciiSRC.size() < (refcodeBegin + refcodeSize))
             {
-                srcRefCode |=
-                    (static_cast<uint64_t>(asciiSRC[40 + i]) << (8 * i));
+                lg2::error(
+                    "SRC struct is too short to get progress code ({SIZE})",
+                    "SIZE", asciiSRC.size());
+                return;
             }
+
+            // Pull the ASCII SRC from offset [40-47] e.g. BD8D1001
+            std::vector<uint8_t> srcRefCode(
+                asciiSRC.begin() + refcodeBegin,
+                asciiSRC.begin() + refcodeBegin + refcodeSize);
 
             try
             {
