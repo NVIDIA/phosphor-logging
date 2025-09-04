@@ -13,7 +13,10 @@ conf_data.set(
     'log_purge_policy_default',
     get_option('log_purge_policy_default').to_string(),
 )
-
+conf_data.set(
+    'rsyslog_ethernet_interface',
+    get_option('rsyslog_ethernet_interface'),
+)
 lg2_commit_strategy = get_option('lg2_commit_strategy')
 conf_data.set(
     'lg2_commit_dbus',

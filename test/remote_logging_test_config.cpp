@@ -23,8 +23,21 @@ std::string getConfig(const char* filePath)
 {
     std::fstream stream(filePath, std::fstream::in);
     std::string line;
-    std::getline(stream, line);
-    return line;
+    while (std::getline(stream, line))
+    {
+        // Find the forwarding/action line (starts with selector "*.")
+        if (line.rfind("*.", 0) == 0)
+        {
+            // If there is a template suffix (e.g., ";RFC5424withIP"), ignore it
+            auto pos = line.find(';');
+            if (pos != std::string::npos)
+            {
+                return line.substr(0, pos);
+            }
+            return line;
+        }
+    }
+    return {};
 }
 
 TEST_F(TestRemoteLogging, testOnlyAddress)

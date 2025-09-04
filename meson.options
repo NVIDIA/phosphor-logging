@@ -111,3 +111,10 @@ option(
     choices: ['dbus', 'journal', 'both'],
     value: 'both',
 )
+
+option(
+    'rsyslog_ethernet_interface',
+    type: 'string',
+    value: 'eth0',
+    description: 'ethernet intercae acive for rsyslog',
+)

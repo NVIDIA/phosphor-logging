@@ -2,12 +2,18 @@
 
 #include "xyz/openbmc_project/Network/Client/server.hpp"
 
+#include <phosphor-logging/asio_connection.hpp>
 #include <phosphor-logging/log.hpp>
 #include <sdbusplus/bus.hpp>
+#include <sdbusplus/message.hpp>
 #include <sdbusplus/server/object.hpp>
 #include <xyz/openbmc_project/Logging/RsyslogClient/server.hpp>
 
+#include <map>
+#include <memory>
 #include <string>
+#include <variant>
+#include <vector>
 
 namespace phosphor
 {
@@ -56,6 +62,18 @@ class Server : public Iface
         try
         {
             restore(configFilePath.c_str());
+            // Subscribe to Network IP events to populate BMC IPv4
+            // asynchronously
+            ipAddedMatch = std::make_unique<sdbusplus::bus::match_t>(
+                bus,
+                "type='signal',interface='org.freedesktop.DBus.ObjectManager',member='InterfacesAdded',path_namespace='/xyz/openbmc_project/network'",
+                std::bind(std::mem_fn(&Server::onInterfacesAdded), this,
+                          std::placeholders::_1));
+            ipPropMatch = std::make_unique<sdbusplus::bus::match_t>(
+                bus,
+                "type='signal',interface='org.freedesktop.DBus.Properties',member='PropertiesChanged',path_namespace='/xyz/openbmc_project/network'",
+                std::bind(std::mem_fn(&Server::onIPPropertiesChanged), this,
+                          std::placeholders::_1));
         }
         catch (const std::exception& e)
         {
@@ -70,6 +88,7 @@ class Server : public Iface
     using NetworkClient::transportProtocol;
     using RsyslogClient::enabled;
     using RsyslogClient::facility;
+    using RsyslogClient::rfcformat;
     using RsyslogClient::severity;
     using RsyslogClient::tls;
 
@@ -109,6 +128,9 @@ class Server : public Iface
     virtual std::vector<FacilityType> facility(
         std::vector<FacilityType> value) override;
 
+    /** Set value of RFCFORMAT */
+    virtual RfcFormatType rfcformat(RfcFormatType value) override;
+
   private:
     /** @brief Update remote server address and port in
      *         rsyslog config file.
@@ -120,7 +142,7 @@ class Server : public Iface
     void writeConfig(const std::string& serverAddress, uint16_t serverPort,
                      TransportProtocol protocol, bool tls, bool enabled,
                      SeverityType severity, std::vector<FacilityType> facility,
-                     const char* filePath);
+                     RfcFormatType rfcFormat, const char* filePath);
 
     /** @brief Checks if input IP address is valid (uses getaddrinfo)
      *  @param[in] address - server address
@@ -134,6 +156,25 @@ class Server : public Iface
     void restore(const char* filePath);
 
     std::string configFilePath{};
+
+    // Cached BMC IPv4 address gathered asynchronously via D-Bus signals
+    std::string bmcIPv4Address{};
+    // Cached BMC IPv6 address gathered asynchronously via D-Bus signals
+    std::string bmcIPv6Address{};
+
+    // Matches to listen for IP creation/changes
+    std::unique_ptr<sdbusplus::bus::match_t> ipAddedMatch;
+    std::unique_ptr<sdbusplus::bus::match_t> ipPropMatch;
+
+    void onInterfacesAdded(sdbusplus::message_t& msg);
+    void onIPPropertiesChanged(sdbusplus::message_t& msg);
+
+    // Helpers
+    std::string networkInterfacePrefix() const;
+    bool pathIsOnConfiguredInterface(const std::string& path) const;
+
+    template <typename Variant>
+    void handleIpProps(const std::map<std::string, Variant>& props);
 
     /** @brief React to hostname change
      *  @param[in] msg - sdbusplus message
