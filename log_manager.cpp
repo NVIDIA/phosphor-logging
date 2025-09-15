@@ -1321,7 +1321,7 @@ phosphor::logging::ManagedObject Manager::getAll(
         prop["Message"] = v;
 
         // AdditionalData
-        v = util::additional_data::combine(iter->second->additionalData());
+        v = iter->second->additionalData();
         prop["AdditionalData"] = v;
 
         // Resolution
@@ -1338,7 +1338,7 @@ phosphor::logging::ManagedObject Manager::getAll(
 
         // UpdateTimeStamp
         v = iter->second->updateTimestamp();
-        prop["UpdateTimeStamp"] = v;
+        prop["UpdateTimestamp"] = v;
         obj.insert(obj.begin(),
                    std::make_pair("xyz.openbmc_project.Logging.Entry", prop));
 
@@ -1416,8 +1416,7 @@ phosphor::logging::ManagedObject Manager::getAll(
             prop["Message"] = v;
 
             // AdditionalData
-            v = util::additional_data::combine(
-                entryFound->second->additionalData());
+            v = entryFound->second->additionalData();
             prop["AdditionalData"] = v;
 
             // Resolution
@@ -1435,7 +1434,7 @@ phosphor::logging::ManagedObject Manager::getAll(
 
             // UpdateTimeStamp
             v = entryFound->second->updateTimestamp();
-            prop["UpdateTimeStamp"] = v;
+            prop["UpdateTimestamp"] = v;
             obj.insert(obj.begin(),
                        std::make_pair("xyz.openbmc_project.Logging.Entry",
                                       prop));
@@ -1489,8 +1488,7 @@ phosphor::logging::ManagedObject Manager::getAll(
             prop["Message"] = v;
 
             // AdditionalData
-            v = util::additional_data::combine(
-                entryFound->second->additionalData());
+            v = entryFound->second->additionalData();
             prop["AdditionalData"] = v;
 
             // Resolution
@@ -1508,7 +1506,7 @@ phosphor::logging::ManagedObject Manager::getAll(
 
             // UpdateTimeStamp
             v = entryFound->second->updateTimestamp();
-            prop["UpdateTimeStamp"] = v;
+            prop["UpdateTimestamp"] = v;
 
             obj.insert(obj.begin(),
                        std::make_pair("xyz.openbmc_project.Logging.Entry",
