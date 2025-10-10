@@ -29,7 +29,7 @@
 
 #define RSYSLOG_SERVER_CONFIG_FILE "@rsyslog_server_conf@"
 #define RSYSLOG_FWD_ACTIONS_CONF_DIR_PATH "@rsyslog_fwd_actions_conf_dir_path@"
-
+#define RSYSLOG_ETHERNET_INTERFACE "@rsyslog_ethernet_interface@"
 #define DEFAULT_BIN_NAME "default"
 #define DEFAULT_BIN_KEY "namespace"
 

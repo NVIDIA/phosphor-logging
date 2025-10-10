@@ -93,7 +93,7 @@ Manager::Manager(sdbusplus::bus::bus& bus, const std::string& objPath) :
     busLog(bus), entryId(0), lastCreatedTimeStamp(0),
     fwVersion(readFWVersion()),
     defaultBin(DEFAULT_BIN_NAME, ERROR_CAP, ERROR_INFO_CAP,
-               phosphor::logging::paths::error(), true),
+               phosphor::logging::paths::error(), true, 0),
     _autoPurgeResolved(LOG_PURGE_POLICY_DEFAULT),
     _autoPurgeEventSource(
         sdeventplus::Event::get_default(),
@@ -425,40 +425,87 @@ auto Manager::createEntry(std::string errMsg, Entry::Level errLvl,
         std::string currentPolicy = getSelPolicy();
         if (currentPolicy == policyLinear)
         {
-            if (errLvl < Entry::sevLowerLimit)
+            if (entryBin->defaultCapacity > 0)
             {
-                if (entryBin->errorEntries.size() >= entryBin->errorCap)
+                // When defaultCapacity is set, only check total entries limit
+                uint32_t totalEntries = entryBin->infoEntries.size() +
+                                        entryBin->errorEntries.size();
+                if (totalEntries >= entryBin->defaultCapacity)
                 {
-                    lg2::info("Error Capacity limit reached: {BIN_NAME}",
+                    lg2::info("Default Capacity limit reached: {BIN_NAME}",
                               "BIN_NAME", entryBinName);
                     return sdbusplus::message::object_path("/");
                 }
             }
             else
             {
-                if (entryBin->infoEntries.size() >= entryBin->errorInfoCap)
+                // When defaultCapacity is not set, check specific capacity
+                // limits
+                if (errLvl < Entry::sevLowerLimit)
                 {
-                    lg2::info(
-                        "Information Error Capacity limit reached: {BIN_NAME}",
-                        "BIN_NAME", entryBinName);
-                    return sdbusplus::message::object_path("/");
+                    if (entryBin->errorEntries.size() >= entryBin->errorCap)
+                    {
+                        lg2::info("Error Capacity limit reached: {BIN_NAME}",
+                                  "BIN_NAME", entryBinName);
+                        return sdbusplus::message::object_path("/");
+                    }
+                }
+                else
+                {
+                    if (entryBin->infoEntries.size() >= entryBin->errorInfoCap)
+                    {
+                        lg2::info(
+                            "Information Error Capacity limit reached: {BIN_NAME}",
+                            "BIN_NAME", entryBinName);
+                        return sdbusplus::message::object_path("/");
+                    }
                 }
             }
         }
         else
         {
-            if (errLvl < Entry::sevLowerLimit)
+            if (entryBin->defaultCapacity > 0)
             {
-                if (entryBin->errorEntries.size() >= entryBin->errorCap)
+                // When defaultCapacity is set, only enforce total entries limit
+                uint32_t totalEntries = entryBin->infoEntries.size() +
+                                        entryBin->errorEntries.size();
+                if (totalEntries >= entryBin->defaultCapacity)
                 {
-                    erase(*(entryBin->errorEntries.begin()));
+                    // Erase the oldest entry (smallest ID) from either
+                    // errorEntries or infoEntries
+                    uint32_t oldestErrorId =
+                        entryBin->errorEntries.empty()
+                            ? UINT32_MAX
+                            : *(entryBin->errorEntries.begin());
+                    uint32_t oldestInfoId =
+                        entryBin->infoEntries.empty()
+                            ? UINT32_MAX
+                            : *(entryBin->infoEntries.begin());
+                    if (oldestErrorId <= oldestInfoId)
+                    {
+                        erase(oldestErrorId);
+                    }
+                    else
+                    {
+                        erase(oldestInfoId);
+                    }
                 }
             }
             else
             {
-                if (entryBin->infoEntries.size() >= entryBin->errorInfoCap)
+                if (errLvl < Entry::sevLowerLimit)
                 {
-                    erase(*(entryBin->infoEntries.begin()));
+                    if (entryBin->errorEntries.size() >= entryBin->errorCap)
+                    {
+                        erase(*(entryBin->errorEntries.begin()));
+                    }
+                }
+                else
+                {
+                    if (entryBin->infoEntries.size() >= entryBin->errorInfoCap)
+                    {
+                        erase(*(entryBin->infoEntries.begin()));
+                    }
                 }
             }
         }
@@ -1154,22 +1201,63 @@ void Manager::restore()
 
         Bin* restoreBin = &(pair.second);
         uint32_t eraseId;
-
-        while (restoreBin->errorEntries.size() > restoreBin->errorCap)
+        if (restoreBin->defaultCapacity > 0)
         {
-            eraseId = *(restoreBin->errorEntries.begin());
-            erase(eraseId);
-            lg2::info("Pruning Error EntryId {ENTRY_ID} in {NAMESPACE_NAME}",
-                      "ENTRY_ID", eraseId, "NAMESPACE_NAME", pair.first);
+            // When defaultCapacity is set, only prune based on total entries
+            uint32_t totalEntries = restoreBin->errorEntries.size() +
+                                    restoreBin->infoEntries.size();
+            while (totalEntries > restoreBin->defaultCapacity)
+            {
+                // Prune the oldest entry (smallest ID) from either errorEntries
+                // or infoEntries
+                uint32_t oldestErrorId =
+                    restoreBin->errorEntries.empty()
+                        ? UINT32_MAX
+                        : *(restoreBin->errorEntries.begin());
+                uint32_t oldestInfoId =
+                    restoreBin->infoEntries.empty()
+                        ? UINT32_MAX
+                        : *(restoreBin->infoEntries.begin());
+
+                if (oldestErrorId <= oldestInfoId)
+                {
+                    eraseId = oldestErrorId;
+                    erase(eraseId);
+                    lg2::info(
+                        "Pruning Error EntryId {ENTRY_ID} in {NAMESPACE_NAME} (DefaultCapacity)",
+                        "ENTRY_ID", eraseId, "NAMESPACE_NAME", pair.first);
+                }
+                else
+                {
+                    eraseId = oldestInfoId;
+                    erase(eraseId);
+                    lg2::info(
+                        "Pruning InfoError EntryId {ENTRY_ID} in {NAMESPACE_NAME} (DefaultCapacity)",
+                        "ENTRY_ID", eraseId, "NAMESPACE_NAME", pair.first);
+                }
+                totalEntries = restoreBin->errorEntries.size() +
+                               restoreBin->infoEntries.size();
+            }
         }
-
-        while (restoreBin->infoEntries.size() > restoreBin->errorInfoCap)
+        else
         {
-            eraseId = *(restoreBin->infoEntries.begin());
-            erase(eraseId);
-            lg2::info(
-                "Pruning InfoError EntryId {ENTRY_ID} in {NAMESPACE_NAME}",
-                "ENTRY_ID", eraseId, "NAMESPACE_NAME", pair.first);
+            // When defaultCapacity is not set, enforce specific capacity limits
+            while (restoreBin->errorEntries.size() > restoreBin->errorCap)
+            {
+                eraseId = *(restoreBin->errorEntries.begin());
+                erase(eraseId);
+                lg2::info(
+                    "Pruning Error EntryId {ENTRY_ID} in {NAMESPACE_NAME}",
+                    "ENTRY_ID", eraseId, "NAMESPACE_NAME", pair.first);
+            }
+            while (restoreBin->infoEntries.size() > restoreBin->errorInfoCap)
+            {
+                eraseId = *(restoreBin->infoEntries.begin());
+                erase(eraseId);
+                lg2::info(
+                    "Pruning InfoError EntryId {ENTRY_ID} in {NAMESPACE_NAME}",
+                    "ENTRY_ID", eraseId, "NAMESPACE_NAME", pair.first);
+            }
         }
     }
 

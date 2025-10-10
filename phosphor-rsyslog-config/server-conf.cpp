@@ -18,8 +18,10 @@
 #include <stdplus/net/addr/ip.hpp>
 #include <stdplus/util/string.hpp>
 
+#include <map>
 #include <optional>
 #include <string>
+#include <variant>
 
 namespace phosphor
 {
@@ -255,7 +257,8 @@ std::string Server::address(std::string value)
         }
 
         writeConfig(value, port(), transportProtocol(), tls(), enabled(),
-                    severity(), facility(), configFilePath.c_str());
+                    severity(), facility(), rfcformat(),
+                    configFilePath.c_str());
         result = NetworkClient::address(value);
     }
     catch (const InvalidArgument& e)
@@ -288,7 +291,8 @@ uint16_t Server::port(uint16_t value)
         }
 
         writeConfig(address(), value, transportProtocol(), tls(), enabled(),
-                    severity(), facility(), configFilePath.c_str());
+                    severity(), facility(), rfcformat(),
+                    configFilePath.c_str());
         result = NetworkClient::port(value);
     }
     catch (const InternalFailure& e)
@@ -317,7 +321,8 @@ bool Server::tls(bool value)
         }
 
         writeConfig(address(), port(), transportProtocol(), value, enabled(),
-                    severity(), facility(), configFilePath.c_str());
+                    severity(), facility(), rfcformat(),
+                    configFilePath.c_str());
         result = RsyslogClient::tls(value);
     }
     catch (const InternalFailure& e)
@@ -346,7 +351,8 @@ bool Server::enabled(bool value)
         }
 
         writeConfig(address(), port(), transportProtocol(), tls(), value,
-                    severity(), facility(), configFilePath.c_str());
+                    severity(), facility(), rfcformat(),
+                    configFilePath.c_str());
         result = RsyslogClient::enabled(value);
     }
     catch (const InternalFailure& e)
@@ -387,7 +393,8 @@ RsyslogClient::SeverityType Server::severity(RsyslogClient::SeverityType value)
 
         // Write the new severity with the current facility
         writeConfig(address(), port(), transportProtocol(), tls(), enabled(),
-                    value, currentFacility, configFilePath.c_str());
+                    value, currentFacility, rfcformat(),
+                    configFilePath.c_str());
         RsyslogClient::severity(value);
     }
     catch (const std::exception& e)
@@ -429,7 +436,8 @@ std::vector<RsyslogClient::FacilityType> Server::facility(
 
         // Write the new facility with the current severity
         writeConfig(address(), port(), transportProtocol(), tls(), enabled(),
-                    currentSeverity, value, configFilePath.c_str());
+                    currentSeverity, value, rfcformat(),
+                    configFilePath.c_str());
 
         // Update facilities
         RsyslogClient::facility(value);
@@ -456,7 +464,7 @@ NetworkClient::TransportProtocol Server::transportProtocol(
         }
 
         writeConfig(address(), port(), value, tls(), enabled(), severity(),
-                    facility(), configFilePath.c_str());
+                    facility(), rfcformat(), configFilePath.c_str());
         result = NetworkClient::transportProtocol(value);
     }
     catch (const InternalFailure& e)
@@ -472,11 +480,28 @@ NetworkClient::TransportProtocol Server::transportProtocol(
     return result;
 }
 
+RsyslogClient::RfcFormatType Server::rfcformat(
+    RsyslogClient::RfcFormatType value)
+{
+    auto current = RsyslogClient::rfcformat();
+    if (current == value)
+    {
+        return current;
+    }
+
+    // Persist in config with the new format
+    writeConfig(address(), port(), transportProtocol(), tls(), enabled(),
+                severity(), facility(), value, configFilePath.c_str());
+
+    return RsyslogClient::rfcformat(value);
+}
+
 void Server::writeConfig(
     const std::string& serverAddress, uint16_t serverPort,
     NetworkClient::TransportProtocol serverTransportProtocol, bool tls,
     bool enabled, RsyslogClient::SeverityType severity,
-    std::vector<RsyslogClient::FacilityType> facilities, const char* filePath)
+    std::vector<RsyslogClient::FacilityType> facilities,
+    RsyslogClient::RfcFormatType rfcFormat, const char* filePath)
 {
     std::fstream stream(filePath, std::fstream::out);
 
@@ -499,6 +524,10 @@ void Server::writeConfig(
             stream << "*.* /dev/null" << std::endl;
         }
 
+        // Load legacy modules
+        writeLine("$ModLoad imuxsock");
+        writeLine("$ModLoad omfwd");
+
         if (tls)
         {
             writeLine("$DefaultNetstreamDriver gtls");
@@ -506,11 +535,29 @@ void Server::writeConfig(
             writeLine("$ActionSendStreamDriverMode 1");
         }
 
-        std::string type =
-            (serverTransportProtocol == NetworkClient::TransportProtocol::UDP)
-                ? "@"
-                : "@@";
-        // Convert severity to string
+        // When RFC5424, define a template with IP fallback and use it
+        if (rfcFormat == RsyslogClient::RfcFormatType::RFC5424)
+        {
+            std::string ipForTemplate;
+            if (!bmcIPv4Address.empty())
+            {
+                ipForTemplate = bmcIPv4Address;
+            }
+            else if (!bmcIPv6Address.empty())
+            {
+                ipForTemplate = bmcIPv6Address;
+            }
+            else
+            {
+                ipForTemplate = "%fromhost-ip%";
+            }
+            writeLine(
+                "$template RFC5424withIP,\"<%pri%>1 %timestamp:::date-rfc3339% " +
+                ipForTemplate +
+                " %hostname% %app-name% %procid% %msgid% %msg%\\n\"");
+        }
+
+        // Build selector
         std::string severityStr;
         switch (severity)
         {
@@ -560,15 +607,27 @@ void Server::writeConfig(
             facilityStr = "*";
         }
 
+        std::string type =
+            (serverTransportProtocol == NetworkClient::TransportProtocol::UDP)
+                ? "@"
+                : "@@";
+
+        std::string templateSuffix =
+            (rfcFormat == RsyslogClient::RfcFormatType::RFC5424)
+                ? ";RFC5424withIP"
+                : ";RSYSLOG_TraditionalForwardFormat";
+
         if (internal::isIPv6Address(serverAddress))
         {
             writeLine(facilityStr + "." + severityStr + " " + type + "[" +
-                      serverAddress + "]:" + std::to_string(serverPort));
+                      serverAddress + "]:" + std::to_string(serverPort) +
+                      templateSuffix);
         }
         else
         {
             writeLine(facilityStr + "." + severityStr + " " + type +
-                      serverAddress + ":" + std::to_string(serverPort));
+                      serverAddress + ":" + std::to_string(serverPort) +
+                      templateSuffix);
         }
     }
     else // this is a disable request
@@ -624,6 +683,101 @@ void Server::restore(const char* filePath)
 void Server::restart()
 {
     utils::restart();
+}
+
+std::string Server::networkInterfacePrefix() const
+{
+    std::string ethernetInterface = "/xyz/openbmc_project/network/";
+    ethernetInterface += std::string(RSYSLOG_ETHERNET_INTERFACE);
+    ethernetInterface += "/";
+    return ethernetInterface;
+}
+
+bool Server::pathIsOnConfiguredInterface(const std::string& path) const
+{
+    return path.starts_with(networkInterfacePrefix());
+}
+
+template <typename Variant>
+void Server::handleIpProps(const std::map<std::string, Variant>& props)
+{
+    auto typeIt = props.find("Type");
+    if (typeIt == props.end())
+        return;
+
+    const std::string* typeStr = std::get_if<std::string>(&typeIt->second);
+    if (typeStr == nullptr)
+        return;
+
+    auto addrIt = props.find("Address");
+    if (addrIt == props.end())
+        return;
+
+    if (const std::string* addr = std::get_if<std::string>(&addrIt->second))
+    {
+        if (*typeStr == "xyz.openbmc_project.Network.IP.Protocol.IPv4")
+        {
+            bmcIPv4Address = *addr;
+        }
+        else if (*typeStr == "xyz.openbmc_project.Network.IP.Protocol.IPv6")
+        {
+            bmcIPv6Address = *addr;
+        }
+    }
+}
+
+void Server::onInterfacesAdded(sdbusplus::message_t& msg)
+{
+    sdbusplus::message::object_path objPath;
+    std::map<
+        std::string,
+        std::map<std::string,
+                 std::variant<bool, uint32_t, int64_t, std::string,
+                              std::vector<uint8_t>, std::vector<std::string>,
+                              std::map<std::string, std::string>, uint64_t>>>
+        ifaces;
+    msg.read(objPath, ifaces);
+
+    const std::string& pathStr = objPath.str;
+    if (!pathIsOnConfiguredInterface(pathStr))
+        return;
+
+    auto it = ifaces.find("xyz.openbmc_project.Network.IP");
+    if (it == ifaces.end())
+        return;
+
+    const auto& props = it->second;
+    handleIpProps(props);
+    restart();
+}
+
+void Server::onIPPropertiesChanged(sdbusplus::message_t& msg)
+{
+    std::string interface;
+    std::map<std::string,
+             std::variant<bool, uint32_t, int64_t, std::string,
+                          std::vector<uint8_t>, std::vector<std::string>,
+                          std::map<std::string, std::string>, uint64_t>>
+        changedProps;
+    std::vector<std::string> invalidated;
+    // Filter to the configured interface by checking the message path
+    const char* pathCstr = msg.get_path();
+    if (pathCstr == nullptr)
+    {
+        return;
+    }
+    std::string pathStr(pathCstr);
+    if (!pathIsOnConfiguredInterface(pathStr))
+    {
+        return;
+    }
+
+    msg.read(interface, changedProps, invalidated);
+    if (interface != "xyz.openbmc_project.Network.IP")
+        return;
+
+    handleIpProps(changedProps);
+    restart();
 }
 
 } // namespace rsyslog_config

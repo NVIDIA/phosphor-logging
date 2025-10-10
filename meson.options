@@ -117,3 +117,10 @@ option(
     type: 'string',
     description: 'Path to the event filter JSON file.',
 )
+
+option(
+    'rsyslog_ethernet_interface',
+    type: 'string',
+    value: 'eth0',
+    description: 'ethernet intercae acive for rsyslog',
+)
