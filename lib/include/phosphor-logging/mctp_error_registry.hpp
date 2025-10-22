@@ -1,0 +1,134 @@
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION &
+ * AFFILIATES. All rights reserved. SPDX-License-Identifier: Apache-2.0
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+#pragma once
+
+#include <xyz/openbmc_project/Logging/Entry/server.hpp>
+
+#include <cstdint>
+#include <optional>
+#include <string>
+#include <vector>
+
+namespace phosphor
+{
+namespace logging
+{
+namespace mctp
+{
+
+// Alias for logging severity level
+using Level = sdbusplus::server::xyz::openbmc_project::logging::Entry::Level;
+
+/**
+ * @brief MCTP binding types (must match kernel definitions)
+ */
+enum class Binding : uint8_t
+{
+    USB = 1,
+    I2C = 2,
+    PCIE = 3,
+    SYNC = 255 // MCTP core/sync API failures (binding-independent)
+};
+
+/**
+ * @brief MCTP direction
+ */
+enum class Direction : uint8_t
+{
+    TX = 0,
+    RX = 1
+};
+
+/**
+ * @brief Redfish registry information for MCTP errors
+ */
+struct RedfishRegistry
+{
+    std::string registryId;
+    std::vector<std::string> args;
+    Level severity;
+    std::string resolution;
+    bool isDeviceError; // true = remote device error, false = BMC/host
+                        // controller error
+};
+
+/**
+ * @brief Convert MCTP error to Redfish registry information
+ *
+ * This function maps MCTP transport errors from the kernel error queue
+ * to structured Redfish registry messages for standardized logging and
+ * event reporting.
+ *
+ * @param[in] errorCode - Linux errno value (ENODEV, ETIMEDOUT, EHOSTUNREACH,
+ * etc.)
+ * @param[in] direction - MCTP direction (TX or RX)
+ * @param[in] binding - MCTP binding type:
+ *                      - USB: USB binding-specific errors
+ *                      - I2C: I2C binding-specific errors
+ *                      - PCIE: PCIe binding-specific errors
+ *                      - SYNC: MCTP core/sync API errors (binding-independent)
+ * @param[in] endpointid - Endpoint ID
+ * @param[in] driverOperation - Driver operation string (e.g., "FirmwareUpdate")
+ * @param[in] deviceRedfishName - Optional device Redfish name. Only used for
+ *                                device errors (not host controller errors).
+ *                                For host controller errors, "BMC" is always
+ * used.
+ *
+ * @return Optional RedfishRegistry structure filled with registry information,
+ *         or std::nullopt if error code/binding combination is not mapped
+ *
+ * @example Usage for USB binding error:
+ * auto registry = mctp::errorToRedfishRegistry(
+ *     ENODEV,
+ *     Direction::TX,
+ *     Binding::USB,
+ *     0x15,
+ *     "FirmwareUpdate",
+ *     "/redfish/v1/UpdateService/FirmwareInventory/GPU0"
+ * );
+ *
+ * @example Usage for SYNC API error:
+ * auto registry = mctp::errorToRedfishRegistry(
+ *     EHOSTUNREACH,
+ *     Direction::TX,
+ *     Binding::SYNC,
+ *     0x15,
+ *     "MessageTransmit"
+ * );
+ *
+ * if (registry) {
+ *     // Use registry->registryId, registry->args, etc.
+ * }
+ */
+std::optional<RedfishRegistry> errorToRedfishRegistry(
+    uint32_t errorCode, Direction direction, Binding binding,
+    uint8_t endpointid, const std::string& driverOperation,
+    const std::optional<std::string>& deviceRedfishName = std::nullopt);
+
+/**
+ * @brief Get device name string from EID
+ *
+ * Formats EID into a human-readable device name string.
+ *
+ * @param[in] eid - MCTP Endpoint ID
+ * @return Device name string (e.g., "EID_0x15")
+ */
+std::string getDeviceNameByEid(uint8_t eid);
+
+} // namespace mctp
+} // namespace logging
+} // namespace phosphor

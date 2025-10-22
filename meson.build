@@ -201,6 +201,7 @@ log_manager_deps = [
     sdbusplus_dep,
     sdeventplus_dep,
     nlohmann_json_dep,
+    topology_dep,
 ]
 executable(
     'phosphor-log-manager',

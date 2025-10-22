@@ -21,6 +21,20 @@ option(
     value: 'enabled',
 )
 
+option(
+    'nvidia-platform-event-extension',
+    type: 'feature',
+    description: 'Enable NVIDIA Platform Event extension for device error aggregation',
+    value: 'disabled',
+)
+
+option(
+    'max_errors_per_class',
+    type: 'integer',
+    value: 10,
+    description: 'Maximum number of errors to store per error class in NVIDIA Platform Event extension',
+)
+
 option('yamldir', type: 'string', description: 'Path to YAML')
 option(
     'callout_yaml',

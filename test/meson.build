@@ -83,3 +83,46 @@ foreach t : tests_non_parallel
         is_parallel: false,
     )
 endforeach
+
+
+# Platform Event D-Bus integration tests
+# Tests the complete flow: CommitDeviceError -> Extension -> Error Database
+test(
+    'test_platform_event_dbus_tests',
+    executable(
+        'test-platform-event-dbus-tests',
+        'platform_event_dbus_tests.cpp',
+        'common.cpp',
+        log_manager_sources,
+        '../extensions/nvidia-platform-event/entry_points.cpp',
+        '../extensions/nvidia-platform-event/manager.cpp',
+        '../extensions/nvidia-platform-event/device_error_database.cpp',
+        '../extensions/nvidia-platform-event/device_status_interface.cpp',
+        '../extensions/nvidia-platform-event/device_topology.cpp',
+        dependencies: [
+            gmock_dep,
+            gtest_dep,
+            log_manager_deps,
+            pdi_dep,
+            phosphor_logging_dep,
+            sdeventplus_dep,
+            topology_dep,
+        ],
+        include_directories: include_directories(
+            '..',
+            '../gen',
+            '../lib/topology',
+        ),
+    ),
+    is_parallel: false,
+)
+
+test(
+    'test_mctp_error_registry_test',
+    executable(
+        'test-mctp-error-registry-test',
+        'mctp_error_registry_test.cpp',
+        dependencies: [phosphor_logging_dep],
+        include_directories: include_directories('..'),
+    ),
+)

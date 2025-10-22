@@ -28,6 +28,8 @@ phosphor_logging_lib = library(
     'lg2_logger.cpp',
     'sdjournal.cpp',
     'redfish_event_log.cpp',
+    'device_error_log.cpp',
+    'mctp_error_registry.cpp',
     phosphor_logging_gen,
     implicit_include_directories: false,
     include_directories: phosphor_logging_includes,
@@ -57,3 +59,6 @@ phosphor_logging_dep = declare_dependency(
     sources: phosphor_logging_gen,
     dependencies: phosphor_logging_deps,
 )
+
+# Add topology subdirectory
+subdir('topology')

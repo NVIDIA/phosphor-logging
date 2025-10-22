@@ -27,6 +27,8 @@ install_headers(
     'log.hpp',
     'sdjournal.hpp',
     'redfish_event_log.hpp',
+    'device_error_log.hpp',
+    'mctp_error_registry.hpp',
     subdir: 'phosphor-logging',
 )
 
