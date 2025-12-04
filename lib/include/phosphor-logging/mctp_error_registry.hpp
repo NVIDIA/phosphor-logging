@@ -14,6 +14,104 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+/**
+ * @file mctp_error_registry.hpp
+ * @brief MCTP Error to Redfish Registry Mapping
+ *
+ * This file provides functionality to convert MCTP transport layer errors
+ * to structured Redfish registry messages for standardized error reporting.
+ *
+ * =============================================================================
+ * ERROR CODE REFERENCE
+ * =============================================================================
+ *
+ * Common errno values used in MCTP error mappings:
+ *
+ * Error Code | Value | Description
+ * -----------|-------|--------------------------------------------------------
+ * EPERM      |   1   | Operation not permitted
+ * ENOENT     |   2   | No such file or directory / endpoint not found
+ * EINTR      |   4   | Interrupted system call
+ * EIO        |   5   | I/O error
+ * ENXIO      |   6   | No such device or address / no ACK
+ * EAGAIN     |  11   | Try again / arbitration loss
+ * ENOMEM     |  12   | Out of memory (Host controller error)
+ * EBUSY      |  16   | Device or resource busy / all tags in use
+ * ENODEV     |  19   | No such device / device was removed
+ * EINVAL     |  22   | Invalid argument
+ * EPIPE      |  32   | Broken pipe / endpoint in stall state
+ * EPROTO     |  71   | Protocol error / fragmentation error
+ * EMSGSIZE   |  90   | Message too long / exceeds 64KB limit
+ * ECONNRESET |  104  | Connection reset / URB unlinked
+ * ETIMEDOUT  |  110  | Connection timed out / response timeout
+ * EHOSTUNREACH| 113  | No route to host / host unreachable
+ * ECOMM      |  70   | Communication error on send
+ * ESHUTDOWN  |  108  | Cannot send after transport endpoint shutdown
+ *
+ * =============================================================================
+ * BINDING TYPE REFERENCE
+ * =============================================================================
+ *
+ * MCTP Binding Types (must match kernel MCTP definitions):
+ *
+ * Binding    | Value | Description              | Error Map Available
+ * -----------|-------|--------------------------|--------------------
+ * I2C        | 0x01  | I2C/SMBus binding        | Yes
+ * PCIE       | 0x02  | PCIe VDM binding         | Yes
+ * USB        | 0x03  | USB binding              | Yes
+ * KCS        | 0x04  | KCS binding              | No (future)
+ * SERIAL     | 0x05  | Serial binding           | No (future)
+ * I3C        | 0x06  | I3C binding              | No (future)
+ * SYNC       | 0xFF  | MCTP core/sync API       | Yes
+ *
+ * =============================================================================
+ * DIRECTION REFERENCE
+ * =============================================================================
+ *
+ * Direction  | Value | Description
+ * -----------|-------|-------------------------------------------------------
+ * TX         |   0   | Transmit direction (sending data)
+ * RX         |   1   | Receive direction (receiving data)
+ *
+ * =============================================================================
+ * ERROR CATEGORY REFERENCE
+ * =============================================================================
+ *
+ * Category           | Registry Used              | Device Error Flag
+ * -------------------|----------------------------|-----------------
+ * HOST_CONTROLLER    | BmcDriverErrorsDetected    | false (BMC issue)
+ * DEVICE             | DeviceDriverErrorsDetected | true (Device issue)
+ *
+ * =============================================================================
+ * USAGE EXAMPLE
+ * =============================================================================
+ *
+ * // Example 1: USB device disconnection
+ * auto registry = errorToRedfishRegistry(
+ *     19,              // ENODEV
+ *     Direction::TX,
+ *     Binding::USB,
+ *     0x15,            // Endpoint ID
+ *     "FirmwareUpdate",
+ *     "/redfish/v1/UpdateService/FirmwareInventory/GPU0"
+ * );
+ *
+ * // Example 2: SYNC API timeout
+ * auto registry = errorToRedfishRegistry(
+ *     113,             // EHOSTUNREACH
+ *     Direction::TX,
+ *     Binding::SYNC,
+ *     0x20,            // Endpoint ID
+ *     "MessageTransmit"
+ * );
+ *
+ * if (registry) {
+ *     // Use registry->registryId, registry->args, registry->severity, etc.
+ * }
+ *
+ * =============================================================================
+ */
 #pragma once
 
 #include <xyz/openbmc_project/Logging/Entry/server.hpp>
@@ -38,10 +136,13 @@ using Level = sdbusplus::server::xyz::openbmc_project::logging::Entry::Level;
  */
 enum class Binding : uint8_t
 {
-    USB = 1,
-    I2C = 2,
-    PCIE = 3,
-    SYNC = 255 // MCTP core/sync API failures (binding-independent)
+    I2C = 0x01,    // I2C/SMBus
+    PCIE = 0x02,   // PCIe VDM
+    USB = 0x03,    // USB
+    KCS = 0x04,    // KCS
+    SERIAL = 0x05, // Serial
+    I3C = 0x06,    // I3C
+    SYNC = 0xFF    // MCTP core/sync API failures (binding-independent)
 };
 
 /**
