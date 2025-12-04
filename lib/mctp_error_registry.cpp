@@ -163,6 +163,31 @@ static const std::vector<ErrorMapping> i2cErrorMap = {
      RESOLUTION_DEVICE_POWER_CYCLE},
 };
 
+// Serial (SPI-SPB) Error Mappings
+static const std::vector<ErrorMapping> serialErrorMap = {
+    // SPI-SPB Tx Host Controller Errors
+    {EINVAL, Binding::SERIAL, Direction::TX, ErrorCategory::HOST_CONTROLLER,
+     "SPI-SPB Tx failed due to host controller error - BMC SPI-SPB driver "
+     "initialization failure",
+     RESOLUTION_BMC_REBOOT},
+    // SPI-SPB Tx Device Errors
+    {ETIMEDOUT, Binding::SERIAL, Direction::TX, ErrorCategory::DEVICE,
+     "SPI-SPB Tx failed due to device error - end device failure (timeout)",
+     RESOLUTION_DEVICE_POWER_CYCLE},
+    // SPI-SPB Rx Device Errors
+    {EPROTO, Binding::SERIAL, Direction::RX, ErrorCategory::DEVICE,
+     "SPI-SPB Rx Failed due to device error - fragmentation error to reassemble "
+     "packets from the device",
+     RESOLUTION_DEVICE_POWER_CYCLE},
+    {EMSGSIZE, Binding::SERIAL, Direction::RX, ErrorCategory::DEVICE,
+     "SPI-SPB Rx Failed due to device fragmentation error - reassembled message "
+     "exceeds 64KB limit",
+     RESOLUTION_DEVICE_POWER_CYCLE},
+    {ETIMEDOUT, Binding::SERIAL, Direction::RX, ErrorCategory::DEVICE,
+     "SPI-SPB Rx Failed due to device error - fragmentation timeout",
+     RESOLUTION_DEVICE_POWER_CYCLE},
+};
+
 std::string getDeviceNameByEid(uint8_t eid)
 {
     std::ostringstream oss;
@@ -184,6 +209,9 @@ static const ErrorMapping* findErrorMapping(
             break;
         case Binding::I2C:
             map = &i2cErrorMap;
+            break;
+        case Binding::SERIAL:
+            map = &serialErrorMap;
             break;
         case Binding::SYNC:
             map = &syncApiErrorMap;

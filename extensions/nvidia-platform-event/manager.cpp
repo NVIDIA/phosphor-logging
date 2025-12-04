@@ -50,8 +50,8 @@ void Manager::handleLogCreate(
     const std::string& message, uint32_t id,
     const phosphor::logging::AdditionalDataArg& additionalData)
 {
-    lg2::info("NVIDIA Platform Event extension processing log {ID}: {MSG}",
-              "ID", id, "MSG", message);
+    (void)message;
+    (void)id;
 
     // Parse device error metadata from AdditionalData
     auto error = parseDeviceError(additionalData);
@@ -64,21 +64,14 @@ void Manager::handleLogCreate(
         // Clean up
         delete error;
     }
-    else
-    {
-        lg2::debug("Log {ID} does not contain platform device error metadata",
-                   "ID", id);
-    }
 }
 
 void Manager::handleLogDelete(uint32_t id)
 {
-    lg2::debug("NVIDIA Platform Event extension handling log delete {ID}", "ID",
-               id);
-
     // Currently no-op
     // Future enhancement: Track logId → eid mapping
     // and remove specific error from database when log is deleted
+    (void)id;
 }
 
 } // namespace event

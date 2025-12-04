@@ -70,19 +70,6 @@ DeviceErrorMetadata* parseDeviceError(
     auto errorClassIt = additionalData.find("PLATFORM_DEVICE_CLASS");
     // auto errorNamespaceIt = additionalData.find("PLATFORM_ERROR_NAMESPACE");
 
-    // Log the parsed fields for debugging
-    lg2::info(
-        "Parsing device error: PLATFORM_DEVICE_ADDRESS={ADDR}, PLATFORM_DEVICE_ERROR={ERR}, PLATFORM_DEVICE_CLASS={CLASS}",
-        "ADDR",
-        (deviceAddressIt != additionalData.end()) ? deviceAddressIt->second
-                                                  : "NOT_FOUND",
-        "ERR",
-        (errorNumberIt != additionalData.end()) ? errorNumberIt->second
-                                                : "NOT_FOUND",
-        "CLASS",
-        (errorClassIt != additionalData.end()) ? errorClassIt->second
-                                               : "NOT_FOUND");
-
     // Validate required fields
     if (deviceAddressIt == additionalData.end() ||
         errorNumberIt == additionalData.end() ||

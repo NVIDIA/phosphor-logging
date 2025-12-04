@@ -39,15 +39,22 @@
  * ENOMEM     |  12   | Out of memory (Host controller error)
  * EBUSY      |  16   | Device or resource busy / all tags in use
  * ENODEV     |  19   | No such device / device was removed
- * EINVAL     |  22   | Invalid argument
+ * EINVAL     |  22   | Invalid argument / BMC driver bug (SERIAL Tx)
  * EPIPE      |  32   | Broken pipe / endpoint in stall state
- * EPROTO     |  71   | Protocol error / fragmentation error
- * EMSGSIZE   |  90   | Message too long / exceeds 64KB limit
+ * EPROTO     |  71   | Protocol error / fragmentation error (Rx)
+ * EMSGSIZE   |  90   | Message too long / exceeds 64KB limit (Rx)
  * ECONNRESET |  104  | Connection reset / URB unlinked
- * ETIMEDOUT  |  110  | Connection timed out / response timeout
+ * ETIMEDOUT  |  110  | Connection timed out / fragmentation timeout
  * EHOSTUNREACH| 113  | No route to host / host unreachable
  * ECOMM      |  70   | Communication error on send
  * ESHUTDOWN  |  108  | Cannot send after transport endpoint shutdown
+ *
+ * Note: SERIAL binding specific error codes:
+ *   - TX: EINVAL (22) - BMC driver bug (HOST_CONTROLLER)
+ *   - TX: ETIMEDOUT (110) - End device failure
+ *   - RX: EPROTO (71) - Fragmentation error (same as I2C)
+ *   - RX: EMSGSIZE (90) - Message exceeds 64KB (same as I2C)
+ *   - RX: ETIMEDOUT (110) - Fragmentation timeout (same as I2C)
  *
  * =============================================================================
  * BINDING TYPE REFERENCE
@@ -61,7 +68,7 @@
  * PCIE       | 0x02  | PCIe VDM binding         | Yes
  * USB        | 0x03  | USB binding              | Yes
  * KCS        | 0x04  | KCS binding              | No (future)
- * SERIAL     | 0x05  | Serial binding           | No (future)
+ * SERIAL     | 0x05  | Serial binding           | Yes
  * I3C        | 0x06  | I3C binding              | No (future)
  * SYNC       | 0xFF  | MCTP core/sync API       | Yes
  *
