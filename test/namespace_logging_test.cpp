@@ -316,6 +316,36 @@ TEST_F(TestNamespaceLogging, testLogPersistency)
         1);
 }
 
+TEST_F(TestNamespaceLogging, testManagerStatsAndConfig)
+{
+    std::string binName = "tempBin";
+    auto binErrorCapacity = 10;
+    auto binInfoCapacity = 20;
+    auto bin = phosphor::logging::internal::Bin(
+        binName, binErrorCapacity, binInfoCapacity,
+        std::string(phosphor::logging::paths::error()) + "/" + binName, true,
+        0);
+
+    manager.addBin(bin);
+
+    auto [entryId, timestamp] = manager.getStats(binName);
+    EXPECT_EQ(entryId, 0);
+    EXPECT_EQ(timestamp, 0);
+
+    EXPECT_FALSE(manager.getAutoPurgeResolved());
+    manager.setAutoPurgeResolved(true);
+    EXPECT_TRUE(manager.getAutoPurgeResolved());
+    manager.setAutoPurgeResolved(false);
+
+    EXPECT_EQ(manager.getInfoLogCapacity(binName), binInfoCapacity);
+
+    manager.create("Test", Entry::Level::Informational,
+                   {{DEFAULT_BIN_KEY, binName}});
+    auto [id2, ts2] = manager.getStats(binName);
+    EXPECT_EQ(id2, manager.lastEntryID());
+    EXPECT_EQ(ts2, manager.lastEntryTimestamp());
+}
+
 } // namespace test
 } // namespace logging
 } // namespace phosphor

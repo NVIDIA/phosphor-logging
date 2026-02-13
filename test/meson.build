@@ -33,6 +33,7 @@ tests = [
     'sdtest',
     'serialization_test_path',
     'serialization_test_properties',
+    'serialization_test_additional',
     'linear_policy_test',
     'log_purge_policy_test',
 ]
@@ -124,5 +125,112 @@ test(
         'mctp_error_registry_test.cpp',
         dependencies: [phosphor_logging_dep],
         include_directories: include_directories('..'),
+    ),
+)
+
+# Test for util.cpp utility functions
+test(
+    'test_util',
+    executable(
+        'test-util',
+        'test_util.cpp',
+        '../util.cpp',
+        dependencies: [
+            conf_h_dep,
+            gmock_dep,
+            gtest_dep,
+            phosphor_logging_dep,
+            sdbusplus_dep,
+        ],
+        include_directories: include_directories('..', '../gen'),
+    ),
+)
+
+# Test for redfish_event_log.cpp
+test(
+    'test_redfish_event_log',
+    executable(
+        'test-redfish-event-log',
+        'test_redfish_event_log.cpp',
+        '../lib/redfish_event_log.cpp',
+        dependencies: [
+            conf_h_dep,
+            gmock_dep,
+            gtest_dep,
+            phosphor_logging_dep,
+            sdbusplus_dep,
+        ],
+        include_directories: include_directories('..', '../gen', '../lib'),
+    ),
+)
+
+# Test for sdjournal.cpp
+test(
+    'test_sdjournal',
+    executable(
+        'test-sdjournal',
+        'test_sdjournal.cpp',
+        '../lib/sdjournal.cpp',
+        dependencies: [
+            gmock_dep,
+            gtest_dep,
+            phosphor_logging_dep,
+        ],
+        include_directories: include_directories('..', '../gen', '../lib'),
+    ),
+)
+
+# Test for paths.cpp
+test(
+    'test_paths',
+    executable(
+        'test-paths',
+        'test_paths.cpp',
+        'common.cpp',
+        '../paths.cpp',
+        dependencies: [
+            conf_h_dep,
+            gtest_dep,
+        ],
+        include_directories: include_directories('..'),
+    ),
+)
+
+# Test for bin.hpp (Bin class) - gcovr.cfg coverage target
+test(
+    'test_bin',
+    executable(
+        'test-bin',
+        'test_bin.cpp',
+        'common.cpp',
+        '../paths.cpp',
+        dependencies: [
+            conf_h_dep,
+            gtest_dep,
+        ],
+        include_directories: include_directories('..'),
+    ),
+)
+
+# Extended tests for phosphor-rsyslog-config/server-conf.cpp
+# Tests additional code paths not covered by remote_logging_test_*.cpp
+test(
+    'test_rsyslog_server_conf_extended',
+    executable(
+        'test-rsyslog-server-conf-extended',
+        'test_rsyslog_server_conf_extended.cpp',
+        '../phosphor-rsyslog-config/server-conf.cpp',
+        '../util.cpp',
+        '../elog_meta.cpp',
+        dependencies: [
+            conf_h_dep,
+            gmock_dep,
+            gtest_dep,
+            phosphor_logging_dep,
+            pdi_dep,
+            sdbusplus_dep,
+            sdeventplus_dep,
+        ],
+        include_directories: include_directories('..', '../gen', '../phosphor-rsyslog-config'),
     ),
 )

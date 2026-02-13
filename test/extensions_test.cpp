@@ -1,6 +1,7 @@
 #include "elog_entry.hpp"
 #include "extensions.hpp"
 
+#include <phosphor-logging/lg2.hpp>
 #include <sdbusplus/test/sdbus_mock.hpp>
 
 #include <gtest/gtest.h>
@@ -113,5 +114,19 @@ TEST(ExtensionsTest, FunctionCallTest)
         }
     }
 
+    EXPECT_EQ(Extensions::getDeleteAllFunctions().size(), 0);
+
     EXPECT_TRUE(Extensions::disableDefaultLogCaps());
+}
+
+TEST(ExtensionsTest, GetDeleteAllFunctionsCoverage)
+{
+    auto& deleteAllFuncs = Extensions::getDeleteAllFunctions();
+    EXPECT_EQ(deleteAllFuncs.size(), 0);
+}
+
+TEST(ExtensionsTest, Lg2DoubleValueCoverage)
+{
+    lg2::info("Coverage test for value_to_string double {V}", "V", 3.14);
+    lg2::info("Coverage test for value_to_string double {V}", "V", -1.5);
 }
