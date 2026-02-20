@@ -85,9 +85,8 @@ foreach t : tests_non_parallel
     )
 endforeach
 
-
-# Platform Event D-Bus integration tests
-# Tests the complete flow: CommitDeviceError -> Extension -> Error Database
+#Platform Event D - Bus integration tests
+#Tests the complete flow : CommitDeviceError->Extension->Error Database
 test(
     'test_platform_event_dbus_tests',
     executable(
@@ -128,7 +127,7 @@ test(
     ),
 )
 
-# Test for util.cpp utility functions
+#Test for util.cpp utility functions
 test(
     'test_util',
     executable(
@@ -146,7 +145,7 @@ test(
     ),
 )
 
-# Test for redfish_event_log.cpp
+#Test for redfish_event_log.cpp
 test(
     'test_redfish_event_log',
     executable(
@@ -164,23 +163,19 @@ test(
     ),
 )
 
-# Test for sdjournal.cpp
+#Test for sdjournal.cpp
 test(
     'test_sdjournal',
     executable(
         'test-sdjournal',
         'test_sdjournal.cpp',
         '../lib/sdjournal.cpp',
-        dependencies: [
-            gmock_dep,
-            gtest_dep,
-            phosphor_logging_dep,
-        ],
+        dependencies: [gmock_dep, gtest_dep, phosphor_logging_dep],
         include_directories: include_directories('..', '../gen', '../lib'),
     ),
 )
 
-# Test for paths.cpp
+#Test for paths.cpp
 test(
     'test_paths',
     executable(
@@ -188,15 +183,12 @@ test(
         'test_paths.cpp',
         'common.cpp',
         '../paths.cpp',
-        dependencies: [
-            conf_h_dep,
-            gtest_dep,
-        ],
+        dependencies: [conf_h_dep, gtest_dep],
         include_directories: include_directories('..'),
     ),
 )
 
-# Test for bin.hpp (Bin class) - gcovr.cfg coverage target
+#Test for bin.hpp(Bin class) - gcovr.cfg coverage target
 test(
     'test_bin',
     executable(
@@ -204,16 +196,13 @@ test(
         'test_bin.cpp',
         'common.cpp',
         '../paths.cpp',
-        dependencies: [
-            conf_h_dep,
-            gtest_dep,
-        ],
+        dependencies: [conf_h_dep, gtest_dep],
         include_directories: include_directories('..'),
     ),
 )
 
-# Extended tests for phosphor-rsyslog-config/server-conf.cpp
-# Tests additional code paths not covered by remote_logging_test_*.cpp
+#Extended tests for phosphor - rsyslog - config / server - conf.cpp
+#Tests additional code paths not covered by remote_logging_test_ *.cpp
 test(
     'test_rsyslog_server_conf_extended',
     executable(
@@ -231,6 +220,10 @@ test(
             sdbusplus_dep,
             sdeventplus_dep,
         ],
-        include_directories: include_directories('..', '../gen', '../phosphor-rsyslog-config'),
+        include_directories: include_directories(
+            '..',
+            '../gen',
+            '../phosphor-rsyslog-config',
+        ),
     ),
 )

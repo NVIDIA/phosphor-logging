@@ -220,7 +220,7 @@ TEST_F(SdJournalTest, BaseClassFunctionality)
     EXPECT_EQ(result, 0);
 
     // Test base implementation of journal_send
-    // Note: This calls real sd_journal_send which may or may not work in test env
-    // Just verify it doesn't crash
+    // Note: This calls real sd_journal_send which may or may not work in test
+    // env Just verify it doesn't crash
     EXPECT_NO_THROW(baseHandler.journal_send("TEST", nullptr));
 }

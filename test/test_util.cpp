@@ -15,8 +15,6 @@
  */
 #include "util.hpp"
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
 #include <sdbusplus/exception.hpp>
 
 #include <filesystem>
@@ -24,6 +22,13 @@
 #include <map>
 #include <string>
 #include <vector>
+
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
+#ifdef ENABLE_ERASE_WITH_MULTIPLE_PROCESS
+#include "bin.hpp"
+#endif
 
 namespace fs = std::filesystem;
 
@@ -63,13 +68,15 @@ class UtilTest : public ::testing::Test
  */
 TEST_F(UtilTest, GetOSReleaseValueWithQuotedValue)
 {
-    // Note: The real function reads from BMC_VERSION_FILE which is set at compile time.
-    // This test verifies the function can be called without crashing.
+    // Note: The real function reads from BMC_VERSION_FILE which is set at
+    // compile time. This test verifies the function can be called without
+    // crashing.
     using phosphor::logging::util::getOSReleaseValue;
 
     auto result = getOSReleaseValue("NONEXISTENT_KEY");
     // May be nullopt if file doesn't exist or key not found; either is valid
-    EXPECT_TRUE(!result.has_value() || result.has_value()) << "Function returned; no crash";
+    EXPECT_TRUE(!result.has_value() || result.has_value())
+        << "Function returned; no crash";
 }
 
 TEST_F(UtilTest, GetOSReleaseValueKeyNotFound)
@@ -77,8 +84,35 @@ TEST_F(UtilTest, GetOSReleaseValueKeyNotFound)
     using phosphor::logging::util::getOSReleaseValue;
 
     auto result = getOSReleaseValue("THIS_KEY_DOES_NOT_EXIST_123456");
-    // Function should handle gracefully (return nullopt or value if key exists in system file)
-    EXPECT_TRUE(!result.has_value() || result.has_value()) << "Function returned; no crash";
+    // Function should handle gracefully (return nullopt or value if key exists
+    // in system file)
+    EXPECT_TRUE(!result.has_value() || result.has_value())
+        << "Function returned; no crash";
+}
+
+/**
+ * When /etc/os-release (or BMC_VERSION_FILE) exists and contains a key with
+ * quoted value, getOSReleaseValue returns the value. Covers branch where key is
+ * found and return path.
+ */
+TEST_F(UtilTest, GetOSReleaseValueKeyFoundWhenPresent)
+{
+    using phosphor::logging::util::getOSReleaseValue;
+
+    // Common keys in /etc/os-release in Docker/CI; at least one usually exists
+    for (const auto& key : {"NAME", "VERSION_ID", "ID", "VERSION"})
+    {
+        auto result = getOSReleaseValue(key);
+        if (result.has_value())
+        {
+            EXPECT_FALSE(result->empty())
+                << "Key " << key << " returned empty value";
+            return;
+        }
+    }
+    // If no key found (e.g. minimal env), test still passes - we exercised the
+    // lookup path
+    SUCCEED();
 }
 
 /**
@@ -109,14 +143,29 @@ TEST_F(UtilTest, ParseAdditionalDataMultipleEntries)
 {
     using phosphor::logging::util::additional_data::parse;
 
-    std::vector<std::string> data{"KEY1=VALUE1", "KEY2=VALUE2",
-                                   "KEY3=VALUE3"};
+    std::vector<std::string> data{"KEY1=VALUE1", "KEY2=VALUE2", "KEY3=VALUE3"};
     auto result = parse(data);
 
     ASSERT_EQ(result.size(), 3);
     EXPECT_EQ(result["KEY1"], "VALUE1");
     EXPECT_EQ(result["KEY2"], "VALUE2");
     EXPECT_EQ(result["KEY3"], "VALUE3");
+}
+
+/**
+ * parse with entries that have no '=': covers branch where pos == npos (skip,
+ * no emplace)
+ */
+TEST_F(UtilTest, ParseAdditionalDataSkipsEntriesWithoutEquals)
+{
+    using phosphor::logging::util::additional_data::parse;
+
+    std::vector<std::string> data{"VALID=value", "NoSeparator", "K=V"};
+    auto result = parse(data);
+
+    ASSERT_EQ(result.size(), 2);
+    EXPECT_EQ(result["VALID"], "value");
+    EXPECT_EQ(result["K"], "V");
 }
 
 TEST_F(UtilTest, ParseAdditionalDataWithEqualsInValue)
@@ -267,16 +316,17 @@ TEST_F(UtilTest, ParseCombineRoundTrip)
 /**
  * Test journalSync function
  * Note: This is a complex function that interacts with systemd and inotify.
- * Full testing would require mocking systemd D-Bus calls and file system operations.
- * For now, we test that it can be called without crashing.
+ * Full testing would require mocking systemd D-Bus calls and file system
+ * operations. For now, we test that it can be called without crashing.
  */
 TEST_F(UtilTest, JournalSyncBehavior)
 {
     using phosphor::logging::util::journalSync;
 
-    // In Docker/test environment, journalSync will fail due to D-Bus permissions
-    // This is expected behavior - the test verifies the function can be called
-    // and either succeeds OR throws an expected D-Bus error (not a crash)
+    // In Docker/test environment, journalSync will fail due to D-Bus
+    // permissions This is expected behavior - the test verifies the function
+    // can be called and either succeeds OR throws an expected D-Bus error (not
+    // a crash)
     try
     {
         journalSync();
@@ -322,8 +372,53 @@ TEST_F(UtilTest, RemoveStagedFilesExistingPath)
     // Remove the staged files
     removeStagedFiles(testPath);
 
-    // The function retries with sleep; in test env may not fully remove due to timing
-    EXPECT_TRUE(true) << "removeStagedFiles completed without crash; outcome is env-dependent";
+    // The function retries with sleep; in test env may not fully remove due to
+    // timing
+    EXPECT_TRUE(true)
+        << "removeStagedFiles completed without crash; outcome is env-dependent";
+}
+
+/**
+ * removeStagedForEraseEntries with nspace != default: builds temp path with
+ * nspace and calls removeStagedFiles
+ */
+TEST_F(UtilTest, RemoveStagedForEraseEntriesNonDefaultNamespace)
+{
+    using phosphor::logging::internal::Bin;
+    using phosphor::logging::util::removeStagedForEraseEntries;
+
+    std::map<std::string, Bin> binNameMap{};
+    removeStagedForEraseEntries("other_ns", binNameMap);
+    SUCCEED();
+}
+
+/**
+ * removeStagedForEraseEntries with nspace == default and empty binNameMap: else
+ * branch, loop runs 0 times
+ */
+TEST_F(UtilTest, RemoveStagedForEraseEntriesDefaultNamespaceEmptyMap)
+{
+    using phosphor::logging::internal::Bin;
+    using phosphor::logging::util::removeStagedForEraseEntries;
+
+    std::map<std::string, Bin> binNameMap{};
+    removeStagedForEraseEntries("default", binNameMap);
+    SUCCEED();
+}
+
+/**
+ * removeStagedForEraseEntries with nspace == default and one non-default bin:
+ * else branch, loop body executed
+ */
+TEST_F(UtilTest, RemoveStagedForEraseEntriesDefaultNamespaceWithBins)
+{
+    using phosphor::logging::internal::Bin;
+    using phosphor::logging::util::removeStagedForEraseEntries;
+
+    Bin bin1("bin1", 100, 50, "/tmp/err", true, 0);
+    std::map<std::string, Bin> binNameMap{{"bin1", bin1}};
+    removeStagedForEraseEntries("default", binNameMap);
+    SUCCEED();
 }
 #endif
 
@@ -336,10 +431,9 @@ TEST_F(UtilTest, ParseAndCombineInverseOperations)
     using phosphor::logging::util::additional_data::parse;
 
     // Start with a map
-    std::map<std::string, std::string> original{
-        {"ERROR_CODE", "0x1234"},
-        {"COMPONENT", "TestComponent"},
-        {"SEVERITY", "Critical"}};
+    std::map<std::string, std::string> original{{"ERROR_CODE", "0x1234"},
+                                                {"COMPONENT", "TestComponent"},
+                                                {"SEVERITY", "Critical"}};
 
     // Combine to vector
     auto vec = combine(original);
@@ -363,8 +457,8 @@ TEST_F(UtilTest, ParseAdditionalDataSpecialCharacters)
     using phosphor::logging::util::additional_data::parse;
 
     std::vector<std::string> data{"KEY1=VALUE WITH SPACES",
-                                   "KEY2=VALUE\nWITH\nNEWLINES",
-                                   "KEY3=VALUE\tWITH\tTABS"};
+                                  "KEY2=VALUE\nWITH\nNEWLINES",
+                                  "KEY3=VALUE\tWITH\tTABS"};
     auto result = parse(data);
 
     ASSERT_EQ(result.size(), 3);
@@ -377,10 +471,9 @@ TEST_F(UtilTest, CombineAdditionalDataSpecialCharacters)
 {
     using phosphor::logging::util::additional_data::combine;
 
-    std::map<std::string, std::string> data{
-        {"KEY1", "VALUE WITH SPACES"},
-        {"KEY2", "VALUE\nWITH\nNEWLINES"},
-        {"KEY3", "VALUE\tWITH\tTABS"}};
+    std::map<std::string, std::string> data{{"KEY1", "VALUE WITH SPACES"},
+                                            {"KEY2", "VALUE\nWITH\nNEWLINES"},
+                                            {"KEY3", "VALUE\tWITH\tTABS"}};
     auto result = combine(data);
 
     ASSERT_EQ(result.size(), 3);

@@ -16,14 +16,16 @@
 
 #include "../lib/lg2_commit.hpp"
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
+#include <sys/syslog.h>
+
 #include <nlohmann/json.hpp>
 #include <sdbusplus/exception.hpp>
-#include <sys/syslog.h>
 #include <xyz/openbmc_project/Logging/Entry/client.hpp>
 
 #include <string>
+
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
 namespace lg2
 {

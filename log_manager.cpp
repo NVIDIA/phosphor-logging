@@ -663,7 +663,7 @@ bool Manager::isCalloutPresent(const Entry& entry)
     return false;
 }
 
-void Manager::findAndRemoveResolvedBlocks() // GCOVR_EXCL_FUNCTION: only triggered by D-Bus PropertiesChanged(Resolved), requires signal injection
+void Manager::findAndRemoveResolvedBlocks() // GCOVR_EXCL_FUNCTION
 {
     for (auto& entry : entries)
     {
@@ -674,7 +674,7 @@ void Manager::findAndRemoveResolvedBlocks() // GCOVR_EXCL_FUNCTION: only trigger
     }
 }
 
-void Manager::onEntryResolve(sdbusplus::message_t& msg) // GCOVR_EXCL_FUNCTION: D-Bus callback, requires injecting message
+void Manager::onEntryResolve(sdbusplus::message_t& msg) // GCOVR_EXCL_FUNCTION
 {
     using Interface = std::string;
     using Property = std::string;
@@ -1699,8 +1699,9 @@ size_t Manager::setInfoLogCapacity(size_t infoLogCapacity,
     return infoLogCapacity;
 }
 
-void Manager::rfSendEvent(std::string rfMessage, Entry::Level rfSeverity, // GCOVR_EXCL_FUNCTION: private Redfish event I/O, needs full stack to test
-                          std::map<std::string, std::string> rfAdditionalData)
+void Manager::rfSendEvent(
+    std::string rfMessage, Entry::Level rfSeverity,
+    std::map<std::string, std::string> rfAdditionalData) // GCOVR_EXCL_FUNCTION
 {
     std::vector<std::string> ad;
     if (rfAdditionalData.find("REDFISH_MESSAGE_ID") == rfAdditionalData.end() ||

@@ -110,7 +110,8 @@ TEST_F(TestSerialization, testSerializeSingleArgUsesEntryPath)
         (TestSerialization::dir / std::to_string(id)).string();
     auto e = std::make_unique<Entry>(
         bus, std::string(OBJ_ENTRY) + '/' + std::to_string(id), id, 100,
-        Entry::Level::Informational, "msg", std::map<std::string, std::string>{},
+        Entry::Level::Informational, "msg",
+        std::map<std::string, std::string>{},
         phosphor::logging::AssociationList{}, "fw", serialPath, manager);
     auto path = serialize(*e);
     EXPECT_EQ(path.string(), serialPath);

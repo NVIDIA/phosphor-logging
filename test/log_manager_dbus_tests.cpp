@@ -271,12 +271,12 @@ TEST_F(TestLogManagerDbus, TestDeleteAllWithFilters)
 
         // Test deleteAll with namespace and severity
         // Using "default" namespace and Entry::Level::Informational
-        bool result = data->mgr.deleteAll("default",
-                                          Severity::Informational);
+        bool result = data->mgr.deleteAll("default", Severity::Informational);
 
         // Result indicates if any logs were deleted
         // (may be true or false depending on log levels)
-        EXPECT_TRUE(result || !result); // Always passes, just executes the function
+        EXPECT_TRUE(result ||
+                    !result); // Always passes, just executes the function
 
         co_return;
     };
@@ -296,7 +296,8 @@ TEST_F(TestLogManagerDbus, TestDeleteAllTypes)
         bool result = data->mgr.deleteAllTypes("default");
 
         // Result indicates if any logs were deleted
-        EXPECT_TRUE(result || !result); // Always passes, just executes the function
+        EXPECT_TRUE(result ||
+                    !result); // Always passes, just executes the function
 
         co_return;
     };
@@ -332,9 +333,9 @@ TEST_F(TestLogManagerDbus, TestGetStats)
 // Test commit function (via internal Manager)
 TEST_F(TestLogManagerDbus, TestCommitFunction)
 {
-    // The commit() function is called via lg2::commit which we're already testing
-    // But we need to test the internal::Manager::commit directly
-    // This is tricky in the async context, so we'll test via the synchronous path
+    // The commit() function is called via lg2::commit which we're already
+    // testing But we need to test the internal::Manager::commit directly This
+    // is tricky in the async context, so we'll test via the synchronous path
 
     // Create a log which will internally call commit
     auto path = lg2::commit(LoggingCleared("NUMBER_OF_LOGS", 10));
@@ -354,8 +355,8 @@ TEST_F(TestLogManagerDbus, TestRestore)
                                          LoggingCleared("NUMBER_OF_LOGS", 100));
 
         // The restore() function is called during Manager construction
-        // We can't easily test it in isolation without modifying production code
-        // But we can verify the system works after construction
+        // We can't easily test it in isolation without modifying production
+        // code But we can verify the system works after construction
         EXPECT_TRUE(true); // Placeholder - restore is called in constructor
 
         co_return;

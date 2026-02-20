@@ -66,8 +66,9 @@ class TestRsyslogServerConfExtended : public testing::Test
     void SetUp() override
     {
         configFilePath = testDir / "server_extended.conf";
-        server = new MockServerExtended(bus, "/xyz/openbmc_project/logging/config/remote_extended",
-                                        configFilePath.c_str());
+        server = new MockServerExtended(
+            bus, "/xyz/openbmc_project/logging/config/remote_extended",
+            configFilePath.c_str());
     }
 
     void TearDown() override
@@ -109,8 +110,9 @@ TEST_F(TestRsyslogServerConfExtended, RestoreWithValidTCPConfig)
 {
     createConfigFile("*.* @@192.168.1.100:514\n");
 
-    MockServerExtended testServer(bus, "/xyz/openbmc_project/logging/config/remote_restore1",
-                                  configFilePath.c_str());
+    MockServerExtended testServer(
+        bus, "/xyz/openbmc_project/logging/config/remote_restore1",
+        configFilePath.c_str());
 
     EXPECT_EQ(testServer.address(), "192.168.1.100");
     EXPECT_EQ(testServer.port(), 514);
@@ -122,8 +124,9 @@ TEST_F(TestRsyslogServerConfExtended, RestoreWithValidUDPConfig)
 {
     createConfigFile("*.* @10.0.0.1:1514\n");
 
-    MockServerExtended testServer(bus, "/xyz/openbmc_project/logging/config/remote_restore2",
-                                  configFilePath.c_str());
+    MockServerExtended testServer(
+        bus, "/xyz/openbmc_project/logging/config/remote_restore2",
+        configFilePath.c_str());
 
     EXPECT_EQ(testServer.address(), "10.0.0.1");
     EXPECT_EQ(testServer.port(), 1514);
@@ -135,8 +138,9 @@ TEST_F(TestRsyslogServerConfExtended, RestoreWithIPv6Config)
 {
     createConfigFile("*.* @@[2001:db8::1]:8514\n");
 
-    MockServerExtended testServer(bus, "/xyz/openbmc_project/logging/config/remote_restore3",
-                                  configFilePath.c_str());
+    MockServerExtended testServer(
+        bus, "/xyz/openbmc_project/logging/config/remote_restore3",
+        configFilePath.c_str());
 
     EXPECT_EQ(testServer.address(), "2001:db8::1");
     EXPECT_EQ(testServer.port(), 8514);
@@ -144,14 +148,14 @@ TEST_F(TestRsyslogServerConfExtended, RestoreWithIPv6Config)
 
 TEST_F(TestRsyslogServerConfExtended, RestoreWithTLSConfig)
 {
-    createConfigFile(
-        "$DefaultNetstreamDriver gtls\n"
-        "$ActionSendStreamDriverMode 1\n"
-        "$ActionSendStreamDriverAuthMode anon\n"
-        "*.* @@192.168.1.200:6514\n");
+    createConfigFile("$DefaultNetstreamDriver gtls\n"
+                     "$ActionSendStreamDriverMode 1\n"
+                     "$ActionSendStreamDriverAuthMode anon\n"
+                     "*.* @@192.168.1.200:6514\n");
 
-    MockServerExtended testServer(bus, "/xyz/openbmc_project/logging/config/remote_restore4",
-                                  configFilePath.c_str());
+    MockServerExtended testServer(
+        bus, "/xyz/openbmc_project/logging/config/remote_restore4",
+        configFilePath.c_str());
 
     EXPECT_EQ(testServer.address(), "192.168.1.200");
     EXPECT_EQ(testServer.port(), 6514);
@@ -162,8 +166,9 @@ TEST_F(TestRsyslogServerConfExtended, RestoreWithDisabledConfig)
 {
     createConfigFile("# Disabled: *.* @@192.168.1.100:514\n");
 
-    MockServerExtended testServer(bus, "/xyz/openbmc_project/logging/config/remote_restore5",
-                                  configFilePath.c_str());
+    MockServerExtended testServer(
+        bus, "/xyz/openbmc_project/logging/config/remote_restore5",
+        configFilePath.c_str());
 
     EXPECT_EQ(testServer.address(), "192.168.1.100");
     EXPECT_EQ(testServer.port(), 514);
@@ -180,8 +185,9 @@ TEST_F(TestRsyslogServerConfExtended, RestoreWithCommentsAndEmptyLines)
         "\n"
         "# Footer comment\n");
 
-    MockServerExtended testServer(bus, "/xyz/openbmc_project/logging/config/remote_restore6",
-                                  configFilePath.c_str());
+    MockServerExtended testServer(
+        bus, "/xyz/openbmc_project/logging/config/remote_restore6",
+        configFilePath.c_str());
 
     EXPECT_EQ(testServer.address(), "log-server.example.com");
     EXPECT_EQ(testServer.port(), 514);
@@ -191,8 +197,9 @@ TEST_F(TestRsyslogServerConfExtended, RestoreWithMultipleFacilities)
 {
     createConfigFile("daemon,kern.* @@192.168.1.100:514\n");
 
-    MockServerExtended testServer(bus, "/xyz/openbmc_project/logging/config/remote_restore7",
-                                  configFilePath.c_str());
+    MockServerExtended testServer(
+        bus, "/xyz/openbmc_project/logging/config/remote_restore7",
+        configFilePath.c_str());
 
     auto facilities = testServer.facility();
     EXPECT_GE(facilities.size(), 1);
@@ -202,8 +209,9 @@ TEST_F(TestRsyslogServerConfExtended, RestoreWithSeverityLevels)
 {
     createConfigFile("*.error @@192.168.1.100:514\n");
 
-    MockServerExtended testServer(bus, "/xyz/openbmc_project/logging/config/remote_restore8",
-                                  configFilePath.c_str());
+    MockServerExtended testServer(
+        bus, "/xyz/openbmc_project/logging/config/remote_restore8",
+        configFilePath.c_str());
 
     EXPECT_EQ(testServer.address(), "192.168.1.100");
     EXPECT_EQ(testServer.severity(),
@@ -217,8 +225,9 @@ TEST_F(TestRsyslogServerConfExtended, RestoreWithEmptyFile)
     // Constructor may not throw, but config should remain empty/default
     try
     {
-        MockServerExtended testServer(bus, "/xyz/openbmc_project/logging/config/remote_restore9",
-                                      configFilePath.c_str());
+        MockServerExtended testServer(
+            bus, "/xyz/openbmc_project/logging/config/remote_restore9",
+            configFilePath.c_str());
         // If it doesn't throw, the address should be empty or default
         SUCCEED();
     }
@@ -236,8 +245,9 @@ TEST_F(TestRsyslogServerConfExtended, RestoreWithMissingFile)
     // Should not crash, may use defaults
     try
     {
-        MockServerExtended testServer(bus, "/xyz/openbmc_project/logging/config/remote_restore10",
-                                      nonExistentPath.c_str());
+        MockServerExtended testServer(
+            bus, "/xyz/openbmc_project/logging/config/remote_restore10",
+            nonExistentPath.c_str());
         SUCCEED();
     }
     catch (const std::exception&)
@@ -390,7 +400,8 @@ TEST_F(TestRsyslogServerConfExtended, AddressValidWithHostname)
         // May fail with InvalidArgument, that's okay
         SUCCEED();
     }
-    catch (const sdbusplus::error::xyz::openbmc_project::common::InvalidArgument&)
+    catch (
+        const sdbusplus::error::xyz::openbmc_project::common::InvalidArgument&)
     {
         // May fail with InvalidArgument, that's okay
         SUCCEED();
@@ -411,7 +422,8 @@ TEST_F(TestRsyslogServerConfExtended, AddressInvalidWithSpecialChars)
     {
         thrown = true;
     }
-    catch (const sdbusplus::error::xyz::openbmc_project::common::InvalidArgument&)
+    catch (
+        const sdbusplus::error::xyz::openbmc_project::common::InvalidArgument&)
     {
         thrown = true;
     }
@@ -432,7 +444,8 @@ TEST_F(TestRsyslogServerConfExtended, AddressInvalidWithSpaces)
     {
         thrown = true;
     }
-    catch (const sdbusplus::error::xyz::openbmc_project::common::InvalidArgument&)
+    catch (
+        const sdbusplus::error::xyz::openbmc_project::common::InvalidArgument&)
     {
         thrown = true;
     }
@@ -499,15 +512,18 @@ TEST_F(TestRsyslogServerConfExtended, SeverityChanges)
     server->address("192.168.1.1");
     server->port(514);
 
-    server->severity(phosphor::rsyslog_config::RsyslogClient::SeverityType::Error);
+    server->severity(
+        phosphor::rsyslog_config::RsyslogClient::SeverityType::Error);
     EXPECT_EQ(server->severity(),
               phosphor::rsyslog_config::RsyslogClient::SeverityType::Error);
 
-    server->severity(phosphor::rsyslog_config::RsyslogClient::SeverityType::Warning);
+    server->severity(
+        phosphor::rsyslog_config::RsyslogClient::SeverityType::Warning);
     EXPECT_EQ(server->severity(),
               phosphor::rsyslog_config::RsyslogClient::SeverityType::Warning);
 
-    server->severity(phosphor::rsyslog_config::RsyslogClient::SeverityType::Info);
+    server->severity(
+        phosphor::rsyslog_config::RsyslogClient::SeverityType::Info);
     EXPECT_EQ(server->severity(),
               phosphor::rsyslog_config::RsyslogClient::SeverityType::Info);
 }
@@ -519,16 +535,16 @@ TEST_F(TestRsyslogServerConfExtended, FacilityChanges)
     server->address("192.168.1.1");
     server->port(514);
 
-    std::vector<phosphor::rsyslog_config::RsyslogClient::FacilityType> facilities1 = {
-        phosphor::rsyslog_config::RsyslogClient::FacilityType::Daemon
-    };
+    std::vector<phosphor::rsyslog_config::RsyslogClient::FacilityType>
+        facilities1 = {
+            phosphor::rsyslog_config::RsyslogClient::FacilityType::Daemon};
     server->facility(facilities1);
     EXPECT_EQ(server->facility().size(), 1);
 
-    std::vector<phosphor::rsyslog_config::RsyslogClient::FacilityType> facilities2 = {
-        phosphor::rsyslog_config::RsyslogClient::FacilityType::Daemon,
-        phosphor::rsyslog_config::RsyslogClient::FacilityType::Kern
-    };
+    std::vector<phosphor::rsyslog_config::RsyslogClient::FacilityType>
+        facilities2 = {
+            phosphor::rsyslog_config::RsyslogClient::FacilityType::Daemon,
+            phosphor::rsyslog_config::RsyslogClient::FacilityType::Kern};
     server->facility(facilities2);
     EXPECT_EQ(server->facility().size(), 2);
 }

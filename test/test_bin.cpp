@@ -6,10 +6,10 @@
 #include "bin.hpp"
 #include "paths.hpp"
 
-#include <gtest/gtest.h>
-
 #include <cstdint>
 #include <string>
+
+#include <gtest/gtest.h>
 
 /**
  * Test default constructor initializes with config and paths::error()
@@ -74,4 +74,42 @@ TEST(BinTest, JsonPathDefaultInitialized)
 
     phosphor::logging::internal::Bin b2("b", 1, 1, "/path", true, 0);
     EXPECT_TRUE(b2.jsonPath.empty());
+}
+
+/**
+ * Test errorEntries and infoEntries mutation and access (branch coverage for
+ * bin.hpp)
+ */
+TEST(BinTest, ErrorEntriesAndInfoEntriesMutation)
+{
+    phosphor::logging::internal::Bin b("ns", 10, 5, "/tmp", true, 0);
+
+    EXPECT_TRUE(b.errorEntries.empty());
+    EXPECT_TRUE(b.infoEntries.empty());
+
+    b.errorEntries.insert(1);
+    b.errorEntries.insert(2);
+    b.infoEntries.insert(10);
+
+    EXPECT_EQ(b.errorEntries.size(), 2u);
+    EXPECT_EQ(b.infoEntries.size(), 1u);
+    EXPECT_NE(b.errorEntries.find(1), b.errorEntries.end());
+    EXPECT_NE(b.infoEntries.find(10), b.infoEntries.end());
+
+    b.errorEntries.erase(1);
+    EXPECT_EQ(b.errorEntries.size(), 1u);
+}
+
+/**
+ * Test jsonPath assignment and defaultCapacity (branch coverage for bin.hpp)
+ */
+TEST(BinTest, JsonPathAndDefaultCapacityAssignment)
+{
+    phosphor::logging::internal::Bin b("SEL", 5, 5, "/var/log", false, 100);
+
+    EXPECT_EQ(b.defaultCapacity, 100u);
+    EXPECT_FALSE(b.persistInfoLog);
+
+    b.jsonPath = "/etc/phosphor/sel_config.json";
+    EXPECT_EQ(b.jsonPath, "/etc/phosphor/sel_config.json");
 }

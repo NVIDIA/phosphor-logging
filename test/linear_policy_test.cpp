@@ -54,6 +54,10 @@ class MockPolicy : public phosphor::logging::internal::Manager
 
 std::size_t countFilesinDirectory(std::filesystem::path path)
 {
+    if (!std::filesystem::exists(path) || !std::filesystem::is_directory(path))
+    {
+        return 0;
+    }
     return (std::size_t)std::distance(std::filesystem::directory_iterator{path},
                                       std::filesystem::directory_iterator{});
 }
@@ -67,7 +71,8 @@ TEST_F(TestPolicy, testLinearPolicy)
     std::string binName = "LinearPolicyTest";
     auto binErrorCapacity = 15;
     auto binInfoCapacity = 20;
-    auto totalCapacity = 500;
+    // Minimum needed: fill to cap (20 info, 15 error) then add 5 more.
+    size_t totalCapacity = static_cast<size_t>(binInfoCapacity) + 5;
     auto bin = phosphor::logging::internal::Bin(
         binName, binErrorCapacity, binInfoCapacity,
         std::string(phosphor::logging::paths::error()) + "/" + binName, true,
@@ -171,7 +176,8 @@ TEST_F(TestPolicy, testLinearPolicyWithTotalCapacity)
     auto binErrorCapacity = 20;
     auto binInfoCapacity = 20;
     auto binTotalCapacity = 10;
-    auto totalCapacity = 100;
+    // Minimum needed: fill bin to cap (10). No need for 100.
+    size_t totalCapacity = static_cast<size_t>(binTotalCapacity);
     auto bin = phosphor::logging::internal::Bin(
         binName, binErrorCapacity, binInfoCapacity,
         std::string(phosphor::logging::paths::error()) + "/" + binName, true,

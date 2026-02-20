@@ -132,6 +132,17 @@ TEST(TestLogPurgePolicy, testInvalidRWJson)
         EXPECT_EQ(manager3.parseRWConfigJson(rwConfigJsonPath), 0);
         EXPECT_FALSE(manager3.getAutoPurgeResolved());
     }
+    {
+        std::ofstream output(rwConfigJsonPath, std::ios_base::trunc);
+        output << "[]";
+        output.close();
+        phosphor::logging::internal::Manager manager4(mockedBus, OBJ_INTERNAL);
+        // Test 3: valid JSON but not an object -> explicit throw
+        // invalid_argument
+        //         and catch block (rethrow) in parseRWConfigJson
+        EXPECT_THROW(manager4.parseRWConfigJson(rwConfigJsonPath),
+                     std::invalid_argument);
+    }
 
     fs::remove(rwConfigJsonPath);
 }

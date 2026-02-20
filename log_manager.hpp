@@ -351,10 +351,7 @@ class Manager : public details::ServerObject<details::ManagerIface>
 
                 if (std::string(*id) == "SEL")
                 {
-                    auto errorInfoCap =
-                        item.value()["InfoErrorCapacity"]
-                            .get_ptr<nlohmann::json::number_unsigned_t*>();
-                    *errorInfoCap = errorInfoCapacity;
+                    item.value()["InfoErrorCapacity"] = errorInfoCapacity;
                 }
             }
         }
@@ -432,7 +429,10 @@ class Manager : public details::ServerObject<details::ManagerIface>
     /** @brief Erase logs with multiple processes, erase logs from dbus with
      *         parent process and erase logs from disk with child process.
      */
-    void eraseAllInChildProcess(const std::string& binName = DEFAULT_BIN_NAME) // GCOVR_EXCL_FUNCTION: uses fork(), multi-process not suitable for single-process UT
+    void eraseAllInChildProcess(
+        const std::string& binName =
+            DEFAULT_BIN_NAME) // GCOVR_EXCL_FUNCTION: uses fork(), multi-process
+                              // not suitable for single-process UT
     {
         util::eraseAllInChildProcess(binName, binNameMap);
 

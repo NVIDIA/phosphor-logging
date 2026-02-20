@@ -17,10 +17,10 @@
 
 #include "paths.hpp"
 
-#include <gtest/gtest.h>
-
 #include <filesystem>
 #include <string>
+
+#include <gtest/gtest.h>
 
 namespace fs = std::filesystem;
 

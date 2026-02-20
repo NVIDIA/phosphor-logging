@@ -19,8 +19,13 @@ TEST_F(TestSerialization, testDeserializeCorruptFile)
         bus, std::string(OBJ_ENTRY) + '/' + std::to_string(id), id, manager);
     auto corruptPath = TestSerialization::dir / "corrupt_entry";
     {
+        // Use corrupt data with zero size for the first string (message) so
+        // Cereal does not attempt huge allocations (e.g. under Valgrind).
+        // Use only 28 bytes so the stream ends before the next field (vector
+        // size); deserialize then fails and returns false.
         std::ofstream f(corruptPath, std::ios::binary);
-        f << "not valid cereal binary data";
+        const char zeros[28] = {0};
+        f.write(zeros, sizeof(zeros));
     }
     EXPECT_TRUE(std::filesystem::exists(corruptPath));
     bool result = deserialize(corruptPath, *e);

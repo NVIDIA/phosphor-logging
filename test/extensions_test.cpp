@@ -28,6 +28,12 @@ void deleteLog1(uint32_t /*id*/) {}
 
 void deleteLog2(uint32_t /*id*/) {}
 
+void prepare_dummy(internal::Manager& /*manager*/,
+                   std::map<std::string, std::string>& /*data*/)
+{}
+
+void deleteAll_dummy(void) {}
+
 void deleteProhibited1(uint32_t /*id*/, bool& prohibited)
 {
     prohibited = true;
@@ -51,6 +57,7 @@ void logIDWithHwIsolation2(std::vector<uint32_t>& logIDs)
 DISABLE_LOG_ENTRY_CAPS()
 REGISTER_EXTENSION_FUNCTION(startup1)
 REGISTER_EXTENSION_FUNCTION(startup2)
+REGISTER_EXTENSION_FUNCTION(prepare_dummy)
 REGISTER_EXTENSION_FUNCTION(create1)
 REGISTER_EXTENSION_FUNCTION(create2)
 REGISTER_EXTENSION_FUNCTION(deleteProhibited1)
@@ -59,6 +66,7 @@ REGISTER_EXTENSION_FUNCTION(logIDWithHwIsolation1)
 REGISTER_EXTENSION_FUNCTION(logIDWithHwIsolation2)
 REGISTER_EXTENSION_FUNCTION(deleteLog1)
 REGISTER_EXTENSION_FUNCTION(deleteLog2)
+REGISTER_EXTENSION_FUNCTION(deleteAll_dummy)
 
 TEST(ExtensionsTest, FunctionCallTest)
 {
@@ -114,7 +122,18 @@ TEST(ExtensionsTest, FunctionCallTest)
         }
     }
 
-    EXPECT_EQ(Extensions::getDeleteAllFunctions().size(), 0);
+    EXPECT_EQ(Extensions::getDeleteAllFunctions().size(), 1);
+    for (auto& f : Extensions::getDeleteAllFunctions())
+    {
+        f();
+    }
+
+    EXPECT_EQ(Extensions::getPrepareFunctions().size(), 1);
+    std::map<std::string, std::string> prepareData;
+    for (auto& p : Extensions::getPrepareFunctions())
+    {
+        p(manager, prepareData);
+    }
 
     EXPECT_TRUE(Extensions::disableDefaultLogCaps());
 }
@@ -122,7 +141,13 @@ TEST(ExtensionsTest, FunctionCallTest)
 TEST(ExtensionsTest, GetDeleteAllFunctionsCoverage)
 {
     auto& deleteAllFuncs = Extensions::getDeleteAllFunctions();
-    EXPECT_EQ(deleteAllFuncs.size(), 0);
+    EXPECT_GE(deleteAllFuncs.size(), 1u);
+}
+
+TEST(ExtensionsTest, GetPrepareFunctionsCoverage)
+{
+    auto& prepareFuncs = Extensions::getPrepareFunctions();
+    EXPECT_GE(prepareFuncs.size(), 1u);
 }
 
 TEST(ExtensionsTest, Lg2DoubleValueCoverage)
