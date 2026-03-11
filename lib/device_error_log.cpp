@@ -68,6 +68,21 @@ void CommitDeviceError(uint8_t deviceAddress, int64_t errorCode,
     std::string redfishArgs =
         (redfishMsgArgs != additionalData.end()) ? redfishMsgArgs->second : "";
 
+    Entry::Level severity = Entry::Level::Error;
+    if (auto severityIt = additionalData.find("REDFISH_SEVERITY");
+        severityIt != additionalData.end())
+    {
+        severity = Entry::convertStringToLevel(severityIt->second)
+                       .value_or(Entry::Level::Error);
+    }
+
+    if (auto resolutionIt = additionalData.find("REDFISH_RESOLUTION");
+        resolutionIt != additionalData.end())
+    {
+        additionalData["xyz.openbmc_project.Logging.Entry.Resolution"] =
+            resolutionIt->second;
+    }
+
     connObject->async_method_call(
         [deviceAddress, errorCode, errorClass, messageId,
          redfishArgs](boost::system::error_code ec) {
@@ -89,7 +104,7 @@ void CommitDeviceError(uint8_t deviceAddress, int64_t errorCode,
             }
         },
         BUSNAME_LOGGING, OBJ_LOGGING, "xyz.openbmc_project.Logging.Create",
-        "Create", messageId, Entry::Level::Error, additionalData);
+        "Create", messageId, severity, additionalData);
 }
 
 } // namespace lg2

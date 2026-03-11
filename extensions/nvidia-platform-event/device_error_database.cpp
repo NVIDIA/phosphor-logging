@@ -181,23 +181,18 @@ void propagatePowerErrorToDescendants(const DeviceErrorMetadata& powerError)
     // Iterate through ALL devices in registry
     for (auto& [deviceEid, deviceStore] : deviceErrorDatabase)
     {
-        // Skip the originating device itself
-        if (deviceEid == powerError.eid)
-        {
-            continue;
-        }
-
         // Only propagate to power-dependent devices
         if (deviceStore.poweredInStandby)
         {
             // Create power error for this device
             DeviceErrorMetadata childError = powerError;
             childError.eid = deviceEid;
-            // Update REDFISH_MESSAGE_ARGS in additionalData to reflect
-            // propagation
+
+            // Use child device's name for the propagated error fields
+            const std::string& childDeviceName = deviceStore.deviceId;
             childError.additionalData["REDFISH_MESSAGE_ARGS"] =
-                "Power lost due to parent device " +
-                std::to_string(powerError.eid);
+                childDeviceName +
+                ", Device not powered on as the system is in standby power";
 
             // Use helper to insert error (no recursion!)
             insertErrorIntoDevice(deviceEid, childError);
@@ -263,14 +258,6 @@ void processDeviceErrorLog(const DeviceErrorMetadata& error)
         return;
     }
 
-    // Insert error into device's error storage
-    if (!insertErrorIntoDevice(error.eid, error))
-    {
-        lg2::error("Failed to insert error into device EID={EID}", "EID",
-                   error.eid);
-        return;
-    }
-
     // Power error propagation handling
     if (error.errorClass == ErrorClass::Power)
     {
@@ -285,6 +272,15 @@ void processDeviceErrorLog(const DeviceErrorMetadata& error)
             // devices
             clearPropagatedPowerErrorsFromDescendants(error.eid);
         }
+        return;
+    }
+
+    // Insert error into device's error storage
+    if (!insertErrorIntoDevice(error.eid, error))
+    {
+        lg2::error("Failed to insert error into device EID={EID}", "EID",
+                   error.eid);
+        return;
     }
 }
 

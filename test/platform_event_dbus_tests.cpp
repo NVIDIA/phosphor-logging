@@ -916,19 +916,20 @@ TEST_F(TestPlatformEventDbus, MultipleChildrenUnderSameParent)
         co_await sdbusplus::async::sleep_for(data->client_ctx,
                                              std::chrono::milliseconds(200));
 
-        // Both children should now show BMC's power error (parent precedence +
-        // higher priority)
+        // Bridge (poweredInStandby: false) does not receive propagated power
+        // error and BMC does not store power errors, so Bridge still shows its
+        // own MCTP error
         auto resultBridge2 = queryDeviceStatus(16);
         EXPECT_GE(resultBridge2.errors.size(), 1);
         EXPECT_EQ(resultBridge2.errors[0].errorCode,
-                  ErrorCode::PowerStatus::POWER_OFF); // BMC's error
-        EXPECT_TRUE(resultBridge2.errors[0].errorClass.find("Power") !=
-                    std::string::npos);
+                  ErrorCode::MCTP::MCTP_TRANSPORT_FAIL_PING_TIMEOUT);
 
+        // CPU (poweredInStandby: true) received propagated power error
+        // (Priority 0), which overrides its own MCTP error (Priority 1)
         auto resultCPU2 = queryDeviceStatus(32);
         EXPECT_GE(resultCPU2.errors.size(), 1);
         EXPECT_EQ(resultCPU2.errors[0].errorCode,
-                  ErrorCode::PowerStatus::POWER_OFF); // BMC's error
+                  ErrorCode::PowerStatus::POWER_OFF);
         EXPECT_TRUE(resultCPU2.errors[0].errorClass.find("Power") !=
                     std::string::npos);
 
@@ -995,14 +996,13 @@ TEST_F(TestPlatformEventDbus, ThreeLevelHierarchyImmediateParentOnly)
                   0); // Healthy (Bridge itself has no errors)
         EXPECT_EQ(resultBridge.errors.size(), 0);
 
-        // BMC should show its own power error
+        // BMC does not store power errors (poweredInStandby: false), so it
+        // remains healthy - power events are only propagated to descendants
         auto resultBMC = queryDeviceStatus(1);
-        EXPECT_GE(resultBMC.errors.size(), 1);
-        EXPECT_EQ(resultBMC.errors[0].errorCode,
-                  ErrorCode::PowerStatus::POWER_OFF);
+        EXPECT_EQ(resultBMC.status, 0);
+        EXPECT_EQ(resultBMC.errors.size(), 0);
 
         // Cleanup
-        clearDeviceErrors(1);
         clearDeviceErrors(17);
         co_return;
     };
