@@ -1691,9 +1691,11 @@ size_t Manager::setInfoLogCapacity(size_t infoLogCapacity,
     {
         size_t toDelete = entryBin->infoEntries.size() - infoLogCapacity;
         this->cancelPendingLogDeletion();
-        while (toDelete-- > 0)
+        // Queue entries for deletion — event loop handles one per tick
+        auto it = entryBin->infoEntries.begin();
+        for (size_t i = 0; i < toDelete; ++i, ++it)
         {
-            erase(*(entryBin->infoEntries.begin()));
+            this->addPendingLogDelete(*it);
         }
     }
     return infoLogCapacity;
