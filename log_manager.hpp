@@ -416,70 +416,13 @@ class Manager : public details::ServerObject<details::ManagerIface>
     /** @brief Erase specified entry d-bus object
      *
      * @param[in] entryId - unique identifier of the entry
-     * @param[in] removePersistentFiles - remove the persistent files
      */
-    void erase(uint32_t entryId, bool removePersistentFiles = true);
+    void erase(uint32_t entryId);
 
     /** @brief Construct error d-bus objects from their persisted
      *         representations.
      */
     void restore();
-
-#ifdef ENABLE_ERASE_WITH_MULTIPLE_PROCESS
-    /** @brief Erase logs with multiple processes, erase logs from dbus with
-     *         parent process and erase logs from disk with child process.
-     */
-    void eraseAllInChildProcess(
-        const std::string& binName =
-            DEFAULT_BIN_NAME) // GCOVR_EXCL_FUNCTION: uses fork(), multi-process
-                              // not suitable for single-process UT
-    {
-        util::eraseAllInChildProcess(binName, binNameMap);
-
-        if (binName == DEFAULT_BIN_NAME)
-        {
-            auto iter = entries.begin();
-            while (iter != entries.end())
-            {
-                auto e = iter->first;
-                ++iter;
-                erase(e, false);
-            }
-            entryId = 0;
-            lastCreatedTimeStamp = 0;
-        }
-        else
-        {
-            auto binPresent = false;
-            Bin* thisBin;
-            for (auto& pair : binNameMap)
-            {
-                if (pair.first == binName)
-                {
-                    binPresent = true;
-                    thisBin = &(pair.second);
-                    break;
-                }
-            }
-            // If bin is not present then return error
-            if (!binPresent)
-            {
-                throw sdbusplus::xyz::openbmc_project::Common::Error::
-                    ResourceNotFound();
-            }
-            // Info Errors
-            while (getInfoErrSize(binName) != 0)
-            {
-                erase(*(thisBin->infoEntries.begin()), false);
-            }
-            // Real Errors
-            while (getRealErrSize(binName) != 0)
-            {
-                erase(*(thisBin->errorEntries.begin()), false);
-            }
-        }
-    }
-#endif
 
     /** @brief  Erase all error log entries
      *
@@ -622,7 +565,7 @@ class Manager : public details::ServerObject<details::ManagerIface>
     }
 
     /**
-     * @brief called from event loop to delete pending logs (one log per call)
+     * @brief called from event loop to delete pending logs (batch per call)
      */
     void pendingLogDeleteCallback();
 
@@ -865,7 +808,7 @@ class Manager : public details::ServerObject<details::ManagerIface>
     /** @brief Current value of the log purge policy setting */
     bool _autoPurgeResolved;
 
-    /** @brief Stack containing resolved log entry IDs awaiting deletion */
+    /** @brief Stack containing pending log deletes awaiting deletion */
     std::vector<uint32_t> _pendingPurgeEvents;
 
     /** @brief Event source used to trigger log deletion

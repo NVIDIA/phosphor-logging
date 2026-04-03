@@ -106,10 +106,10 @@ option(
 )
 
 option(
-    'enable_erase_with_multiple_process',
+    'enable_erase_with_callback',
     type: 'boolean',
     value: false,
-    description: 'Enable erase persistent log files with multiple processes',
+    description: 'Enable callback/timer based erase for clear operations',
 )
 
 option(

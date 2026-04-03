@@ -156,23 +156,37 @@ void Manager::addPendingLogDelete(uint32_t entryId)
 
 void Manager::pendingLogDeleteCallback()
 {
-    // Delete one event, then yield back to the event loop
-    // Use vector and delete from the back instead of using a set
-    // because this is O(n) overall instead of O(n log n)
-    // This LIFO behavior is also needed to satisfy the usecase of
-    // a log being manually resolved - that needs to be handled first.
-    // lg2::debug("pendingLogDeleteCallback");
-    if (this->_pendingPurgeEvents.size() > 0)
+    // Delete entries in batches, then yield back to the event loop.
+    // This prevents D-Bus event loop starvation when erasing thousands
+    // of entries (e.g., during "sel clear" on a full log).
+    static constexpr size_t batchSize = 50;
+    size_t deleted = 0;
+
+    while (this->_pendingPurgeEvents.size() > 0 && deleted < batchSize)
     {
-        // This is guaranteed to not run off the beginning because size > 0
         auto it = this->_pendingPurgeEvents.end() - 1;
-        auto entryId = *it;
-        // lg2::info("pendingLogDeleteCallback: delete {EID}", "EID", entryId);
-        this->erase(entryId);
+        auto pendingDeleteId = *it;
+        if (this->entries.find(pendingDeleteId) != this->entries.end())
+        {
+            this->erase(pendingDeleteId);
+        }
+        else
+        {
+            lg2::debug(
+                "pendingLogDeleteCallback: entry {EID} already removed, skipping",
+                "EID", pendingDeleteId);
+        }
         this->_pendingPurgeEvents.erase(it);
+        ++deleted;
     }
     if (this->_pendingPurgeEvents.size() == 0)
     {
+        if (this->entries.empty())
+        {
+            entryId = 0;
+            lastCreatedTimeStamp = 0;
+        }
+
         // Deactivate event source iff no more pending deletes
         lg2::info("pendingLogDeleteCallback: deactivate event source");
         this->_autoPurgeEventSource.set_enabled(
@@ -882,7 +896,6 @@ void Manager::checkAndRemoveBlockingError(uint32_t entryId)
 size_t Manager::eraseAll()
 {
     size_t entriesSize = entries.size();
-#ifndef ENABLE_ERASE_WITH_MULTIPLE_PROCESS
     std::vector<uint32_t> logIDWithHwIsolation;
     for (auto& func : Extensions::getLogIDWithHwIsolationFunctions())
     {
@@ -897,6 +910,25 @@ size_t Manager::eraseAll()
                        "ERROR", e);
         }
     }
+#ifdef ENABLE_ERASE_WITH_CALLBACK
+    this->_pendingPurgeEvents.reserve(
+        this->_pendingPurgeEvents.size() + entriesSize);
+    for (const auto& entry : entries)
+    {
+        if (std::ranges::contains(logIDWithHwIsolation, entry.first))
+        {
+            entriesSize--;
+            continue;
+        }
+        this->_pendingPurgeEvents.push_back(entry.first);
+    }
+
+    if (!this->_pendingPurgeEvents.empty())
+    {
+        this->_autoPurgeEventSource.set_enabled(
+            sdeventplus::source::Enabled::On);
+    }
+#else
     auto iter = entries.begin();
     if (logIDWithHwIsolation.empty())
     {
@@ -943,13 +975,12 @@ size_t Manager::eraseAll()
             entryId = 0;
         }
     }
-#else
-    eraseAllInChildProcess(DEFAULT_BIN_NAME);
 #endif
+
     return entriesSize;
 }
 
-void Manager::erase(uint32_t entryId, bool removePersistentFiles)
+void Manager::erase(uint32_t entryId)
 {
     auto entryFound = entries.find(entryId);
 
@@ -984,24 +1015,21 @@ void Manager::erase(uint32_t entryId, bool removePersistentFiles)
             }
         }
 
-        if (removePersistentFiles)
+        if (!(binName.compare(DEFAULT_BIN_NAME) == 0))
         {
-            if (!(binName.compare(DEFAULT_BIN_NAME) == 0))
-            {
-                deletePath = std::string(phosphor::logging::paths::error()) +
-                             "/" + binName;
-            }
-
-            // lg2::info("Deleting Entry of Bin: {BIN_NAME}", "BIN_NAME",
-            // binName);
-            // lg2::info("Bin of Incoming Entry: {DELETE_PATH}",
-            // "DELETE_PATH", deletePath);
-
-            // Delete the persistent representation of this error.
-            fs::path errorPath(deletePath);
-            errorPath /= std::to_string(entryId);
-            fs::remove(errorPath);
+            deletePath = std::string(phosphor::logging::paths::error()) + "/" +
+                         binName;
         }
+
+        // lg2::info("Deleting Entry of Bin: {BIN_NAME}", "BIN_NAME",
+        // binName);
+        // lg2::info("Bin of Incoming Entry: {DELETE_PATH}",
+        // "DELETE_PATH", deletePath);
+
+        // Delete the persistent representation of this error.
+        fs::path errorPath(deletePath);
+        errorPath /= std::to_string(entryId);
+        fs::remove(errorPath);
 
         auto removeId = [](std::set<uint32_t>& ids, uint32_t id) {
             auto it = std::find(ids.begin(), ids.end(), id);
@@ -1065,11 +1093,6 @@ void Manager::restore()
     {
         return;
     }
-
-#ifdef ENABLE_ERASE_WITH_MULTIPLE_PROCESS
-    // Check and remove the temporary files for deletion.
-    util::removeStagedForEraseEntries(DEFAULT_BIN_NAME, binNameMap);
-#endif
 
     // using recursive_directory_iterator to get every directory
     for (const auto& file : std::filesystem::recursive_directory_iterator(dir))
@@ -1275,6 +1298,34 @@ bool Manager::deleteAll(
             ResourceNotFound();
     }
 
+#ifdef ENABLE_ERASE_WITH_CALLBACK
+    // Info Errors
+    if (severity >= Entry::sevLowerLimit)
+    {
+        this->_pendingPurgeEvents.reserve(
+            this->_pendingPurgeEvents.size() + thisBin->infoEntries.size());
+        for (auto id : thisBin->infoEntries)
+        {
+            this->_pendingPurgeEvents.push_back(id);
+        }
+    }
+    // Real Errors
+    else
+    {
+        this->_pendingPurgeEvents.reserve(
+            this->_pendingPurgeEvents.size() + thisBin->errorEntries.size());
+        for (auto id : thisBin->errorEntries)
+        {
+            this->_pendingPurgeEvents.push_back(id);
+        }
+    }
+
+    if (!this->_pendingPurgeEvents.empty())
+    {
+        this->_autoPurgeEventSource.set_enabled(
+            sdeventplus::source::Enabled::On);
+    }
+#else
     // Info Errors
     if (severity >= Entry::sevLowerLimit)
     {
@@ -1291,12 +1342,12 @@ bool Manager::deleteAll(
             erase(*(thisBin->errorEntries.begin()));
         }
     }
+#endif
     return true;
 }
 
 bool Manager::deleteAllTypes(const std::string& nspace)
 {
-#ifndef ENABLE_ERASE_WITH_MULTIPLE_PROCESS
     auto binPresent = false;
     Bin* thisBin;
     for (auto& pair : binNameMap)
@@ -1314,6 +1365,26 @@ bool Manager::deleteAllTypes(const std::string& nspace)
         throw sdbusplus::xyz::openbmc_project::Common::Error::
             ResourceNotFound();
     }
+
+#ifdef ENABLE_ERASE_WITH_CALLBACK
+    this->_pendingPurgeEvents.reserve(
+        this->_pendingPurgeEvents.size() + thisBin->infoEntries.size() +
+        thisBin->errorEntries.size());
+    for (auto id : thisBin->infoEntries)
+    {
+        this->_pendingPurgeEvents.push_back(id);
+    }
+    for (auto id : thisBin->errorEntries)
+    {
+        this->_pendingPurgeEvents.push_back(id);
+    }
+
+    if (!this->_pendingPurgeEvents.empty())
+    {
+        this->_autoPurgeEventSource.set_enabled(
+            sdeventplus::source::Enabled::On);
+    }
+#else
     // Info Errors
     while (getInfoErrSize(nspace) != 0)
     {
@@ -1324,9 +1395,8 @@ bool Manager::deleteAllTypes(const std::string& nspace)
     {
         erase(*(thisBin->errorEntries.begin()));
     }
-#else
-    eraseAllInChildProcess(nspace);
 #endif
+
     doExtensionLogDeleteAll();
     return true;
 }
