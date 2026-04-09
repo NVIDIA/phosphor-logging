@@ -163,28 +163,28 @@ inline std::vector<PropertyMap> getTestTopologyData()
              {"DeviceAddress", std::string("MCTP:1")},
              {"ConnectsToName", std::string("")}, // Root - no parent
              {"DeviceType", std::string("BMC")},
-             {"poweredInStandby", false}},        // BMC not power-dependent
+             {"poweredInStandby", true}},         // BMC not power-dependent
 
             // Bridge (0x10) - Child of BMC
             {{"Name", std::string("Bridge")},
              {"DeviceAddress", std::string("MCTP:16")}, // 0x10 = 16 decimal
              {"ConnectsToName", std::string("BMC")},    // Parent: BMC
              {"DeviceType", std::string("PCIeBridge")},
-             {"poweredInStandby", false}}, // Bridge not power-dependent
+             {"poweredInStandby", true}}, // Bridge not power-dependent
 
             // GPU (0x11) - Child of Bridge (grandchild of BMC)
             {{"Name", std::string("GPU")},
              {"DeviceAddress", std::string("MCTP:17")}, // 0x11 = 17 decimal
              {"ConnectsToName", std::string("Bridge")}, // Parent: Bridge
              {"DeviceType", std::string("GPU")},
-             {"poweredInStandby", true}}, // GPU IS power-dependent
+             {"poweredInStandby", false}}, // GPU IS power-dependent
 
             // CPU (0x20) - Child of BMC (sibling of Bridge)
             {{"Name", std::string("CPU")},
              {"DeviceAddress", std::string("MCTP:32")}, // 0x20 = 32 decimal
              {"ConnectsToName", std::string("BMC")},    // Parent: BMC
              {"DeviceType", std::string("CPU")},
-             {"poweredInStandby", true}}}; // CPU IS power-dependent
+             {"poweredInStandby", false}}}; // CPU IS power-dependent
 }
 
 /**
