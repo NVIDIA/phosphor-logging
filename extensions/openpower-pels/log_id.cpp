@@ -1,18 +1,8 @@
-/**
- * Copyright © 2019 IBM Corporation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright 2019 IBM Corporation
+
+#include "config.h"
+
 #include "log_id.hpp"
 
 #include "paths.hpp"
@@ -32,14 +22,58 @@ namespace fs = std::filesystem;
 
 constexpr uint32_t startingLogID = 1;
 constexpr uint32_t bmcLogIDPrefix = 0x50000000;
+constexpr uint32_t pelIDValueMask = 0x00FFFFFF;
+constexpr uint32_t invalidLogIDPosition = 0xFF;
+constexpr uint32_t invalidPELIDPosition = 0xF;
+
+namespace position
+{
+
+uint32_t bmcPosition = 0;
+
+void extractBMCPositionFromLogID(uint32_t obmcID)
+{
+    uint32_t pos = obmcID >> 24;
+
+    // Since only BMC position 0 and 1 are supported for now, make sure
+    // we aren't getting anything other than those or the 0xFF which means
+    // invalid position.
+    if ((pos != 0) && (pos != 1) && (pos != invalidLogIDPosition))
+    {
+        lg2::error("Invalid BMC position in log id {ID}", "ID", lg2::hex,
+                   obmcID);
+        bmcPosition = invalidPELIDPosition;
+    }
+    else
+    {
+        // PELs just use 1 nibble to hold the position where 0xF = invalid.
+        bmcPosition = pos & 0xF;
+    }
+}
+
+std::optional<uint32_t> getBMCPosition()
+{
+    if (bmcPosition != invalidPELIDPosition)
+    {
+        return bmcPosition;
+    }
+    return std::nullopt;
+}
+
+} // namespace position
 
 namespace detail
 {
 
 uint32_t addLogIDPrefix(uint32_t id)
 {
-    // If redundant BMCs are ever a thing, may need a different prefix.
-    return (id & 0x00FFFFFF) | bmcLogIDPrefix;
+    uint32_t pos = 0;
+    if (USE_BMC_POS_IN_ID || IS_UNIT_TEST)
+    {
+        pos = (position::bmcPosition & 0xF) << 24;
+    }
+
+    return (id & pelIDValueMask) | bmcLogIDPrefix | pos;
 }
 
 uint32_t getTimeBasedLogID()

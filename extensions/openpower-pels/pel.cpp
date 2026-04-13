@@ -1,18 +1,6 @@
-/**
- * Copyright © 2019 IBM Corporation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright 2019 IBM Corporation
+
 #include "config.h"
 
 #include "pel.hpp"
@@ -913,6 +901,24 @@ void addBMCUptime(nlohmann::json& json, const DataInterfaceBase& dataIface)
     json["BMCLoad"] = dataIface.getBMCLoadAvg();
 }
 
+void addBMCRedundancyFieldsToJSON(nlohmann::json& json,
+                                  const DataInterfaceBase& dataIface)
+{
+    auto pos = position::getBMCPosition();
+
+    nlohmann::json obj;
+    obj["Position"] = pos.has_value() ? nlohmann::json(pos.value())
+                                      : nlohmann::json(unknownValue);
+    auto fields = dataIface.getBMCRedundancyFields();
+    if (fields.has_value())
+    {
+        obj["Enabled"] = fields.value().first;
+        obj["Role"] = fields.value().second;
+    }
+
+    json["BMCRedundancy"] = std::move(obj);
+}
+
 std::unique_ptr<UserData> makeSysInfoUserDataSection(
     const AdditionalData& ad, const DataInterfaceBase& dataIface,
     bool addUptime, const nlohmann::json& adSysInfoData)
@@ -923,6 +929,10 @@ std::unique_ptr<UserData> makeSysInfoUserDataSection(
     addBMCFWVersionIDToJSON(json, dataIface);
     addIMKeyword(json, dataIface);
     addStatesToJSON(json, dataIface);
+    if (USE_BMC_POS_IN_ID || IS_UNIT_TEST)
+    {
+        addBMCRedundancyFieldsToJSON(json, dataIface);
+    }
 
     if (addUptime)
     {

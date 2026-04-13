@@ -1,18 +1,6 @@
-/**
- * Copyright © 2019 IBM Corporation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright 2019 IBM Corporation
+
 #include "src.hpp"
 
 #include "device_callouts.hpp"
@@ -36,8 +24,6 @@ namespace pels
 namespace pv = openpower::pels::pel_values;
 namespace rg = openpower::pels::message;
 using namespace std::string_literals;
-
-constexpr size_t ccinSize = 4;
 
 #ifdef PELTOOL
 using orderedJSON = nlohmann::ordered_json;
@@ -132,7 +118,7 @@ std::optional<std::string> getPythonJSON(std::vector<std::string>& hexwords,
         std::string("srcparsers." + module + "." + module).c_str());
     std::unique_ptr<PyObject, decltype(&pyDecRef)> modNamePtr(pName, &pyDecRef);
     pModule = PyImport_Import(pName);
-    if (pModule == NULL)
+    if (pModule == nullptr)
     {
         pErrStr = "No error string found";
         PyErr_Fetch(&eType, &eValue, &eTraceback);
@@ -345,7 +331,6 @@ SRC::SRC(const message::Entry& regEntry, const AdditionalData& additionalData,
     setProgressCode(dataIface);
     setBMCFormat();
     setBMCPosition();
-    setMotherboardCCIN(dataIface);
 
     if (regEntry.src.checkstopFlag)
     {
@@ -423,29 +408,6 @@ void SRC::setUserDefinedHexWords(const message::Entry& regEntry,
             addDebugData(msg);
         }
     }
-}
-
-void SRC::setMotherboardCCIN(const DataInterfaceBase& dataIface)
-{
-    uint32_t ccin = 0;
-    auto ccinString = dataIface.getMotherboardCCIN();
-
-    try
-    {
-        if (ccinString.size() == ccinSize)
-        {
-            ccin = std::stoi(ccinString, nullptr, 16);
-        }
-    }
-    catch (const std::exception& e)
-    {
-        lg2::warning("Could not convert motherboard CCIN {CCIN} to a number",
-                     "CCIN", ccinString);
-        return;
-    }
-
-    // Set the first 2 bytes
-    _hexData[1] |= ccin << 16;
 }
 
 void SRC::validate()
@@ -640,35 +602,35 @@ std::optional<std::string> SRC::getCallouts() const
             {
                 jsonInsert(printOut, "Location Code", entry->locationCode(), 3);
             }
-            if (entry->fruIdentity()->getPN().has_value())
+
+            auto pn = entry->fruIdentity()->getPN();
+            if (pn.has_value())
             {
-                jsonInsert(printOut, "Part Number",
-                           entry->fruIdentity()->getPN().value(), 3);
+                jsonInsert(printOut, "Part Number", pn.value(), 3);
             }
-            if (entry->fruIdentity()->getMaintProc().has_value())
+
+            auto proc = entry->fruIdentity()->getMaintProc();
+            if (proc.has_value())
             {
-                jsonInsert(printOut, "Procedure",
-                           entry->fruIdentity()->getMaintProc().value(), 3);
-                if (pv::procedureDesc.find(
-                        entry->fruIdentity()->getMaintProc().value()) !=
+                jsonInsert(printOut, "Procedure", proc.value(), 3);
+                if (pv::procedureDesc.find(proc.value()) !=
                     pv::procedureDesc.end())
                 {
-                    jsonInsert(
-                        printOut, "Description",
-                        pv::procedureDesc.at(
-                            entry->fruIdentity()->getMaintProc().value()),
-                        3);
+                    jsonInsert(printOut, "Description",
+                               pv::procedureDesc.at(proc.value()), 3);
                 }
             }
-            if (entry->fruIdentity()->getCCIN().has_value())
+
+            auto ccin = entry->fruIdentity()->getCCIN();
+            if (ccin.has_value())
             {
-                jsonInsert(printOut, "CCIN",
-                           entry->fruIdentity()->getCCIN().value(), 3);
+                jsonInsert(printOut, "CCIN", ccin.value(), 3);
             }
-            if (entry->fruIdentity()->getSN().has_value())
+
+            auto sn = entry->fruIdentity()->getSN();
+            if (sn.has_value())
             {
-                jsonInsert(printOut, "Serial Number",
-                           entry->fruIdentity()->getSN().value(), 3);
+                jsonInsert(printOut, "Serial Number", sn.value(), 3);
             }
         }
         if (entry->pceIdentity())
@@ -735,16 +697,6 @@ std::optional<std::string> SRC::getJSON(message::Registry& registry,
 
     if (isBMCSRC())
     {
-        std::string ccinString;
-        uint32_t ccin = _hexData[1] >> 16;
-
-        if (ccin)
-        {
-            ccinString = getNumberString("%04X", ccin);
-        }
-        // The PEL spec calls it a backplane, so call it that here.
-        jsonInsert(ps, "Backplane CCIN", ccinString, 1);
-
         jsonInsert(ps, "Terminate FW Error",
                    pv::boolString.at(
                        _hexData[3] &

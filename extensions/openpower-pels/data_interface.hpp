@@ -12,7 +12,6 @@
 #include <sdbusplus/bus.hpp>
 #include <sdbusplus/bus/match.hpp>
 
-#include <expected>
 #include <filesystem>
 #include <fstream>
 #include <unordered_map>
@@ -322,13 +321,6 @@ class DataInterfaceBase
     }
 
     /**
-     * @brief Returns the motherboard CCIN
-     *
-     * @return std::string The motherboard CCIN
-     */
-    virtual std::string getMotherboardCCIN() const = 0;
-
-    /**
      * @brief Returns the system IM
      *
      * @return std::string The system IM
@@ -393,7 +385,7 @@ class DataInterfaceBase
      * @param[in] node - The node number the location is on.  Ignored if the
      *                   expanded location code is passed in.
      *
-     * @param[in] expanded - If the location code already has the relevent
+     * @param[in] expanded - If the location code already has the relevant
      *                       VPD fields embedded in it.
      *
      * @return std::vector<std::string> - The inventory D-Bus objects
@@ -493,8 +485,8 @@ class DataInterfaceBase
     virtual std::vector<uint8_t> getRawProgressSRC() const = 0;
 
     /**
-     * @brief Returns the FRUs DI property value hosted on the VINI iterface for
-     * the given location code.
+     * @brief Returns the FRUs DI property value hosted on the VINI interface
+     * for the given location code.
      *
      * @param[in] locationCode - The location code of the FRU
      *
@@ -556,6 +548,18 @@ class DataInterfaceBase
     virtual DBusPathList getAssociatedPaths(
         const DBusPath& associatedPath, const DBusPath& subtree, int32_t depth,
         const DBusInterfaceList& interfaces) const = 0;
+
+    /**
+     * @brief Returns the values of the RedundancyEnabled and Role properties
+     *        on the xyz.openbmc_project.State.BMC.Redundancy interface.
+     *
+     *  To be used for PEL user data.
+     *  The role is shortened from the full enum string value.
+     *
+     *  @return pair<bool, string> - The properties or nullopt if an error.
+     */
+    virtual std::optional<std::pair<bool, std::string>> getBMCRedundancyFields()
+        const = 0;
 
   protected:
     /**
@@ -752,13 +756,6 @@ class DataInterface : public DataInterfaceBase
     std::string getMachineSerialNumber() const override;
 
     /**
-     * @brief Returns the motherboard CCIN
-     *
-     * @return std::string The motherboard CCIN
-     */
-    std::string getMotherboardCCIN() const override;
-
-    /**
      * @brief Returns the system IM
      *
      * @return std::vector The system IM keyword in 4 byte vector
@@ -826,7 +823,7 @@ class DataInterface : public DataInterfaceBase
      * @param[in] node - The node number the location is on.  Ignored if the
      *                   expanded location code is passed in.
      *
-     * @param[in] expanded - If the location code already has the relevent
+     * @param[in] expanded - If the location code already has the relevant
      *                       VPD fields embedded in it.
      *
      * @return std::vector<std::string> - The inventory D-Bus objects
@@ -907,8 +904,8 @@ class DataInterface : public DataInterfaceBase
     std::vector<uint8_t> getRawProgressSRC() const override;
 
     /**
-     * @brief Returns the FRUs DI property value hosted on the VINI iterface for
-     * the given location code.
+     * @brief Returns the FRUs DI property value hosted on the VINI interface
+     * for the given location code.
      *
      * @param[in] locationCode - The location code of the FRU
      *
@@ -934,6 +931,18 @@ class DataInterface : public DataInterfaceBase
     DBusPathList getAssociatedPaths(
         const DBusPath& associatedPath, const DBusPath& subtree, int32_t depth,
         const DBusInterfaceList& interfaces) const override;
+
+    /**
+     * @brief Returns the values of the RedundancyEnabled and Role properties
+     *        on the xyz.openbmc_project.State.BMC.Redundancy interface.
+     *
+     *  To be used for PEL user data.
+     *  The role is shortened from the full enum string value.
+     *
+     *  @return pair<bool, string> - The properties or nullopt if an error.
+     */
+    std::optional<std::pair<bool, std::string>> getBMCRedundancyFields()
+        const override;
 
   private:
     /**
@@ -963,6 +972,15 @@ class DataInterface : public DataInterfaceBase
      * @return The D-Bus paths.
      */
     DBusPathList getPaths(const DBusInterfaceList& interfaces) const;
+
+    /**
+     * @brief Wrapper for the mapper's GetSubTree
+     *
+     * @param[in] interfaces - The desired interfaces
+     *
+     * @return The D-Bus paths.
+     */
+    DBusSubTree getSubTree(const DBusInterfaceList& interfaces) const;
 
     /**
      * @brief The interfacesAdded callback used on the inventory to
@@ -1012,8 +1030,8 @@ class DataInterface : public DataInterfaceBase
      * @param[in] path - The object path of the inventory item.
      * @param[in] properties - The properties map
      */
-    void notifyPresenceSubsribers(const std::string& path,
-                                  const DBusPropertyMap& properties);
+    void notifyPresenceSubscribers(const std::string& path,
+                                   const DBusPropertyMap& properties);
 
     /**
      * @brief Adds the Ufcs- prefix to the location code passed in
@@ -1083,7 +1101,7 @@ class DataInterface : public DataInterfaceBase
 
     /**
      * @brief Watcher to check "openpower-update-bios-attr-table" service
-     *        is "done" to init PHAL libraires
+     *        is "done" to init PHAL libraries
      */
     std::unique_ptr<sdbusplus::bus::match_t> _systemdMatch;
 

@@ -28,7 +28,7 @@ int main(int argc, char* argv[])
     phosphor::logging::internal::Manager iMgr(bus, OBJ_INTERNAL);
     phosphor::logging::Manager mgr(bus, OBJ_LOGGING, iMgr);
 
-    auto parseErrHandler = [argv](const std::function<uint32_t(
+    auto parseErrHandler = [](const std::function<uint32_t(
                                       const std::string&)>& fn,
                                   const char* path) {
         int res = 0;

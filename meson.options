@@ -138,3 +138,10 @@ option(
     value: 'eth0',
     description: 'ethernet intercae acive for rsyslog',
 )
+
+option(
+    'use-bmc-pos-in-id',
+    type: 'boolean',
+    value: true,
+    description: 'If the BMC position should be encoded into the event log ID',
+)

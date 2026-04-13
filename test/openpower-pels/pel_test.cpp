@@ -1,20 +1,9 @@
-/**
- * Copyright © 2019 IBM Corporation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright 2019 IBM Corporation
+
 #include "elog_entry.hpp"
 #include "extensions/openpower-pels/generic.hpp"
+#include "extensions/openpower-pels/log_id.hpp"
 #include "extensions/openpower-pels/pel.hpp"
 #include "mocks.hpp"
 #include "pel_utils.hpp"
@@ -407,6 +396,11 @@ TEST_F(PELTest, SysInfoSectionTest)
         .WillOnce(Return("State.SystemInitComplete"));
     EXPECT_CALL(dataIface, getSystemIMKeyword())
         .WillOnce(Return(std::vector<uint8_t>{0, 1, 0x55, 0xAA}));
+    EXPECT_CALL(dataIface, getBMCRedundancyFields())
+        .WillOnce(Return(std::make_pair(true, "Active")));
+
+    // Set BMC position to 1 for testing
+    position::extractBMCPositionFromLogID(0x01000000);
 
     std::map<std::string, std::string> ad{{"_PID", std::to_string(getpid())}};
     AdditionalData additionalData{ad};
@@ -449,6 +443,13 @@ TEST_F(PELTest, SysInfoSectionTest)
 
     auto keyword = json["System IM"].get<std::string>();
     EXPECT_EQ(keyword, "000155AA");
+
+    // Check BMCRedundancy fields
+    ASSERT_TRUE(json.contains("BMCRedundancy"));
+    auto redundancy = json["BMCRedundancy"];
+    EXPECT_EQ(redundancy["Enabled"].get<bool>(), true);
+    EXPECT_EQ(redundancy["Role"].get<std::string>(), "Active");
+    EXPECT_EQ(redundancy["Position"].get<size_t>(), 1);
 }
 
 // Test that the sections that override
@@ -1046,7 +1047,7 @@ TEST_F(PELTest, CreateWithJSONCalloutsTest)
     fs::remove_all(dir);
 }
 
-// Test PELs with symblic FRU callout.
+// Test PELs with symbolic FRU callout.
 TEST_F(PELTest, CreateWithJSONSymblicCalloutTest)
 {
     PelFFDCfile ffdcFile;

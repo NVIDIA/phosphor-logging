@@ -18,7 +18,7 @@ PHOSPHOR_LOG2_USING;
 DeviceStatusInterface::DeviceStatusInterface(sdbusplus::bus_t& bus,
                                              const std::string& path) :
     sdbusplus::server::com::nvidia::state::DeviceState(bus, path.c_str()),
-    bus(bus), eid(extractEidFromPath(path))
+    eid(extractEidFromPath(path))
 {}
 
 uint8_t DeviceStatusInterface::extractEidFromPath(const std::string& path)

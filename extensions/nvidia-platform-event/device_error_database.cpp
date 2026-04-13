@@ -202,8 +202,6 @@ void propagatePowerErrorToDescendants(const DeviceErrorMetadata& powerError)
 
 void clearPropagatedPowerErrorsFromDescendants(uint8_t parentEid)
 {
-    int clearedCount = 0;
-
     // Iterate through ALL devices in registry
     for (auto& [deviceEid, deviceStore] : deviceErrorDatabase)
     {
@@ -225,8 +223,6 @@ void clearPropagatedPowerErrorsFromDescendants(uint8_t parentEid)
                 if (!classData.errors.empty())
                 {
                     classData.errors.clear();
-                    clearedCount++;
-
                     // Update status: check if any errors remain in any error
                     // class
                     bool hasErrors = false;

@@ -102,9 +102,6 @@ class DeviceStatusInterface :
     }
 
   private:
-    /** @brief D-Bus bus reference */
-    sdbusplus::bus_t& bus;
-
     /** @brief Device EID extracted from object path */
     uint8_t eid;
 

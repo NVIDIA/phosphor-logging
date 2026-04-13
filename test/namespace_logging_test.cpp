@@ -197,8 +197,8 @@ TEST_F(TestNamespaceLogging, testBinCapacity)
     EXPECT_EQ(manager.getInfoErrSize(), nIter);
     EXPECT_EQ(manager.getRealErrSize(), nIter);
 
-    // Check EntryID
-    EXPECT_EQ(manager.lastEntryID(), 4 * nIter);
+    // Check EntryID (use rbegin to account for BMC position encoding)
+    EXPECT_EQ(manager.lastEntryID(), manager.entries.rbegin()->first);
 
     const auto binPath = fs::path(
         std::string(phosphor::logging::paths::error()) + "/" + binName);

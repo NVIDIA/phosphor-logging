@@ -35,9 +35,6 @@ namespace test
 {
 
 namespace fs = std::filesystem;
-class TestPolicy : public testing::Test
-{};
-
 class MockPolicy : public phosphor::logging::internal::Manager
 {
   public:
@@ -62,8 +59,15 @@ std::size_t countFilesinDirectory(std::filesystem::path path)
                                       std::filesystem::directory_iterator{});
 }
 
-auto bus = sdbusplus::bus::new_default();
-MockPolicy manager(bus, OBJ_INTERNAL);
+class TestPolicy : public testing::Test
+{
+  public:
+    testing::NiceMock<sdbusplus::SdBusMock> sdbusMock;
+    sdbusplus::bus_t bus = sdbusplus::get_mocked_new(&sdbusMock);
+    MockPolicy manager;
+
+    TestPolicy() : manager(bus, OBJ_INTERNAL) {}
+};
 
 TEST_F(TestPolicy, testLinearPolicy)
 {
@@ -127,9 +131,14 @@ TEST_F(TestPolicy, testLinearPolicy)
 
     // Deleting 6  oldest entries
     //  3 entries deleted from 'Informational' and 3 from 'Error'
-    for (size_t i = 0; i < 6; i++)
     {
-        manager.erase(i + 1);
+        auto it = manager.entries.begin();
+        for (size_t i = 0; i < 6 && it != manager.entries.end(); i++)
+        {
+            auto id = it->first;
+            ++it;
+            manager.erase(id);
+        }
     }
 
     // Test 5: Test  Information size after deleting 3 entries
@@ -212,9 +221,14 @@ TEST_F(TestPolicy, testLinearPolicyWithTotalCapacity)
     EXPECT_EQ(manager.getInfoErrSize(std::string(binName)), binTotalCapacity);
 
     // 5 entries deleted from 'Informational'
-    for (size_t i = 0; i < 5; i++)
     {
-        manager.erase(i + 1);
+        auto it = manager.entries.begin();
+        for (size_t i = 0; i < 5 && it != manager.entries.end(); i++)
+        {
+            auto id = it->first;
+            ++it;
+            manager.erase(id);
+        }
     }
 
     // Test 3: Test  Information size after deleting 5 entries
@@ -254,9 +268,14 @@ TEST_F(TestPolicy, testLinearPolicyWithTotalCapacity)
     EXPECT_EQ(manager.getRealErrSize(std::string(binName)), binTotalCapacity);
 
     // 5 entries deleted from 'Error'
-    for (size_t i = 0; i < 5; i++)
     {
-        manager.erase(i + 1);
+        auto it = manager.entries.begin();
+        for (size_t i = 0; i < 5 && it != manager.entries.end(); i++)
+        {
+            auto id = it->first;
+            ++it;
+            manager.erase(id);
+        }
     }
 
     // Test 7: Test  Error size after deleting 5 entries

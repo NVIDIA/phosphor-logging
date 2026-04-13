@@ -1,18 +1,6 @@
-/**
- * Copyright © 2019 IBM Corporation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright 2019 IBM Corporation
+
 #include "pel_values.hpp"
 
 #include <algorithm>
@@ -233,7 +221,14 @@ const std::map<std::string, std::string> maintenanceProcedures = {
     {"system_vpd_correction", "BMC0007"},
     // service reminder about the failed parts present in the system
     {"detected_issue_need_service", "BMC0008"},
-};
+    // Problem is the CEC node does not have input power
+    {"drawer_power", "BMC0009"},
+    // BMC can't failover
+    {"bmc_failover_blocked", "BMC000A"},
+    // BMC can't enable redundancy
+    {"bmc_redundancy_not_enabled", "BMC000B"},
+    // BMC must be passive because of an error
+    {"bmc_passive_due_to_error", "BMC000C"}};
 
 /**
  * @brief Map of the registry names for the symbolic FRUs to their

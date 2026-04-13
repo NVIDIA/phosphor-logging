@@ -1,18 +1,6 @@
-/**
- * Copyright © 2020 IBM Corporation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright 2020 IBM Corporation
+
 #include "config.h"
 
 #include "util.hpp"
@@ -80,7 +68,8 @@ void journalSync()
     //               journald updates with the timestamp the last time the
     //               journal was flushed.
     // Iteration #3: Poll to wait until inotify reports an event which blocks
-    //               the error log from being commited until the sync completes.
+    //               the error log from being committed until the sync
+    //               completes.
     constexpr auto maxRetry = 3;
     for (int i = 0; i < maxRetry; i++)
     {
@@ -122,8 +111,11 @@ void journalSync()
             auto method = bus.new_method_call(SYSTEMD_BUSNAME, SYSTEMD_PATH,
                                               SYSTEMD_INTERFACE, "KillUnit");
             method.append(JOURNAL_UNIT, "main", signal);
-            bus.call(method);
-            if (method.is_method_error())
+            try
+            {
+                bus.call(method);
+            }
+            catch (sdbusplus::exception_t&)
             {
                 lg2::error("Failed to kill journal service");
                 break;

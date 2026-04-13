@@ -1,18 +1,6 @@
-/**
- * Copyright © 2019 IBM Corporation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright 2019 IBM Corporation
+
 #include "extensions/openpower-pels/data_interface.hpp"
 #include "extensions/openpower-pels/host_notifier.hpp"
 #include "mocks.hpp"
@@ -57,8 +45,7 @@ class HostNotifierTest : public CleanPELFiles
         };
 
         // Unless otherwise specified, sendNewLogCmd should always pass.
-        ON_CALL(*mockHostIface, sendNewLogCmd(_, _))
-            .WillByDefault(Invoke(send));
+        ON_CALL(*mockHostIface, sendNewLogCmd(_, _)).WillByDefault(send);
     }
 
     ~HostNotifierTest()
@@ -376,9 +363,9 @@ TEST_F(HostNotifierTest, TestHostRetry)
     };
 
     EXPECT_CALL(*mockHostIface, sendNewLogCmd(_, _))
-        .WillOnce(Invoke(sendFailure))
-        .WillOnce(Invoke(sendSuccess))
-        .WillOnce(Invoke(sendSuccess));
+        .WillOnce(sendFailure)
+        .WillOnce(sendSuccess)
+        .WillOnce(sendSuccess);
 
     dataIface.changeHostState(true);
 
@@ -423,7 +410,7 @@ TEST_F(HostNotifierTest, TestHardFailure)
     };
 
     EXPECT_CALL(*mockHostIface, sendNewLogCmd(_, _))
-        .WillRepeatedly(Invoke(sendFailure));
+        .WillRepeatedly(sendFailure);
 
     dataIface.changeHostState(true);
 
@@ -470,23 +457,23 @@ TEST_F(HostNotifierTest, TestCannotStartCmd)
     // Fails 16 times (1 fail + 15  retries) and
     // then start working.
     EXPECT_CALL(*mockHostIface, sendNewLogCmd(_, _))
-        .WillOnce(Invoke(sendFailure))
-        .WillOnce(Invoke(sendFailure))
-        .WillOnce(Invoke(sendFailure))
-        .WillOnce(Invoke(sendFailure))
-        .WillOnce(Invoke(sendFailure))
-        .WillOnce(Invoke(sendFailure))
-        .WillOnce(Invoke(sendFailure))
-        .WillOnce(Invoke(sendFailure))
-        .WillOnce(Invoke(sendFailure))
-        .WillOnce(Invoke(sendFailure))
-        .WillOnce(Invoke(sendFailure))
-        .WillOnce(Invoke(sendFailure))
-        .WillOnce(Invoke(sendFailure))
-        .WillOnce(Invoke(sendFailure))
-        .WillOnce(Invoke(sendFailure))
-        .WillOnce(Invoke(sendFailure))
-        .WillRepeatedly(Invoke(sendSuccess));
+        .WillOnce(sendFailure)
+        .WillOnce(sendFailure)
+        .WillOnce(sendFailure)
+        .WillOnce(sendFailure)
+        .WillOnce(sendFailure)
+        .WillOnce(sendFailure)
+        .WillOnce(sendFailure)
+        .WillOnce(sendFailure)
+        .WillOnce(sendFailure)
+        .WillOnce(sendFailure)
+        .WillOnce(sendFailure)
+        .WillOnce(sendFailure)
+        .WillOnce(sendFailure)
+        .WillOnce(sendFailure)
+        .WillOnce(sendFailure)
+        .WillOnce(sendFailure)
+        .WillRepeatedly(sendSuccess);
 
     dataIface.changeHostState(true);
 
@@ -601,7 +588,7 @@ TEST_F(HostNotifierTest, TestPowerCycleAndAcks)
     PEL pelFromRepo2{*data};
     EXPECT_EQ(pelFromRepo2.hostTransmissionState(), TransmissionState::acked);
 
-    // Power back off, and they should't get re-added
+    // Power back off, and they shouldn't get re-added
     dataIface.changeHostState(false);
 
     EXPECT_EQ(notifier.queueSize(), 0);

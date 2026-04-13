@@ -62,3 +62,7 @@ phosphor_logging_dep = declare_dependency(
 
 # Add topology subdirectory
 subdir('topology')
+
+if meson.is_subproject()
+    phosphor_logging_dep = phosphor_logging_dep.as_system()
+endif

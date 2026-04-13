@@ -31,7 +31,6 @@ namespace logging
 using namespace phosphor::logging;
 
 static uint16_t selRecordId;
-static constexpr char separator = '=';
 
 void selStartup(internal::Manager& logManager)
 {

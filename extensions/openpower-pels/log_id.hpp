@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 
 namespace openpower
@@ -8,11 +9,38 @@ namespace openpower
 namespace pels
 {
 
+namespace position
+{
+/**
+ * @brief Stores the BMC position from the most recent event log.
+ */
+extern uint32_t bmcPosition;
+
+/**
+ * @brief Sets 'position::bmcPosition' based on the position in
+ *        the upper byte of the passed in obmc ID
+ *
+ * @param[in] obmcID - The ID to extract the position from
+ */
+void extractBMCPositionFromLogID(uint32_t obmcID);
+
+/**
+ * @brief Returns the BMC position
+ *
+ * @return The BMC position, or std::nullopt if not available.
+ */
+std::optional<uint32_t> getBMCPosition();
+
+} // namespace position
+
 namespace detail
 {
 
 /**
  * @brief Adds the 1 byte log creator prefix to the log ID
+ *
+ * The 2nd nibble is the BMC position, if that feature is
+ * enabled.
  *
  * @param[in] id - the ID to add it to
  *

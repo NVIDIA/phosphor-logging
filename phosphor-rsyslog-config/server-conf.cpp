@@ -149,7 +149,10 @@ std::optional<std::tuple<
         {
             facility = RsyslogClient::convertStringToFacilityType(
                 mapFacilityStr(facilityStr));
-            facilities.push_back(*facility);
+            if (facility.has_value())
+            {
+                facilities.push_back(*facility);
+            }
         }
         // Extract severity (part after the dot)
         std::string severityStr = firstPart.substr(dotPos + 1);
@@ -212,7 +215,9 @@ std::optional<std::tuple<
     {
         return std::make_tuple(std::move(serverAddress), std::stoul(serverPort),
                                serverTransportProtocol, tls, clientModeEnabled,
-                               facilities, *severity);
+                               facilities,
+                               severity.value_or(
+                                   RsyslogClient::SeverityType::All));
     }
     catch (const std::exception& ex)
     {

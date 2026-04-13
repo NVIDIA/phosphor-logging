@@ -23,6 +23,7 @@ openpower_pels = {
     'pce_identity': {},
     'pel_manager': {
         'sources': [
+            '../../bmc_pos_mgr.cpp',
             '../../elog_entry.cpp',
             '../../elog_meta.cpp',
             '../../elog_serialize.cpp',
@@ -31,6 +32,7 @@ openpower_pels = {
             '../../log_streamer.cpp',
             elog_lookup_gen,
             elog_process_gen,
+            callouts_gen,
             generated_sources,
             log_manager_ext_sources,
         ],
@@ -86,6 +88,7 @@ foreach t : openpower_pels.keys()
                 gmock_dep,
                 phosphor_logging_dep,
                 libpel_deps,
+                log_manager_deps,
                 peltool_deps,
                 openpower_pels.get(t).get('deps', []),
             ],

@@ -1,6 +1,9 @@
 #pragma once
 
+#include "config.h"
+
 #include "bin.hpp"
+#include "bmc_pos_mgr.hpp"
 #include "elog_block.hpp"
 #include "elog_entry.hpp"
 #include "paths.hpp"
@@ -875,6 +878,9 @@ class Manager : public details::ServerObject<details::ManagerIface>
      */
     sdeventplus::source::Time<sdeventplus::ClockId::Monotonic>
         _autoPurgeEventSource;
+
+    /** @brief Encodes the BMC position in the entryId when enabled */
+    std::unique_ptr<BMCPosMgr> bmcPosMgr;
 };
 
 } // namespace internal
@@ -940,12 +946,12 @@ class Manager :
         return manager.getAll(nspace, rfilter);
     }
 
-    bool autoClearResolvedLogEnabled() const
+    bool autoClearResolvedLogEnabled() const override
     {
         return manager.getAutoPurgeResolved();
     }
 
-    bool autoClearResolvedLogEnabled(bool purgeResolvedLogs)
+    bool autoClearResolvedLogEnabled(bool purgeResolvedLogs) override
     {
         manager.setAutoPurgeResolved(purgeResolvedLogs);
         return purgeResolvedLogs;

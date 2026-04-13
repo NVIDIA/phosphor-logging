@@ -1,18 +1,6 @@
-/**
- * Copyright © 2019 IBM Corporation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright 2019 IBM Corporation
+
 #include "extensions/openpower-pels/src.hpp"
 #include "mocks.hpp"
 #include "pel_utils.hpp"
@@ -206,8 +194,6 @@ TEST_F(SRCTest, CreateTestNoCallouts)
     AdditionalData ad{adData};
     NiceMock<MockDataInterface> dataIface;
 
-    EXPECT_CALL(dataIface, getMotherboardCCIN).WillOnce(Return("ABCD"));
-
     SRC src{entry, ad, dataIface};
 
     EXPECT_TRUE(src.valid());
@@ -223,7 +209,6 @@ TEST_F(SRCTest, CreateTestNoCallouts)
     EXPECT_EQ(hexwords[2 - 2] & 0x00F00000, 0);    // Partition boot type
     EXPECT_EQ(hexwords[2 - 2] & 0x000000FF, 0x55); // SRC format
     EXPECT_EQ(hexwords[3 - 2] & 0x000000FF, 0x10); // BMC position
-    EXPECT_EQ(hexwords[3 - 2] & 0xFFFF0000, 0xABCD0000); // Motherboard CCIN
 
     // Validate more fields here as the code starts filling them in.
 
@@ -231,7 +216,7 @@ TEST_F(SRCTest, CreateTestNoCallouts)
     // And that none of the error status flags are set
     EXPECT_EQ(hexwords[5 - 2], 0);
 
-    // The user defined hex word fields specifed in the additional data.
+    // The user defined hex word fields specified in the additional data.
     EXPECT_EQ(hexwords[6 - 2], 0x12345678); // TEST1
     EXPECT_EQ(hexwords[7 - 2], 12345678);   // TEST2
     EXPECT_EQ(hexwords[8 - 2], 0xdef);      // TEST3
@@ -253,48 +238,6 @@ TEST_F(SRCTest, CreateTestNoCallouts)
     EXPECT_TRUE(newSRC.valid());
     EXPECT_EQ(newSRC.asciiString(), src.asciiString());
     EXPECT_FALSE(newSRC.callouts());
-}
-
-// Test when the CCIN string isn't a 4 character number
-TEST_F(SRCTest, BadCCINTest)
-{
-    message::Entry entry;
-    entry.src.type = 0xBD;
-    entry.src.reasonCode = 0xABCD;
-    entry.subsystem = 0x42;
-
-    std::map<std::string, std::string> adData{};
-    AdditionalData ad{adData};
-    NiceMock<MockDataInterface> dataIface;
-
-    // First it isn't a number, then it is too long,
-    // then it is empty.
-    EXPECT_CALL(dataIface, getMotherboardCCIN)
-        .WillOnce(Return("X"))
-        .WillOnce(Return("12345"))
-        .WillOnce(Return(""));
-
-    // The CCIN in the first half should still be 0 each time.
-    {
-        SRC src{entry, ad, dataIface};
-        EXPECT_TRUE(src.valid());
-        const auto& hexwords = src.hexwordData();
-        EXPECT_EQ(hexwords[3 - 2] & 0xFFFF0000, 0x00000000);
-    }
-
-    {
-        SRC src{entry, ad, dataIface};
-        EXPECT_TRUE(src.valid());
-        const auto& hexwords = src.hexwordData();
-        EXPECT_EQ(hexwords[3 - 2] & 0xFFFF0000, 0x00000000);
-    }
-
-    {
-        SRC src{entry, ad, dataIface};
-        EXPECT_TRUE(src.valid());
-        const auto& hexwords = src.hexwordData();
-        EXPECT_EQ(hexwords[3 - 2] & 0xFFFF0000, 0x00000000);
-    }
 }
 
 // Test the getErrorDetails function
@@ -1553,8 +1496,6 @@ TEST_F(SRCTest, TestPELSubsystem)
     AdditionalData ad{adData};
     NiceMock<MockDataInterface> dataIface;
 
-    EXPECT_CALL(dataIface, getMotherboardCCIN).WillOnce(Return("ABCD"));
-
     SRC src{entry, ad, dataIface};
 
     EXPECT_TRUE(src.valid());
@@ -1605,8 +1546,8 @@ TEST_F(SRCTest, TestGetProgressCode)
             0,  204, 0,  145, 132, 0,  0,  0,  0,  0,  0,  0,   0,  0,  0,
             0,  0,   0,  0,   0,   0,  0,  0,  0,  0,  67, 67,  48, 48, 57,
             49, 56,  52, 32,  32,  32, 32, 32, 32, 32, 32, 32,  32, 32, 32,
-            32, 32,  32, 32,  32,  32, 32, 32, 32, 32, 32, 32};
-        src.resize(71);
+            32, 32,  32, 32,  32,  32, 32, 32, 32, 32, 32};
+
         EXPECT_EQ(SRC::getProgressCode(src), 0);
     }
 

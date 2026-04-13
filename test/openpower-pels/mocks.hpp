@@ -34,7 +34,6 @@ class MockDataInterface : public DataInterfaceBase
     MOCK_METHOD(std::string, getBMCState, (), (const override));
     MOCK_METHOD(std::string, getChassisState, (), (const override));
     MOCK_METHOD(std::string, getHostState, (), (const override));
-    MOCK_METHOD(std::string, getMotherboardCCIN, (), (const override));
     MOCK_METHOD(void, getHWCalloutFields,
                 (const std::string&, std::string&, std::string&, std::string&),
                 (const override));
@@ -72,6 +71,8 @@ class MockDataInterface : public DataInterfaceBase
                 (const DBusPath&, const DBusPath&, int32_t,
                  const DBusInterfaceList&),
                 (const override));
+    MOCK_METHOD((std::optional<std::pair<bool, std::string>>),
+                getBMCRedundancyFields, (), (const override));
 
     void changeHostState(bool newState)
     {
@@ -203,7 +204,7 @@ class MockHostInterface : public HostInterface
             }
         }
 
-        // Open it and register the reponse callback to
+        // Open it and register the response callback to
         // be used on FD activity.
         int fd = open(_fifo.c_str(), O_NONBLOCK | O_RDWR);
         EXPECT_TRUE(fd >= 0) << "Unable to open FIFO";
@@ -227,7 +228,7 @@ class MockHostInterface : public HostInterface
             return CmdStatus::failure;
         }
 
-        // Write the fake host reponse to the FIFO
+        // Write the fake host response to the FIFO
         auto bytesWritten = write(fd, &hostResponse, sizeof(hostResponse));
         EXPECT_EQ(bytesWritten, sizeof(hostResponse));
 

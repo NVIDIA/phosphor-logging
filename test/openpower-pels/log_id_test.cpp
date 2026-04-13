@@ -1,18 +1,6 @@
-/**
- * Copyright © 2019 IBM Corporation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright 2019 IBM Corporation
+
 #include "extensions/openpower-pels/log_id.hpp"
 #include "extensions/openpower-pels/paths.hpp"
 
@@ -96,4 +84,29 @@ TEST(LogIdTest, PELIDTest)
     EXPECT_NE(generatePELID(), 0x50000005);
 
     fs::remove_all(fs::path{backingFile}.parent_path());
+}
+
+TEST(LogIdTest, IDTestWithBMCPos)
+{
+    // Position 1
+    position::extractBMCPositionFromLogID(0x01000123);
+    EXPECT_EQ(generatePELID(), 0x51000001);
+
+    // Position 0
+    position::extractBMCPositionFromLogID(0x00000345);
+    EXPECT_EQ(generatePELID(), 0x50000002);
+
+    // No Position
+    position::extractBMCPositionFromLogID(0xFF000678);
+    EXPECT_EQ(generatePELID(), 0x5F000003);
+
+    // Back to 0
+    position::extractBMCPositionFromLogID(0x000009AB);
+    EXPECT_EQ(generatePELID(), 0x50000004);
+
+    // Invalid, so PEL gets 0x5F
+    position::extractBMCPositionFromLogID(0x39000CDE);
+    EXPECT_EQ(generatePELID(), 0x5F000005);
+
+    fs::remove_all(getPELIDFile().parent_path());
 }

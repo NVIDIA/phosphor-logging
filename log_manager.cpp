@@ -23,10 +23,7 @@
 #include <chrono>
 #include <cstdio>
 #include <cstring>
-#include <fstream>
 #include <functional>
-#include <future>
-#include <iostream>
 #include <map>
 #include <ranges>
 #include <set>
@@ -105,6 +102,10 @@ Manager::Manager(sdbusplus::bus::bus& bus, const std::string& objPath) :
 {
     this->addBin(this->defaultBin);
     this->_autoPurgeEventSource.set_enabled(sdeventplus::source::Enabled::Off);
+    if constexpr (USE_BMC_POS_IN_ID)
+    {
+        bmcPosMgr = std::make_unique<BMCPosMgr>();
+    }
 }
 
 int Manager::getRealErrSize(const std::string& binName)
@@ -400,8 +401,7 @@ std::string Manager::getSelPolicy()
 
 auto Manager::createEntry(std::string errMsg, Entry::Level errLvl,
                           std::map<std::string, std::string> additionalData,
-                          const FFDCEntries& ffdc)
-    -> sdbusplus::message::object_path
+                          const FFDCEntries& ffdc) -> sdbusplus::message::object_path
 {
     // For the incoming entry, find the bin associated with the entry
     // Set entryBinName as default
@@ -509,6 +509,31 @@ auto Manager::createEntry(std::string errMsg, Entry::Level errLvl,
                 }
             }
         }
+    }
+
+    if constexpr (USE_BMC_POS_IN_ID)
+    {
+        if (!bmcPosMgr->isPositionValid())
+        {
+            // In case position is now available check again.
+            bmcPosMgr->readBMCPosition();
+
+            if (bmcPosMgr->isPositionValid())
+            {
+                // Find last ID used of this new position.
+                entryId = 0;
+                for (auto id : std::views::keys(entries))
+                {
+                    if (bmcPosMgr->idContainsCurrentPosition(id))
+                    {
+                        entryId = std::max(entryId, id);
+                    }
+                }
+            }
+        }
+
+        // Fold the position into the ID
+        entryId = bmcPosMgr->processEntryId(entryId);
     }
 
     entryId++;
@@ -1261,10 +1286,30 @@ void Manager::restore()
         }
     }
 
-    if (!entries.empty())
+    if constexpr (!USE_BMC_POS_IN_ID)
     {
-        entryId = entries.rbegin()->first;
-        lastCreatedTimeStamp = entries.find(entryId)->second->timestamp();
+        if (!entries.empty())
+        {
+            entryId = entries.rbegin()->first;
+            lastCreatedTimeStamp = entries.find(entryId)->second->timestamp();
+        }
+    }
+    else
+    {
+        // Find the largest ID just from this BMC's entries.
+        entryId = 0;
+        for (auto id : std::views::keys(entries))
+        {
+            if (bmcPosMgr->idContainsCurrentPosition(id))
+            {
+                entryId = std::max(entryId, id);
+            }
+        }
+        lg2::debug("Last entry ID for this BMC is {ID}", "ID", entryId);
+        if (entryId != 0)
+        {
+            lastCreatedTimeStamp = entries.find(entryId)->second->timestamp();
+        }
     }
 }
 

@@ -5,6 +5,7 @@ sources = [
     '../elog_meta.cpp',
     '../util.cpp',
     elog_process_gen,
+    callouts_gen,
 ]
 
 # Conditionally add source files

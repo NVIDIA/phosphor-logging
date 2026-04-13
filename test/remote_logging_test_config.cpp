@@ -102,9 +102,14 @@ TEST_F(TestRemoteLogging, parseConfigGoodIpv6)
     std::string str = "*.* @@[abcd:ef01::01]:50000";
     std::stringstream ss(str);
     auto ret = phosphor::rsyslog_config::internal::parseConfig(ss);
-    EXPECT_TRUE(ret);
-    EXPECT_EQ(std::get<0>(*ret), "abcd:ef01::01");
-    EXPECT_EQ(std::get<1>(*ret), 50000);
+    if (!ret)
+    {
+        GTEST_FAIL() << "remote logging config should be present";
+        return;
+    }
+    const auto& val = *ret;
+    EXPECT_EQ(std::get<0>(val), "abcd:ef01::01");
+    EXPECT_EQ(std::get<1>(val), 50000);
 }
 
 TEST_F(TestRemoteLogging, parseConfigBadIpv6WithoutRightBracket)
@@ -167,8 +172,13 @@ TEST_F(TestRemoteLogging, parseConfigTCP)
     std::string str = "*.* @@[abcd:ef01::01]:50000";
     std::stringstream ss(str);
     auto ret = phosphor::rsyslog_config::internal::parseConfig(ss);
-    EXPECT_TRUE(ret);
-    EXPECT_EQ(std::get<2>(*ret),
+    if (!ret)
+    {
+        GTEST_FAIL() << "remote logging config should be present";
+        return;
+    }
+    const auto& val = *ret;
+    EXPECT_EQ(std::get<2>(val),
               phosphor::rsyslog_config::NetworkClient::TransportProtocol::TCP);
 }
 
@@ -178,8 +188,13 @@ TEST_F(TestRemoteLogging, parseConfigUdp)
     std::string str = "*.* @[abcd:ef01::01]:50000";
     std::stringstream ss(str);
     auto ret = phosphor::rsyslog_config::internal::parseConfig(ss);
-    EXPECT_TRUE(ret);
-    EXPECT_EQ(std::get<2>(*ret),
+    if (!ret)
+    {
+        GTEST_FAIL() << "remote logging config should be present";
+        return;
+    }
+    const auto& val = *ret;
+    EXPECT_EQ(std::get<2>(val),
               phosphor::rsyslog_config::NetworkClient::TransportProtocol::UDP);
 }
 

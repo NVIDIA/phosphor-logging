@@ -1,18 +1,5 @@
-/**
- * Copyright © 2021 IBM Corporation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright 2021 IBM Corporation
 
 extern "C"
 {
@@ -243,7 +230,7 @@ void SbeFFDC::process(const sbeFfdcPacketType& ffdcPkt)
 {
     using json = nlohmann::json;
 
-    // formated FFDC data structure after FFDC packet processing
+    // formatted FFDC data structure after FFDC packet processing
     FFDC ffdc;
 
     try
@@ -277,7 +264,7 @@ void SbeFFDC::process(const sbeFfdcPacketType& ffdcPkt)
     auto calloutData = pelJSONFmtCalloutDataList.dump();
     util::TemporaryFile ffdcFile(calloutData.c_str(), calloutData.size());
 
-    // Create json callout type pel FFDC file structre.
+    // Create json callout type pel FFDC file structure.
     PelFFDCfile pf;
     pf.format = openpower::pels::UserDataFormat::json;
     pf.subType = openpower::pels::jsonCalloutSubtype;

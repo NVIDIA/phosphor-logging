@@ -11,6 +11,7 @@ logging.
 - [Event Log Extensions](#event-log-extensions)
 - [Remote Logging](#remote-logging-via-rsyslog)
 - [Boot Fail on Hardware Errors](#boot-fail-on-hardware-errors)
+- [Encoding BMC position in entry ID](#encoding-the-bmc-position-in-the-entry-id)
 
 ## To Build
 
@@ -73,10 +74,19 @@ lg2::commit(sdbusplus::event::xyz::openbmc_project::Logging::Cleared(
 ```
 
 The above function will return the object path of the created log entry. This
-log-entry can be resolved with the helper `lg2::resolve` fuction.
+log-entry can be resolved with the helper `lg2::resolve` function.
 
 ```cpp
 lg2::resolve(logPath);
+```
+
+Services may override the default assigned severity of the event by providing
+the optional parameter:
+
+```cpp
+#include <syslog.h>
+lg2::commit(sdbusplus::event::xyz::openbmc_project::Logging::Cleared(
+    "NUMBER_OF_LOGS", count), LOG_CRIT);
 ```
 
 ### Event Log Filtering
@@ -502,3 +512,19 @@ obmcutil listbootblock
 ```
 
 Resolve or clear the corresponding entry to allow the system to boot.
+
+## Encoding the BMC position in the entry ID
+
+On redundant BMC systems where multiple BMCs can be creating event logs, the
+'use-bmc-pos-in-id' meson option will trigger the encoding of the BMC position
+into the upper byte of the event log ID so that all event logs will have unique
+IDs.
+
+The BMC position is read from the file /run/openbmc/bmc_position.
+
+If the file is missing or the value is std::numeric_limits<size_t>::max(), then
+a 0xFF will be encoded as the ID.
+
+This option is enabled automatically in bitbake when the 'redundant-bmc' machine
+feature is enabled. This is done by including 'redundant-bmc.inc' in the
+appropriate system conf file.

@@ -203,15 +203,22 @@ TEST(TestLogPurgePolicy, testEnableThenDisableImmediate)
                    {{DEFAULT_BIN_KEY, DEFAULT_BIN_NAME}});
     manager.create("Test Error Event 3", Entry::Level::Error,
                    {{DEFAULT_BIN_KEY, DEFAULT_BIN_NAME}});
-    EXPECT_TRUE(manager.entries.at(1));
-    EXPECT_TRUE(manager.entries.at(2));
-    EXPECT_TRUE(manager.entries.at(3));
-    manager.entries.at(1)->resolved(true);
-    manager.entries.at(3)->resolved(true);
+    // Get actual entry IDs (map is ordered by key)
+    ASSERT_EQ(manager.entries.size(), 3u);
+    auto it = manager.entries.begin();
+    uint32_t id1 = it->first; ++it;
+    uint32_t id2 = it->first; ++it;
+    uint32_t id3 = it->first;
 
-    EXPECT_TRUE(manager.entries.at(1)->resolved());
-    EXPECT_FALSE(manager.entries.at(2)->resolved());
-    EXPECT_TRUE(manager.entries.at(3)->resolved());
+    EXPECT_TRUE(manager.entries.at(id1));
+    EXPECT_TRUE(manager.entries.at(id2));
+    EXPECT_TRUE(manager.entries.at(id3));
+    manager.entries.at(id1)->resolved(true);
+    manager.entries.at(id3)->resolved(true);
+
+    EXPECT_TRUE(manager.entries.at(id1)->resolved());
+    EXPECT_FALSE(manager.entries.at(id2)->resolved());
+    EXPECT_TRUE(manager.entries.at(id3)->resolved());
 
     // Test 0: when log purge is disabled, resolving logs
     // doesn't mark them for deletion
@@ -251,11 +258,18 @@ TEST(TestLogPurgePolicy, testRuntimeEnable)
                    {{DEFAULT_BIN_KEY, DEFAULT_BIN_NAME}});
     manager.create("Test Error Event 3", Entry::Level::Error,
                    {{DEFAULT_BIN_KEY, DEFAULT_BIN_NAME}});
-    EXPECT_TRUE(manager.entries.at(1));
-    EXPECT_TRUE(manager.entries.at(2));
-    EXPECT_TRUE(manager.entries.at(3));
-    manager.entries.at(1)->resolved(true);
-    manager.entries.at(3)->resolved(true);
+    // Get actual entry IDs (map is ordered by key)
+    ASSERT_EQ(manager.entries.size(), 3u);
+    auto it = manager.entries.begin();
+    uint32_t id1 = it->first; ++it;
+    uint32_t id2 = it->first; ++it;
+    uint32_t id3 = it->first;
+
+    EXPECT_TRUE(manager.entries.at(id1));
+    EXPECT_TRUE(manager.entries.at(id2));
+    EXPECT_TRUE(manager.entries.at(id3));
+    manager.entries.at(id1)->resolved(true);
+    manager.entries.at(id3)->resolved(true);
 
     manager.setAutoPurgeResolved(true);
 
@@ -277,9 +291,9 @@ TEST(TestLogPurgePolicy, testRuntimeEnable)
     EXPECT_EQ(loop_ret, 0);
 
     // Test 2: Resolved events should be purged
-    EXPECT_THROW(manager.entries.at(1), std::out_of_range);
-    EXPECT_NO_THROW(manager.entries.at(2));
-    EXPECT_THROW(manager.entries.at(3), std::out_of_range);
+    EXPECT_THROW(manager.entries.at(id1), std::out_of_range);
+    EXPECT_NO_THROW(manager.entries.at(id2));
+    EXPECT_THROW(manager.entries.at(id3), std::out_of_range);
     EXPECT_EQ(manager.entries.size(), 1);
 }
 

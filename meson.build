@@ -184,6 +184,7 @@ log_manager_sources = [
     elog_lookup_gen,
     elog_process_gen,
     files(
+        'bmc_pos_mgr.cpp',
         'elog_entry.cpp',
         'elog_meta.cpp',
         'elog_serialize.cpp',
@@ -202,17 +203,25 @@ log_manager_deps = [
     sdeventplus_dep,
     nlohmann_json_dep,
     topology_dep,
+    declare_dependency(sources: generated_headers),
 ]
-executable(
-    'phosphor-log-manager',
+log_manager_lib = static_library(
+    'log_manager_lib',
     log_sources,
     log_manager_sources,
     log_manager_ext_sources,
+    include_directories: include_directories('gen'),
+    dependencies: [log_manager_deps, log_manager_ext_deps],
+    cpp_args: log_manager_ext_args,
+)
+executable(
+    'phosphor-log-manager',
     'log_manager_main.cpp',
     include_directories: include_directories('gen'),
     cpp_args: log_manager_ext_args,
-    dependencies: [log_manager_deps, log_manager_ext_deps],
+    dependencies: [conf_h_dep, log_manager_deps, phosphor_logging_dep],
     install: true,
+    link_with: log_manager_lib,
 )
 
 executable(

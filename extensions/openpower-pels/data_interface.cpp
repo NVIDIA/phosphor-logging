@@ -1,18 +1,5 @@
-/**
- * Copyright © 2019 IBM Corporation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright 2019 IBM Corporation
 
 #include "data_interface.hpp"
 
@@ -57,8 +44,6 @@ namespace object_path
 {
 constexpr auto objectMapper = "/xyz/openbmc_project/object_mapper";
 constexpr auto systemInv = "/xyz/openbmc_project/inventory/system";
-constexpr auto motherBoardInv =
-    "/xyz/openbmc_project/inventory/system/chassis/motherboard";
 constexpr auto baseInv = "/xyz/openbmc_project/inventory";
 constexpr auto bmcState = "/xyz/openbmc_project/state/bmc0";
 constexpr auto chassisState = "/xyz/openbmc_project/state/chassis0";
@@ -103,6 +88,7 @@ constexpr auto invPowerSupply =
     "xyz.openbmc_project.Inventory.Item.PowerSupply";
 constexpr auto inventoryManager = "xyz.openbmc_project.Inventory.Manager";
 constexpr auto systemdMgr = "org.freedesktop.systemd1.Manager";
+constexpr auto redundancy = "xyz.openbmc_project.State.BMC.Redundancy";
 } // namespace interface
 
 using namespace sdbusplus::server::xyz::openbmc_project::state::boot;
@@ -281,10 +267,20 @@ DBusPathList DataInterface::getPaths(const DBusInterfaceList& interfaces) const
 
     auto reply = _bus.call(method, dbusTimeout);
 
-    DBusPathList paths;
-    reply.read(paths);
+    auto paths = reply.unpack<DBusPathList>();
 
     return paths;
+}
+
+DBusSubTree DataInterface::getSubTree(const DBusInterfaceList& interfaces) const
+{
+    auto method = _bus.new_method_call(service_name::objectMapper,
+                                       object_path::objectMapper,
+                                       interface::objectMapper, "GetSubTree");
+    method.append(std::string{"/"}, 0, interfaces);
+    auto reply = _bus.call(method, dbusTimeout);
+
+    return reply.unpack<DBusSubTree>();
 }
 
 DBusService DataInterface::getService(const std::string& objectPath,
@@ -298,8 +294,7 @@ DBusService DataInterface::getService(const std::string& objectPath,
 
     auto reply = _bus.call(method, dbusTimeout);
 
-    std::map<DBusService, DBusInterfaceList> response;
-    reply.read(response);
+    auto response = reply.unpack<std::map<DBusService, DBusInterfaceList>>();
 
     if (!response.empty())
     {
@@ -382,50 +377,32 @@ std::string DataInterface::getMachineSerialNumber() const
     return sn;
 }
 
-std::string DataInterface::getMotherboardCCIN() const
-{
-    std::string ccin;
-
-    try
-    {
-        auto service =
-            getService(object_path::motherBoardInv, interface::viniRecordVPD);
-        if (!service.empty())
-        {
-            DBusValue value;
-            getProperty(service, object_path::motherBoardInv,
-                        interface::viniRecordVPD, "CC", value);
-
-            auto cc = std::get<std::vector<uint8_t>>(value);
-            ccin = std::string{cc.begin(), cc.end()};
-        }
-    }
-    catch (const std::exception& e)
-    {
-        lg2::warning("Failed reading Motherboard CCIN property from "
-                     "interface: {IFACE} exception: {ERROR}",
-                     "IFACE", interface::viniRecordVPD, "ERROR", e);
-    }
-
-    return ccin;
-}
-
 std::vector<uint8_t> DataInterface::getSystemIMKeyword() const
 {
-    std::vector<uint8_t> systemIM;
+    static std::vector<uint8_t> systemIM;
+
+    if (!systemIM.empty())
+    {
+        return systemIM;
+    }
 
     try
     {
-        auto service =
-            getService(object_path::motherBoardInv, interface::vsbpRecordVPD);
-        if (!service.empty())
-        {
-            DBusValue value;
-            getProperty(service, object_path::motherBoardInv,
-                        interface::vsbpRecordVPD, "IM", value);
+        auto subtree = getSubTree({interface::vsbpRecordVPD});
 
-            systemIM = std::get<std::vector<uint8_t>>(value);
+        if (subtree.empty())
+        {
+            lg2::warning("No VSBP VPD interface found");
+            return systemIM;
         }
+
+        DBusValue imValue;
+        const auto& path = subtree.begin()->first;
+        const auto& interfaceMap = subtree.begin()->second;
+        const auto& service = interfaceMap.begin()->first;
+        getProperty(service, path, interface::vsbpRecordVPD, "IM", imValue);
+
+        systemIM = std::get<std::vector<uint8_t>>(imValue);
     }
     catch (const std::exception& e)
     {
@@ -507,8 +484,7 @@ std::string DataInterface::expandLocationCode(const std::string& locationCode,
 
     auto reply = _bus.call(method, dbusTimeout);
 
-    std::string expandedLocationCode;
-    reply.read(expandedLocationCode);
+    auto expandedLocationCode = reply.unpack<std::string>();
 
     if (!connectorLoc.empty())
     {
@@ -545,8 +521,7 @@ std::vector<std::string> DataInterface::getInventoryFromLocCode(
 
     auto reply = _bus.call(method, dbusTimeout);
 
-    std::vector<sdbusplus::message::object_path> entries;
-    reply.read(entries);
+    auto entries = reply.unpack<std::vector<sdbusplus::message::object_path>>();
 
     std::vector<std::string> paths;
 
@@ -625,17 +600,8 @@ void DataInterface::setCriticalAssociation(const std::string& objectPath) const
 
 std::vector<std::string> DataInterface::getSystemNames() const
 {
-    DBusSubTree subtree;
-    DBusValue names;
+    auto subtree = getSubTree({interface::compatible});
 
-    auto method = _bus.new_method_call(service_name::objectMapper,
-                                       object_path::objectMapper,
-                                       interface::objectMapper, "GetSubTree");
-    method.append(std::string{"/"}, 0,
-                  std::vector<std::string>{interface::compatible});
-    auto reply = _bus.call(method, dbusTimeout);
-
-    reply.read(subtree);
     if (subtree.empty())
     {
         throw std::runtime_error("Compatible interface not on D-Bus");
@@ -648,6 +614,8 @@ std::vector<std::string> DataInterface::getSystemNames() const
         {
             continue;
         }
+
+        DBusValue names;
 
         getProperty(iface->first, path, interface::compatible, "Names", names);
 
@@ -908,8 +876,7 @@ DBusPathList DataInterface::getAssociatedPaths(
             service_name::objectMapper, object_path::objectMapper,
             interface::objectMapper, "GetAssociatedSubTreePaths");
         method.append(sdbusplus::message::object_path(associatedPath),
-                      sdbusplus::message::object_path(subtree), depth,
-                      interfaces);
+                      sdbusplus::message::object_path(subtree), depth, interfaces);
 
         auto reply = _bus.call(method, dbusTimeout);
         reply.read(paths);
@@ -1003,7 +970,7 @@ void DataInterface::inventoryIfaceAdded(sdbusplus::message_t& msg)
     auto itemIt = interfaces.find(interface::invItem);
     if (itemIt != interfaces.end())
     {
-        notifyPresenceSubsribers(path.str, itemIt->second);
+        notifyPresenceSubscribers(path.str, itemIt->second);
     }
 }
 
@@ -1019,11 +986,11 @@ void DataInterface::presenceChanged(sdbusplus::message_t& msg)
     }
 
     std::string path = msg.get_path();
-    notifyPresenceSubsribers(path, properties);
+    notifyPresenceSubscribers(path, properties);
 }
 
-void DataInterface::notifyPresenceSubsribers(const std::string& path,
-                                             const DBusPropertyMap& properties)
+void DataInterface::notifyPresenceSubscribers(const std::string& path,
+                                              const DBusPropertyMap& properties)
 {
     auto prop = properties.find("Present");
     if ((prop == properties.end()) || (!std::get<bool>(prop->second)))
@@ -1137,8 +1104,7 @@ void DataInterface::subscribeToSystemdSignals()
                         std::string jobUnitName, jobUnitResult;
 
                         msg.read(jobID, jobObjPath, jobUnitName, jobUnitResult);
-                        if ((jobUnitName ==
-                             "openpower-update-bios-attr-table.service") &&
+                        if ((jobUnitName == "obmc-recover-pnor.service") &&
                             (jobUnitResult == "done"))
                         {
 #ifdef PEL_ENABLE_PHAL
@@ -1154,7 +1120,7 @@ void DataInterface::subscribeToSystemdSignals()
     catch (const sdbusplus::exception_t& e)
     {
         lg2::error(
-            "Exception occured while handling JobRemoved systemd signal, "
+            "Exception occurred while handling JobRemoved systemd signal, "
             "exception: {ERROR}",
             "ERROR", e);
     }
@@ -1187,10 +1153,54 @@ void DataInterface::unsubscribeFromSystemdSignals()
     catch (const sdbusplus::exception_t& e)
     {
         lg2::error(
-            "Exception occured while unsubscribing from JobRemoved systemd signal, "
+            "Exception occurred while unsubscribing from JobRemoved systemd signal, "
             "exception: {ERROR}",
             "ERROR", e);
     }
+}
+
+std::optional<std::pair<bool, std::string>>
+    DataInterface::getBMCRedundancyFields() const
+{
+    try
+    {
+        bool redundancyEnabled = false;
+        std::string role;
+
+        auto service = getService(object_path::bmcState, interface::redundancy);
+
+        auto properties = getAllProperties(service, object_path::bmcState,
+                                           interface::redundancy);
+        auto prop = properties.find("RedundancyEnabled");
+        if (prop != properties.end())
+        {
+            redundancyEnabled = std::get<bool>(prop->second);
+        }
+        else
+        {
+            lg2::warning(
+                "RedundancyEnabled property not on Redundancy interface");
+        }
+
+        prop = properties.find("Role");
+        if (prop != properties.end())
+        {
+            role = std::get<std::string>(prop->second);
+            if (role.contains('.'))
+            {
+                role = role.substr(role.find_last_of('.') + 1);
+            }
+        }
+        else
+        {
+            lg2::warning("Role property not on Redundancy interface");
+        }
+
+        return std::make_pair(redundancyEnabled, role);
+    }
+    catch (const std::exception& e)
+    {}
+    return std::nullopt;
 }
 
 } // namespace pels

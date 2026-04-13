@@ -9,6 +9,7 @@
 
 #include <filesystem>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace phosphor
@@ -20,14 +21,14 @@ namespace test
 
 namespace fs = std::filesystem;
 
-sdbusplus::SdBusMock sdbusMock;
-sdbusplus::bus_t bus = sdbusplus::get_mocked_new(&sdbusMock);
-phosphor::logging::internal::Manager manager(bus, OBJ_INTERNAL);
-
 class TestSerialization : public testing::Test
 {
   public:
-    TestSerialization()
+    testing::NiceMock<sdbusplus::SdBusMock> sdbusMock;
+    sdbusplus::bus_t bus = sdbusplus::get_mocked_new(&sdbusMock);
+    phosphor::logging::internal::Manager manager;
+
+    TestSerialization() : manager(bus, OBJ_INTERNAL)
     {
         char tmplt[] = "/tmp/logging_test.XXXXXX";
         dir = fs::path(mkdtemp(tmplt));
