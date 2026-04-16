@@ -170,8 +170,11 @@ struct RedfishRegistry
     std::vector<std::string> args;
     Level severity;
     std::string resolution;
-    bool isDeviceError; // true = remote device error, false = BMC/host
-                        // controller error
+    bool isDeviceError;  // true = remote device error, false = BMC/host
+                         // controller error
+    std::string errorId; // RAS catalog error name
+                         // (e.g., "FWUP_I2C_DEVICE_TX_BUS_BUSY"); empty if
+                         // unmapped
 };
 
 /**
