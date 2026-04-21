@@ -43,22 +43,14 @@ extern const std::map<
 constexpr auto FQPN_PREFIX = "xyz.openbmc_project.Logging.Entry.";
 constexpr auto FQPN_DELIM = "=";
 
-static constexpr auto mapperBusName = "xyz.openbmc_project.ObjectMapper";
-static constexpr auto mapperObjPath = "/xyz/openbmc_project/object_mapper";
-static constexpr auto mapperIntf = "xyz.openbmc_project.ObjectMapper";
 constexpr auto dbusProperty = "org.freedesktop.DBus.Properties";
 constexpr auto policyInterface = "xyz.openbmc_project.Logging.Settings";
 constexpr auto policyLinear =
     "xyz.openbmc_project.Logging.Settings.Policy.Linear";
 constexpr auto policyDefault =
     "xyz.openbmc_project.Logging.Settings.Policy.Circular";
-
-using DBusInterface = std::string;
-using DBusService = std::string;
-using DBusPath = std::string;
-using DBusInterfaceList = std::vector<DBusInterface>;
-using DBusSubTree =
-    std::map<DBusPath, std::map<DBusService, DBusInterfaceList>>;
+constexpr auto loggingSettingsService = "xyz.openbmc_project.Settings";
+constexpr auto loggingSettingsObjPath = "/xyz/openbmc_project/logging/settings";
 
 namespace phosphor
 {
@@ -358,29 +350,9 @@ std::string Manager::getSelPolicy()
         return policyDefault;
     }
 
-    DBusSubTree subtree;
-
-    auto method = this->busLog.new_method_call(mapperBusName, mapperObjPath,
-                                               mapperIntf, "GetSubTree");
-    method.append(std::string{"/"}, 0,
-                  std::vector<std::string>{policyInterface});
-    auto reply = this->busLog.call(method);
-    reply.read(subtree);
-
-    if (subtree.empty())
-    {
-        lg2::info("Compatible interface not on D-Bus. Continuing with default "
-                  "Circular Policy");
-        return policyDefault;
-    }
-
-    const auto& object = *(subtree.begin());
-    const auto& policyPath = object.first;
-    const auto& policyService = object.second.begin()->first;
-
     std::variant<std::string> property;
-    method = this->busLog.new_method_call(
-        policyService.c_str(), policyPath.c_str(), dbusProperty, "Get");
+    auto method = this->busLog.new_method_call(
+        loggingSettingsService, loggingSettingsObjPath, dbusProperty, "Get");
     method.append(policyInterface, "SelPolicy");
 
     try
@@ -390,8 +362,8 @@ std::string Manager::getSelPolicy()
     }
     catch (...)
     {
-        lg2::error("Error reading SelPolicy  property. Continuing with default "
-                   "Circular Policy");
+        lg2::info("Error reading SelPolicy  property. Continuing with default "
+                  "Circular Policy");
         return policyDefault;
     }
 
