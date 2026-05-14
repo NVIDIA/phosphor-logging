@@ -219,9 +219,16 @@ executable(
     'log_manager_main.cpp',
     include_directories: include_directories('gen'),
     cpp_args: log_manager_ext_args,
-    dependencies: [conf_h_dep, log_manager_deps, phosphor_logging_dep],
+    dependencies: [
+        conf_h_dep,
+        phosphor_logging_dep.partial_dependency(
+            includes: true,
+            links: true,
+            compile_args: true,
+        ),
+    ],
     install: true,
-    link_with: log_manager_lib,
+    link_whole: log_manager_lib,
 )
 
 executable(
