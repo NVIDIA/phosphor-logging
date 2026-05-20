@@ -15,9 +15,7 @@ project(
 
 enable_rsyslog_fwd_actions_conf = get_option('enable_rsyslog_fwd_actions_conf')
 enable_log_streaming = get_option('enable_log_streaming')
-enable_erase_with_multiple_process = get_option(
-    'enable_erase_with_multiple_process',
-)
+enable_erase_with_callback = get_option('enable_erase_with_callback')
 
 # Define a preprocessor macro if the option is enabled
 if enable_rsyslog_fwd_actions_conf
@@ -26,11 +24,8 @@ endif
 if enable_log_streaming
     add_project_arguments('-DENABLE_LOG_STREAMING', language: 'cpp')
 endif
-if enable_erase_with_multiple_process
-    add_project_arguments(
-        '-DENABLE_ERASE_WITH_MULTIPLE_PROCESS',
-        language: 'cpp',
-    )
+if enable_erase_with_callback
+    add_project_arguments('-DENABLE_ERASE_WITH_CALLBACK', language: 'cpp')
 endif
 
 cpp = meson.get_compiler('cpp')

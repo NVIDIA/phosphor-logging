@@ -182,7 +182,7 @@ void propagatePowerErrorToDescendants(const DeviceErrorMetadata& powerError)
     for (auto& [deviceEid, deviceStore] : deviceErrorDatabase)
     {
         // Only propagate to power-dependent devices
-        if (deviceStore.poweredInStandby)
+        if (!deviceStore.poweredInStandby)
         {
             // Create power error for this device
             DeviceErrorMetadata childError = powerError;
@@ -212,7 +212,7 @@ void clearPropagatedPowerErrorsFromDescendants(uint8_t parentEid)
         }
 
         // Only clear from power-dependent devices
-        if (deviceStore.poweredInStandby)
+        if (!deviceStore.poweredInStandby)
         {
             // Clear Power errors
             auto classIt = deviceStore.errorClasses.find(ErrorClass::Power);

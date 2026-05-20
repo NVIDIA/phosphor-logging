@@ -116,7 +116,7 @@ void addDeviceToRegistry(const PropertyMap& properties, uint8_t eid,
         parentName = std::get<std::string>(it->second);
     }
 
-    bool poweredInStandby = false;
+    bool poweredInStandby = true;
     if (auto it = properties.find("poweredInStandby"); it != properties.end())
     {
         poweredInStandby = std::get<bool>(it->second);

@@ -541,24 +541,6 @@ TEST_F(TestSerialization, LogManagerParseJsonInvalidJson)
 }
 
 /**
- * erase(entryId, false) removes entry from manager but does not remove
- * persistent files
- */
-TEST_F(TestSerialization, LogManagerEraseWithRemovePersistentFilesFalse)
-{
-    int infoCountBefore = manager.getInfoErrSize();
-    auto objPath =
-        manager.create("erase no rm", Entry::Level::Informational, {});
-    ASSERT_NE(objPath, sdbusplus::message::object_path("/"));
-    uint32_t eid = manager.lastEntryID();
-    EXPECT_EQ(manager.getInfoErrSize(), infoCountBefore + 1);
-
-    manager.erase(eid, false);
-
-    EXPECT_EQ(manager.getInfoErrSize(), infoCountBefore);
-}
-
-/**
  * isCalloutPresent: false when no CALLOUT_ key in additionalData
  */
 TEST_F(TestSerialization, LogManagerIsCalloutPresentFalse)
@@ -908,10 +890,9 @@ TEST_F(TestSerialization, LogManagerSetInfoLogCapacityFileError)
 }
 
 /**
- * erase(entryId, true) with non-default bin to hit non-default deletePath
- * branch
+ * erase(entryId) with non-default bin to hit non-default deletePath branch
  */
-TEST_F(TestSerialization, LogManagerEraseNonDefaultBinRemovePersistent)
+TEST_F(TestSerialization, LogManagerEraseNonDefaultBin)
 {
     std::string binName = "EraseTestBin";
     phosphor::logging::internal::Bin bin(
@@ -925,7 +906,7 @@ TEST_F(TestSerialization, LogManagerEraseNonDefaultBinRemovePersistent)
                        {{DEFAULT_BIN_KEY, binName}});
     ASSERT_NE(path, sdbusplus::message::object_path("/"));
     uint32_t eid = manager.lastEntryID();
-    manager.erase(eid, true);
+    manager.erase(eid);
     EXPECT_EQ(manager.entries.find(eid), manager.entries.end());
 }
 
