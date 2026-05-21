@@ -318,7 +318,9 @@ TEST_F(TestNamespaceLogging, testLogPersistency)
 
 TEST_F(TestNamespaceLogging, testManagerStatsAndConfig)
 {
-    std::string binName = "tempBin";
+    // Unique bin name avoids filesystem leftovers from earlier tests using
+    // "tempBin" that cause serialize() to fail under valgrind.
+    std::string binName = "cfgStatsBin";
     auto binErrorCapacity = 10;
     auto binInfoCapacity = 20;
     auto bin = phosphor::logging::internal::Bin(

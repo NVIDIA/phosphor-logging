@@ -1127,7 +1127,7 @@ void Manager::restore()
             continue;
         }
 
-        auto id = file.path().filename().c_str();
+        auto id = file.path().filename().string();
         long idNum;
         try
         {

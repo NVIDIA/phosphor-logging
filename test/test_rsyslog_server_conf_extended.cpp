@@ -266,8 +266,10 @@ TEST_F(TestRsyslogServerConfExtended, ParseConfigWithTrailingWhitespace)
     std::stringstream ss(configLine);
     auto result = phosphor::rsyslog_config::internal::parseConfig(ss);
 
-    EXPECT_TRUE(result.has_value());
+    ASSERT_TRUE(result.has_value());
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
     EXPECT_EQ(std::get<0>(*result), "192.168.1.100");
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
     EXPECT_EQ(std::get<1>(*result), 514);
 }
 
@@ -277,8 +279,10 @@ TEST_F(TestRsyslogServerConfExtended, ParseConfigWithHostname)
     std::stringstream ss(configLine);
     auto result = phosphor::rsyslog_config::internal::parseConfig(ss);
 
-    EXPECT_TRUE(result.has_value());
+    ASSERT_TRUE(result.has_value());
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
     EXPECT_EQ(std::get<0>(*result), "syslog.example.com");
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
     EXPECT_EQ(std::get<1>(*result), 514);
 }
 
@@ -288,8 +292,10 @@ TEST_F(TestRsyslogServerConfExtended, ParseConfigWithShortIPv6)
     std::stringstream ss(configLine);
     auto result = phosphor::rsyslog_config::internal::parseConfig(ss);
 
-    EXPECT_TRUE(result.has_value());
+    ASSERT_TRUE(result.has_value());
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
     EXPECT_EQ(std::get<0>(*result), "::1");
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
     EXPECT_EQ(std::get<1>(*result), 514);
 }
 
@@ -299,7 +305,8 @@ TEST_F(TestRsyslogServerConfExtended, ParseConfigWithHighPort)
     std::stringstream ss(configLine);
     auto result = phosphor::rsyslog_config::internal::parseConfig(ss);
 
-    EXPECT_TRUE(result.has_value());
+    ASSERT_TRUE(result.has_value());
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
     EXPECT_EQ(std::get<1>(*result), 65535);
 }
 
