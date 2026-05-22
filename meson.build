@@ -221,6 +221,7 @@ executable(
             links: true,
             compile_args: true,
         ),
+        declare_dependency(sources: generated_headers),
     ],
     install: true,
     link_whole: log_manager_lib,

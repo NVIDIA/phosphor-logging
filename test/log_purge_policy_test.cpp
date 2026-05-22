@@ -206,8 +206,10 @@ TEST(TestLogPurgePolicy, testEnableThenDisableImmediate)
     // Get actual entry IDs (map is ordered by key)
     ASSERT_EQ(manager.entries.size(), 3u);
     auto it = manager.entries.begin();
-    uint32_t id1 = it->first; ++it;
-    uint32_t id2 = it->first; ++it;
+    uint32_t id1 = it->first;
+    ++it;
+    uint32_t id2 = it->first;
+    ++it;
     uint32_t id3 = it->first;
 
     EXPECT_TRUE(manager.entries.at(id1));
@@ -261,8 +263,10 @@ TEST(TestLogPurgePolicy, testRuntimeEnable)
     // Get actual entry IDs (map is ordered by key)
     ASSERT_EQ(manager.entries.size(), 3u);
     auto it = manager.entries.begin();
-    uint32_t id1 = it->first; ++it;
-    uint32_t id2 = it->first; ++it;
+    uint32_t id1 = it->first;
+    ++it;
+    uint32_t id2 = it->first;
+    ++it;
     uint32_t id3 = it->first;
 
     EXPECT_TRUE(manager.entries.at(id1));

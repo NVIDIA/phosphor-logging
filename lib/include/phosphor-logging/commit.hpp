@@ -47,6 +47,7 @@ auto commit(sdbusplus::async::context& ctx,
  *  @return None
  */
 auto resolve(sdbusplus::async::context& ctx,
-             const sdbusplus::message::object_path& logPath) -> sdbusplus::async::task<>;
+             const sdbusplus::message::object_path& logPath)
+    -> sdbusplus::async::task<>;
 
 } // namespace lg2

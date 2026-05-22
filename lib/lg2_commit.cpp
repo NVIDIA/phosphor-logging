@@ -194,7 +194,8 @@ auto commit(sdbusplus::async::context& ctx,
 }
 
 auto resolve(sdbusplus::async::context& ctx,
-             const sdbusplus::message::object_path& logPath) -> sdbusplus::async::task<>
+             const sdbusplus::message::object_path& logPath)
+    -> sdbusplus::async::task<>
 {
     using details::Entry;
 

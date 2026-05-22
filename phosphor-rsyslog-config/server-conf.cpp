@@ -213,11 +213,10 @@ std::optional<std::tuple<
     }
     try
     {
-        return std::make_tuple(std::move(serverAddress), std::stoul(serverPort),
-                               serverTransportProtocol, tls, clientModeEnabled,
-                               facilities,
-                               severity.value_or(
-                                   RsyslogClient::SeverityType::All));
+        return std::make_tuple(
+            std::move(serverAddress), std::stoul(serverPort),
+            serverTransportProtocol, tls, clientModeEnabled, facilities,
+            severity.value_or(RsyslogClient::SeverityType::All));
     }
     catch (const std::exception& ex)
     {

@@ -176,8 +176,8 @@ TEST_F(RedfishEventLogTest, SendEventNoConnectionOverload)
     // complete — LeakSanitizer reports the allocation. Verifying the
     // function pointer keeps the link-time check intact without leaking.
     using SingletonOverload =
-        void (*)(MESSAGE_TYPE, Entry::Level,
-                 const std::vector<std::string>&, const std::string&);
+        void (*)(MESSAGE_TYPE, Entry::Level, const std::vector<std::string>&,
+                 const std::string&);
     SingletonOverload fn = &sendEvent;
     EXPECT_NE(fn, nullptr);
 }
@@ -240,8 +240,8 @@ TEST_F(RedfishEventLogTest, FunctionSignaturesValid)
     // Overload 2: singleton-based. Verify the symbol exists at link time
     // without invoking it — see DISABLED rationale above.
     using SingletonOverload =
-        void (*)(MESSAGE_TYPE, Entry::Level,
-                 const std::vector<std::string>&, const std::string&);
+        void (*)(MESSAGE_TYPE, Entry::Level, const std::vector<std::string>&,
+                 const std::string&);
     SingletonOverload fn = &sendEvent;
     EXPECT_NE(fn, nullptr);
 }

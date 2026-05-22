@@ -387,7 +387,8 @@ std::string Manager::getSelPolicy()
 
 auto Manager::createEntry(std::string errMsg, Entry::Level errLvl,
                           std::map<std::string, std::string> additionalData,
-                          const FFDCEntries& ffdc) -> sdbusplus::message::object_path
+                          const FFDCEntries& ffdc)
+    -> sdbusplus::message::object_path
 {
     // For the incoming entry, find the bin associated with the entry
     // Set entryBinName as default

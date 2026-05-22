@@ -876,7 +876,8 @@ DBusPathList DataInterface::getAssociatedPaths(
             service_name::objectMapper, object_path::objectMapper,
             interface::objectMapper, "GetAssociatedSubTreePaths");
         method.append(sdbusplus::message::object_path(associatedPath),
-                      sdbusplus::message::object_path(subtree), depth, interfaces);
+                      sdbusplus::message::object_path(subtree), depth,
+                      interfaces);
 
         auto reply = _bus.call(method, dbusTimeout);
         reply.read(paths);
