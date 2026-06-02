@@ -2,7 +2,10 @@
 
 #include "server-conf.hpp"
 
+#include <phosphor-logging/lg2.hpp>
 #include <sdbusplus/bus.hpp>
+
+#include <cstdlib>
 
 #ifdef ENABLE_RSYSLOG_FWD_ACTIONS_CONF
 #include "conf.hpp"
@@ -11,6 +14,7 @@
 #endif
 
 int main(int /*argc*/, char* /*argv*/[])
+try
 {
     auto bus = sdbusplus::bus::new_default();
 
@@ -31,4 +35,15 @@ int main(int /*argc*/, char* /*argv*/[])
     }
 
     return 0;
+}
+catch (const std::exception& e)
+{
+    lg2::error("phosphor-rsyslog-config: unhandled exception: {ERR}", "ERR",
+               e.what());
+    return EXIT_FAILURE;
+}
+catch (...)
+{
+    lg2::error("phosphor-rsyslog-config: unknown unhandled exception");
+    return EXIT_FAILURE;
 }
