@@ -22,6 +22,7 @@ nvidia_platform_event_headers = files(
 nvidia_platform_event_lib = static_library(
     'nvidia_platform_event',
     nvidia_platform_event_lib_sources,
+    generated_headers,
     include_directories: include_directories(
         '../..',
         '../../gen',
