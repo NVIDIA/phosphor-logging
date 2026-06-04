@@ -117,18 +117,18 @@ struct ErrorClassData
 struct DeviceErrorStore
 {
     uint8_t eid;
-    std::string deviceId;   // Device name (e.g., "GPU0", "Bridge1")
+    std::string deviceId;          // Device name (e.g., "GPU0", "Bridge1")
     std::optional<uint8_t>
-        parentEid;          // Direct parent EID (for parent precedence)
-    bool poweredInStandby;  // For power propagation logic
-    std::string parentName; // used during hierarchy building
+        parentEid;                 // Direct parent EID (for parent precedence)
+    bool poweredInStandby = false; // For power propagation logic
+    std::string parentName;        // used during hierarchy building
     std::map<ErrorClass, ErrorClassData, ErrorClassComparator>
-        errorClasses;       // Pre-initialized for all error classes, sorted by
-                            // priority
-    DeviceStatus status;    // Device health status (Healthy/Degraded)
+        errorClasses;    // Pre-initialized for all error classes, sorted by
+                         // priority
+    DeviceStatus status; // Device health status (Healthy/Degraded)
     std::shared_ptr<DeviceStatusInterface>
-        dbusInterface; // D-Bus status interface (created on topology init or
-                       // first error)
+        dbusInterface;   // D-Bus status interface (created on topology init or
+                         // first error)
 
     DeviceErrorStore(uint8_t eid, size_t maxErrorsPerClass);
 };
