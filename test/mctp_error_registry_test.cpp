@@ -71,6 +71,7 @@ void testUSBDeviceError()
         std::cout << "  Resolution: " << registry->resolution << std::endl;
         std::cout << "  Is Device Error: "
                   << (registry->isDeviceError ? "true" : "false") << std::endl;
+        std::cout << "  Error ID: " << registry->errorId << std::endl;
         std::cout << "  PASS" << std::endl;
     }
     else
@@ -104,6 +105,7 @@ void testI2CHostControllerError()
         std::cout << "  Resolution: " << registry->resolution << std::endl;
         std::cout << "  Is Device Error: "
                   << (registry->isDeviceError ? "true" : "false") << std::endl;
+        std::cout << "  Error ID: " << registry->errorId << std::endl;
         std::cout << "  PASS" << std::endl;
     }
     else
@@ -137,6 +139,7 @@ void testUSBRxTimeout()
         std::cout << "  Resolution: " << registry->resolution << std::endl;
         std::cout << "  Is Device Error: "
                   << (registry->isDeviceError ? "true" : "false") << std::endl;
+        std::cout << "  Error ID: " << registry->errorId << std::endl;
         std::cout << "  PASS" << std::endl;
     }
     else
@@ -172,6 +175,7 @@ void testI2CDeviceErrorWithRedfishName()
         std::cout << "  Resolution: " << registry->resolution << std::endl;
         std::cout << "  Is Device Error: "
                   << (registry->isDeviceError ? "true" : "false") << std::endl;
+        std::cout << "  Error ID: " << registry->errorId << std::endl;
         std::cout << "  PASS" << std::endl;
     }
     else
@@ -204,6 +208,7 @@ void testMCTPTagAllocationFailure()
         std::cout << "  Resolution: " << registry->resolution << std::endl;
         std::cout << "  Is Device Error: "
                   << (registry->isDeviceError ? "true" : "false") << std::endl;
+        std::cout << "  Error ID: " << registry->errorId << std::endl;
         std::cout << "  PASS" << std::endl;
     }
     else
@@ -272,6 +277,7 @@ void testSyncApiHostUnreachable()
         std::cout << "  Resolution: " << registry->resolution << std::endl;
         std::cout << "  Is Device Error: "
                   << (registry->isDeviceError ? "true" : "false") << std::endl;
+        std::cout << "  Error ID: " << registry->errorId << std::endl;
         std::cout << "  PASS" << std::endl;
     }
     else
@@ -304,6 +310,7 @@ void testSyncApiMemoryError()
         std::cout << "  Resolution: " << registry->resolution << std::endl;
         std::cout << "  Is Device Error: "
                   << (registry->isDeviceError ? "true" : "false") << std::endl;
+        std::cout << "  Error ID: " << registry->errorId << std::endl;
         std::cout << "  PASS" << std::endl;
     }
     else
@@ -336,6 +343,7 @@ void testSyncApiTagBusy()
         std::cout << "  Resolution: " << registry->resolution << std::endl;
         std::cout << "  Is Device Error: "
                   << (registry->isDeviceError ? "true" : "false") << std::endl;
+        std::cout << "  Error ID: " << registry->errorId << std::endl;
         std::cout << "  PASS" << std::endl;
     }
     else
@@ -368,6 +376,7 @@ void testSyncApiDeviceRemoved()
         std::cout << "  Resolution: " << registry->resolution << std::endl;
         std::cout << "  Is Device Error: "
                   << (registry->isDeviceError ? "true" : "false") << std::endl;
+        std::cout << "  Error ID: " << registry->errorId << std::endl;
         std::cout << "  PASS" << std::endl;
     }
     else

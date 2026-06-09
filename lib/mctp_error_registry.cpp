@@ -43,6 +43,51 @@ constexpr auto RESOLUTION_BMC_REBOOT =
 constexpr auto RESOLUTION_DEVICE_POWER_CYCLE =
     "If problem persists, perform power cycle of the system to recover the device.";
 
+// RAS catalog error names (Server-RAS-Catalog "Error List" sheet, 'Error Name'
+// column). Using the name rather than the numeric id matches the convention
+// used by nsmd and by callers consuming Oem.Nvidia.ErrorId downstream.
+// Only names for mappings already present in the tables below are defined.
+namespace RasErrorName
+{
+// USB
+constexpr auto FWUP_USB_HOST_CONTROLLER_TX_MEM_ALLOC_FAIL =
+    "FWUP_USB_HOST_CONTROLLER_TX_MEMORY_ALLOCATION_FAILURE";
+constexpr auto FWUP_USB_HOST_CONTROLLER_TX_WRITE_ERROR =
+    "FWUP_USB_HOST_CONTROLLER_TX_CONTROLLER_WRITE_ERROR";
+constexpr auto FWUP_USB_TX_DRIVER_UNLINK_FAIL =
+    "FWUP_USB_DEVICE_TX_DRIVER_UNLINK_FAILURE";
+constexpr auto FWUP_USB_TX_ENDPOINT_MISSING =
+    "FWUP_USB_DEVICE_TX_DEVICE_ENDPOINT_MISSING";
+constexpr auto FWUP_USB_TX_DISCONNECTION_FAIL =
+    "FWUP_USB_DEVICE_TX_DISCONNECTION_FAILURE";
+constexpr auto FWUP_USB_TX_STALL_FAIL = "FWUP_USB_DEVICE_TX_STALL_FAILURE";
+constexpr auto FWUP_USB_TX_SHUTDOWN_FAIL =
+    "FWUP_USB_DEVICE_TX_SHUTDOWN_FAILURE";
+constexpr auto FWUP_USB_TX_PROTOCOL_FAIL =
+    "FWUP_USB_DEVICE_TX_PROTOCOL_FAILURE";
+constexpr auto FWUP_USB_RX_FRAGMENTATION =
+    "FWUP_USB_DEVICE_RX_FRAGMENTATION_FAILURE";
+constexpr auto FWUP_USB_RX_MESSAGE_SIZE =
+    "FWUP_USB_DEVICE_RX_MESSAGE_SIZE_FAILURE";
+constexpr auto FWUP_USB_RX_FRAG_TIMEOUT =
+    "FWUP_USB_DEVICE_RX_FRAGMENTATION_TIMEOUT_FAILURE";
+// I2C
+constexpr auto FWUP_I2C_HOST_CONTROLLER_TX_MEM_ALLOC_FAIL =
+    "FWUP_I2C_HOST_CONTROLLER_TX_MEMORY_ALLOCATION_FAILURE";
+constexpr auto FWUP_I2C_TX_BUS_BUSY = "FWUP_I2C_DEVICE_TX_BUS_BUSY";
+constexpr auto FWUP_I2C_TX_ARBITRATION_FAIL =
+    "FWUP_I2C_DEVICE_TX_ARBITRATION_FAILURE";
+constexpr auto FWUP_I2C_TX_ACK_FAIL = "FWUP_I2C_DEVICE_TX_ACK_FAILURE";
+constexpr auto FWUP_I2C_TX_PROTOCOL_FAIL =
+    "FWUP_I2C_DEVICE_TX_PROTOCOL_FAILURE";
+constexpr auto FWUP_I2C_RX_FRAGMENTATION =
+    "FWUP_I2C_DEVICE_RX_FRAGMENTATION_FAILURE";
+constexpr auto FWUP_I2C_RX_MESSAGE_SIZE =
+    "FWUP_I2C_DEVICE_RX_MESSAGE_SIZE_FAILURE";
+constexpr auto FWUP_I2C_RX_FRAG_TIMEOUT =
+    "FWUP_I2C_DEVICE_RX_FRAGMENTATION_TIMEOUT_FAILURE";
+} // namespace RasErrorName
+
 // Error category flags
 enum class ErrorCategory
 {
@@ -59,6 +104,7 @@ struct ErrorMapping
     ErrorCategory category;
     std::string description;
     std::string resolution;
+    std::string errorId{}; // RAS catalog error name; empty if unmapped
 };
 
 // USB Error Mappings
@@ -67,45 +113,49 @@ static const std::vector<ErrorMapping> usbErrorMap = {
     {ENOMEM, Binding::USB, Direction::TX, ErrorCategory::HOST_CONTROLLER,
      "USB Tx failed due to host controller error - insufficient memory for USB "
      "internal structures",
-     RESOLUTION_BMC_REBOOT},
+     RESOLUTION_BMC_REBOOT,
+     RasErrorName::FWUP_USB_HOST_CONTROLLER_TX_MEM_ALLOC_FAIL},
     {ECOMM, Binding::USB, Direction::TX, ErrorCategory::HOST_CONTROLLER,
      "USB Tx failed due host controller error - USB Host Controller Tx buffer "
      "overflow (FIFO full)",
-     RESOLUTION_BMC_REBOOT},
+     RESOLUTION_BMC_REBOOT,
+     RasErrorName::FWUP_USB_HOST_CONTROLLER_TX_WRITE_ERROR},
     // USB Tx Device Errors
     {ECONNRESET, Binding::USB, Direction::TX, ErrorCategory::DEVICE,
      "USB Tx failed due to device error - URB was asynchronously unlinked "
      "(killed) by driver due to device connection reset",
-     RESOLUTION_DEVICE_POWER_CYCLE},
+     RESOLUTION_DEVICE_POWER_CYCLE,
+     RasErrorName::FWUP_USB_TX_DRIVER_UNLINK_FAIL},
     {ENOENT, Binding::USB, Direction::TX, ErrorCategory::DEVICE,
      "USB Tx failed due device error - specified interface or endpoint does "
      "not exist or is not enabled state",
-     RESOLUTION_DEVICE_POWER_CYCLE},
+     RESOLUTION_DEVICE_POWER_CYCLE, RasErrorName::FWUP_USB_TX_ENDPOINT_MISSING},
     {ENODEV, Binding::USB, Direction::TX, ErrorCategory::DEVICE,
      "USB Tx failed due to device error - device was removed",
-     RESOLUTION_DEVICE_POWER_CYCLE},
+     RESOLUTION_DEVICE_POWER_CYCLE,
+     RasErrorName::FWUP_USB_TX_DISCONNECTION_FAIL},
     {EPIPE, Binding::USB, Direction::TX, ErrorCategory::DEVICE,
      "USB Tx failed due to device error - endpoint is in stall state",
-     RESOLUTION_DEVICE_POWER_CYCLE},
+     RESOLUTION_DEVICE_POWER_CYCLE, RasErrorName::FWUP_USB_TX_STALL_FAIL},
     {ESHUTDOWN, Binding::USB, Direction::TX, ErrorCategory::DEVICE,
      "USB Tx failed due to device error - physical disconnection",
-     RESOLUTION_DEVICE_POWER_CYCLE},
+     RESOLUTION_DEVICE_POWER_CYCLE, RasErrorName::FWUP_USB_TX_SHUTDOWN_FAIL},
     {EPROTO, Binding::USB, Direction::TX, ErrorCategory::DEVICE,
      "USB Tx Failed due to device (OR bus) error - USB protocol "
      "violation leading to ACK failure",
-     RESOLUTION_DEVICE_POWER_CYCLE},
+     RESOLUTION_DEVICE_POWER_CYCLE, RasErrorName::FWUP_USB_TX_PROTOCOL_FAIL},
     // USB Rx Device Errors
     {EPROTO, Binding::USB, Direction::RX, ErrorCategory::DEVICE,
      "USB Rx Failed due to device error - fragmentation error to reassemble "
      "packets from the device",
-     RESOLUTION_DEVICE_POWER_CYCLE},
+     RESOLUTION_DEVICE_POWER_CYCLE, RasErrorName::FWUP_USB_RX_FRAGMENTATION},
     {EMSGSIZE, Binding::USB, Direction::RX, ErrorCategory::DEVICE,
      "USB Rx Failed due to device error - reassembled message exceeds 64KB "
      "limit",
-     RESOLUTION_DEVICE_POWER_CYCLE},
+     RESOLUTION_DEVICE_POWER_CYCLE, RasErrorName::FWUP_USB_RX_MESSAGE_SIZE},
     {ETIMEDOUT, Binding::USB, Direction::RX, ErrorCategory::DEVICE,
      "USB Rx Failed due to device error - fragmentation timeout",
-     RESOLUTION_DEVICE_POWER_CYCLE},
+     RESOLUTION_DEVICE_POWER_CYCLE, RasErrorName::FWUP_USB_RX_FRAG_TIMEOUT},
 };
 
 // SYNC API Error Mappings (MCTP core layer - binding-independent)
@@ -132,35 +182,36 @@ static const std::vector<ErrorMapping> i2cErrorMap = {
     {ENOMEM, Binding::I2C, Direction::TX, ErrorCategory::HOST_CONTROLLER,
      "I2C Tx failed due to host controller error - insufficient memory for I2C "
      "internal structures",
-     RESOLUTION_BMC_REBOOT},
+     RESOLUTION_BMC_REBOOT,
+     RasErrorName::FWUP_I2C_HOST_CONTROLLER_TX_MEM_ALLOC_FAIL},
     // I2C Tx Device Errors
     {EBUSY, Binding::I2C, Direction::TX, ErrorCategory::DEVICE,
      "I2C Tx failed due to device (or bus) error - clock streching timeout "
      "(SDA/SCL stuck low)",
-     RESOLUTION_DEVICE_POWER_CYCLE},
+     RESOLUTION_DEVICE_POWER_CYCLE, RasErrorName::FWUP_I2C_TX_BUS_BUSY},
     {EAGAIN, Binding::I2C, Direction::TX, ErrorCategory::DEVICE,
      "I2C Tx failed due to device (or bus) error - arbitration loss during "
      "transaction (multi-master bus conflict)",
-     RESOLUTION_DEVICE_POWER_CYCLE},
+     RESOLUTION_DEVICE_POWER_CYCLE, RasErrorName::FWUP_I2C_TX_ARBITRATION_FAIL},
     {ENXIO, Binding::I2C, Direction::TX, ErrorCategory::DEVICE,
      "I2C Tx Failed due to device error - no acknowledgement for the I2C "
      "transaction",
-     RESOLUTION_DEVICE_POWER_CYCLE},
+     RESOLUTION_DEVICE_POWER_CYCLE, RasErrorName::FWUP_I2C_TX_ACK_FAIL},
     {EPROTO, Binding::I2C, Direction::TX, ErrorCategory::DEVICE,
      "I2C Tx Failed due to device (OR bus) error - I2C protocol violation",
-     RESOLUTION_DEVICE_POWER_CYCLE},
+     RESOLUTION_DEVICE_POWER_CYCLE, RasErrorName::FWUP_I2C_TX_PROTOCOL_FAIL},
     // I2C Rx Device Errors
     {EPROTO, Binding::I2C, Direction::RX, ErrorCategory::DEVICE,
      "I2C Rx Failed due to device error - fragmentation error to reassemble "
      "packets from the device",
-     RESOLUTION_DEVICE_POWER_CYCLE},
+     RESOLUTION_DEVICE_POWER_CYCLE, RasErrorName::FWUP_I2C_RX_FRAGMENTATION},
     {EMSGSIZE, Binding::I2C, Direction::RX, ErrorCategory::DEVICE,
      "I2C Rx Failed due to device fragmentation error - reassembled message "
      "exceeds 64KB limit",
-     RESOLUTION_DEVICE_POWER_CYCLE},
+     RESOLUTION_DEVICE_POWER_CYCLE, RasErrorName::FWUP_I2C_RX_MESSAGE_SIZE},
     {ETIMEDOUT, Binding::I2C, Direction::RX, ErrorCategory::DEVICE,
      "I2C Rx Failed due to device error - fragmentation timeout",
-     RESOLUTION_DEVICE_POWER_CYCLE},
+     RESOLUTION_DEVICE_POWER_CYCLE, RasErrorName::FWUP_I2C_RX_FRAG_TIMEOUT},
 };
 
 // Serial (SPI-SPB) Error Mappings
@@ -268,6 +319,7 @@ std::optional<RedfishRegistry> errorToRedfishRegistry(
         errorDescription = mapping->description;
         registry.severity = Level::Critical;
         registry.resolution = mapping->resolution;
+        registry.errorId = mapping->errorId;
     }
 
     // Determine device name and registry ID based on error category
