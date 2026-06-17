@@ -405,7 +405,8 @@ auto Manager::createEntry(std::string errMsg, Entry::Level errLvl,
     }
     // lg2::info("Bin of Incoming Entry: {BIN_NAME}", "BIN_NAME", entryBinName);
 
-    // Corresponding to the bin found, use capacity limits
+    // Circular: evict the oldest only after the new entry is written.
+    bool circularEvictAfterWrite = false;
     if (!Extensions::disableDefaultLogCaps())
     {
         std::string currentPolicy = getSelPolicy();
@@ -450,50 +451,7 @@ auto Manager::createEntry(std::string errMsg, Entry::Level errLvl,
         }
         else
         {
-            if (entryBin->defaultCapacity > 0)
-            {
-                // When defaultCapacity is set, only enforce total entries limit
-                uint32_t totalEntries = entryBin->infoEntries.size() +
-                                        entryBin->errorEntries.size();
-                if (totalEntries >= entryBin->defaultCapacity)
-                {
-                    // Erase the oldest entry (smallest ID) from either
-                    // errorEntries or infoEntries
-                    uint32_t oldestErrorId =
-                        entryBin->errorEntries.empty()
-                            ? UINT32_MAX
-                            : *(entryBin->errorEntries.begin());
-                    uint32_t oldestInfoId =
-                        entryBin->infoEntries.empty()
-                            ? UINT32_MAX
-                            : *(entryBin->infoEntries.begin());
-                    if (oldestErrorId <= oldestInfoId)
-                    {
-                        erase(oldestErrorId);
-                    }
-                    else
-                    {
-                        erase(oldestInfoId);
-                    }
-                }
-            }
-            else
-            {
-                if (errLvl < Entry::sevLowerLimit)
-                {
-                    if (entryBin->errorEntries.size() >= entryBin->errorCap)
-                    {
-                        erase(*(entryBin->errorEntries.begin()));
-                    }
-                }
-                else
-                {
-                    if (entryBin->infoEntries.size() >= entryBin->errorInfoCap)
-                    {
-                        erase(*(entryBin->infoEntries.begin()));
-                    }
-                }
-            }
+            circularEvictAfterWrite = true;
         }
     }
 
@@ -604,6 +562,48 @@ auto Manager::createEntry(std::string errMsg, Entry::Level errLvl,
         }
     }
 #endif
+
+    // Entry written; drop oldest (crash here leaves cap+1, pruned on boot).
+    if (circularEvictAfterWrite)
+    {
+        if (entryBin->defaultCapacity > 0)
+        {
+            uint32_t totalEntries =
+                entryBin->infoEntries.size() + entryBin->errorEntries.size();
+            if (totalEntries > entryBin->defaultCapacity)
+            {
+                uint32_t oldestErrorId =
+                    entryBin->errorEntries.empty()
+                        ? UINT32_MAX
+                        : *(entryBin->errorEntries.begin());
+                uint32_t oldestInfoId = entryBin->infoEntries.empty()
+                                            ? UINT32_MAX
+                                            : *(entryBin->infoEntries.begin());
+                if (oldestErrorId <= oldestInfoId)
+                {
+                    erase(oldestErrorId);
+                }
+                else
+                {
+                    erase(oldestInfoId);
+                }
+            }
+        }
+        else if (errLvl < Entry::sevLowerLimit)
+        {
+            if (entryBin->errorEntries.size() > entryBin->errorCap)
+            {
+                erase(*(entryBin->errorEntries.begin()));
+            }
+        }
+        else
+        {
+            if (entryBin->infoEntries.size() > entryBin->errorInfoCap)
+            {
+                erase(*(entryBin->infoEntries.begin()));
+            }
+        }
+    }
 
     if (isQuiesceOnErrorEnabled() && (errLvl < Entry::sevLowerLimit) &&
         isCalloutPresent(*e))
