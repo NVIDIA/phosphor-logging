@@ -41,7 +41,7 @@ class TestNamespaceLogging : public testing::Test
 {
   public:
     testing::NiceMock<sdbusplus::SdBusMock> sdbusMock;
-    sdbusplus::bus::bus mockedBus = sdbusplus::get_mocked_new(&sdbusMock);
+    sdbusplus::bus_t mockedBus = sdbusplus::get_mocked_new(&sdbusMock);
     phosphor::logging::internal::Manager manager;
 
     TestNamespaceLogging() : manager(mockedBus, OBJ_INTERNAL) {};

@@ -41,7 +41,7 @@ class TestLogPurgePolicy : public testing::Test
 {
   public:
     sdbusplus::SdBusMock sdbusMock;
-    sdbusplus::bus::bus mockedBus = sdbusplus::get_mocked_new(&sdbusMock);
+    sdbusplus::bus_t mockedBus = sdbusplus::get_mocked_new(&sdbusMock);
     std::string rwConfigJsonPath =
         fs::temp_directory_path() /
         ("test_log_purge_json_" + std::to_string(std::rand()));
@@ -69,7 +69,7 @@ std::string getTempJsonPath()
 TEST(TestLogPurgePolicy, testSettingAndPersistence)
 {
     sdbusplus::SdBusMock sdbusMock;
-    sdbusplus::bus::bus mockedBus = sdbusplus::get_mocked_new(&sdbusMock);
+    sdbusplus::bus_t mockedBus = sdbusplus::get_mocked_new(&sdbusMock);
     std::string rwConfigJsonPath = getTempJsonPath();
 
     {
@@ -105,7 +105,7 @@ TEST(TestLogPurgePolicy, testSettingAndPersistence)
 TEST(TestLogPurgePolicy, testInvalidRWJson)
 {
     sdbusplus::SdBusMock sdbusMock;
-    sdbusplus::bus::bus mockedBus = sdbusplus::get_mocked_new(&sdbusMock);
+    sdbusplus::bus_t mockedBus = sdbusplus::get_mocked_new(&sdbusMock);
     std::string rwConfigJsonPath = getTempJsonPath();
     {
         std::ofstream output(rwConfigJsonPath, std::ios_base::trunc);
@@ -150,7 +150,7 @@ TEST(TestLogPurgePolicy, testInvalidRWJson)
 TEST(TestLogPurgePolicy, testRWJsonWriteError)
 {
     sdbusplus::SdBusMock sdbusMock;
-    sdbusplus::bus::bus mockedBus = sdbusplus::get_mocked_new(&sdbusMock);
+    sdbusplus::bus_t mockedBus = sdbusplus::get_mocked_new(&sdbusMock);
     {
         std::string rwConfigJsonPath = getTempJsonPath();
         std::ofstream output(rwConfigJsonPath, std::ios_base::trunc);
@@ -188,7 +188,7 @@ TEST(TestLogPurgePolicy, testRWJsonWriteError)
 TEST(TestLogPurgePolicy, testEnableThenDisableImmediate)
 {
     sdbusplus::SdBusMock sdbusMock;
-    sdbusplus::bus::bus mockedBus = sdbusplus::get_mocked_new(&sdbusMock);
+    sdbusplus::bus_t mockedBus = sdbusplus::get_mocked_new(&sdbusMock);
     std::string rwConfigJsonPath = getTempJsonPath();
     phosphor::logging::internal::Manager manager(mockedBus, OBJ_INTERNAL);
     manager.parseRWConfigJson(rwConfigJsonPath);
@@ -245,7 +245,7 @@ TEST(TestLogPurgePolicy, testEnableThenDisableImmediate)
 TEST(TestLogPurgePolicy, testRuntimeEnable)
 {
     sdbusplus::SdBusMock sdbusMock;
-    sdbusplus::bus::bus mockedBus = sdbusplus::get_mocked_new(&sdbusMock);
+    sdbusplus::bus_t mockedBus = sdbusplus::get_mocked_new(&sdbusMock);
     std::string rwConfigJsonPath = getTempJsonPath();
     phosphor::logging::internal::Manager manager(mockedBus, OBJ_INTERNAL);
     manager.parseRWConfigJson(rwConfigJsonPath);

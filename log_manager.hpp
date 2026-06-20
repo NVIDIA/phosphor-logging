@@ -81,7 +81,7 @@ typedef std::map<std::string, varType> propMap;
 
 typedef std::map<std::string, propMap> objMap;
 
-using ManagedObject = std::map<sdbusplus::message::object_path, objMap>;
+using ManagedObject = std::map<sdbusplus::object_path, objMap>;
 
 namespace internal
 {
@@ -109,7 +109,7 @@ class Manager : public details::ServerObject<details::ManagerIface>
      *  @param[in] bus - Bus to attach to.
      *  @param[in] path - Path to attach at.
      */
-    Manager(sdbusplus::bus::bus& bus, const std::string& objPath);
+    Manager(sdbusplus::bus_t& bus, const std::string& objPath);
 
     /**
      * @fn parseJson
@@ -617,14 +617,14 @@ class Manager : public details::ServerObject<details::ManagerIface>
     auto create(const std::string& message, Severity severity,
                 const std::map<std::string, std::string>& additionalData,
                 const FFDCEntries& ffdc = FFDCEntries{})
-        -> sdbusplus::message::object_path;
+        -> sdbusplus::object_path;
 
     /** @brief Create an internal event log from the sdbusplus generated event
      *
      *  @param[in] event - The event to create.
      */
     auto createFromEvent(sdbusplus::exception::generated_event_base&& event)
-        -> sdbusplus::message::object_path;
+        -> sdbusplus::object_path;
 
     /** @brief Common wrapper for creating an Entry object
      *
@@ -741,7 +741,7 @@ class Manager : public details::ServerObject<details::ManagerIface>
     auto createEntry(std::string errMsg, Entry::Level errLvl,
                      std::map<std::string, std::string> additionalData,
                      const FFDCEntries& ffdc = FFDCEntries{})
-        -> sdbusplus::message::object_path;
+        -> sdbusplus::object_path;
 
     /** @brief Notified on entry property changes
      *
@@ -938,7 +938,7 @@ class Manager :
      */
     auto create(std::string message, Severity severity,
                 std::map<std::string, std::string> additionalData)
-        -> sdbusplus::message::object_path override
+        -> sdbusplus::object_path override
     {
         return manager.create(message, severity, additionalData);
     }

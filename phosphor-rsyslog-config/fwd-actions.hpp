@@ -30,7 +30,7 @@ class RsyslogFwdAction : public RsyslogFwdActionInherit
      * @param[in] bus - Bus to attach to
      * @param[in] objPath - D-Bus object path
      */
-    RsyslogFwdAction(sdbusplus::bus::bus& bus, const std::string& objPath,
+    RsyslogFwdAction(sdbusplus::bus_t& bus, const std::string& objPath,
                      size_t index, RsyslogFwd::LogType logType, bool enabled,
                      RsyslogFwd::TransportProtocol transportProtocol,
                      RsyslogFwd::NetworkProtocol networkProtocol,

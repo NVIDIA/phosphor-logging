@@ -440,7 +440,7 @@ TEST_F(TestSerialization, OuterManagerDeleteAllNoArgs)
 TEST_F(TestSerialization, LogManagerGetStatsAllAndUnknownNamespace)
 {
     auto path = manager.create("stats test", Entry::Level::Informational, {});
-    ASSERT_NE(path, sdbusplus::message::object_path("/"));
+    ASSERT_NE(path, sdbusplus::object_path("/"));
     auto [id, ts] = manager.getStats("all");
     EXPECT_EQ(id, manager.lastEntryID());
     EXPECT_EQ(ts, manager.lastEntryTimestamp());
@@ -501,7 +501,7 @@ TEST_F(TestSerialization, LogManagerPendingLogDeleteCallback)
 {
     auto path =
         manager.create("pending purge test", Entry::Level::Informational, {});
-    ASSERT_NE(path, sdbusplus::message::object_path("/"));
+    ASSERT_NE(path, sdbusplus::object_path("/"));
     uint32_t eid = manager.lastEntryID();
     manager.addPendingLogDelete(eid);
     EXPECT_GT(manager.getPendingLogDeleteCount(), 0u);
@@ -608,8 +608,8 @@ TEST_F(TestSerialization, LogManagerPendingLogDeleteCallbackTwoEntries)
         manager.create("pending purge first", Entry::Level::Informational, {});
     auto path2 =
         manager.create("pending purge second", Entry::Level::Informational, {});
-    ASSERT_NE(path1, sdbusplus::message::object_path("/"));
-    ASSERT_NE(path2, sdbusplus::message::object_path("/"));
+    ASSERT_NE(path1, sdbusplus::object_path("/"));
+    ASSERT_NE(path2, sdbusplus::object_path("/"));
     uint32_t eid1 = manager.lastEntryID();
     uint32_t eid2 = manager.lastEntryID();
     manager.addPendingLogDelete(eid1);
@@ -794,7 +794,7 @@ TEST_F(TestSerialization, LogManagerCreateWithFQPNMetadata)
     auto path = manager.create(
         "fqpn test", Entry::Level::Informational,
         {{fqpnResolution, "test resolution"}, {fqpnEventId, "EventId1"}});
-    EXPECT_NE(path, sdbusplus::message::object_path("/"));
+    EXPECT_NE(path, sdbusplus::object_path("/"));
     EXPECT_GT(manager.lastEntryID(), 0u);
 }
 
@@ -863,7 +863,7 @@ TEST_F(TestSerialization, LogManagerEraseDeleteProhibited)
 
     auto path =
         manager.create("prohibited erase", Entry::Level::Informational, {});
-    ASSERT_NE(path, sdbusplus::message::object_path("/"));
+    ASSERT_NE(path, sdbusplus::object_path("/"));
     uint32_t eid = manager.lastEntryID();
 
     EXPECT_THROW(manager.erase(eid),
@@ -904,7 +904,7 @@ TEST_F(TestSerialization, LogManagerEraseNonDefaultBin)
     auto path =
         manager.create("erase non-default bin", Entry::Level::Informational,
                        {{DEFAULT_BIN_KEY, binName}});
-    ASSERT_NE(path, sdbusplus::message::object_path("/"));
+    ASSERT_NE(path, sdbusplus::object_path("/"));
     uint32_t eid = manager.lastEntryID();
     manager.erase(eid);
     EXPECT_EQ(manager.entries.find(eid), manager.entries.end());

@@ -38,7 +38,7 @@ namespace fs = std::filesystem;
 class MockPolicy : public phosphor::logging::internal::Manager
 {
   public:
-    MockPolicy(sdbusplus::bus::bus& bus, const char* objPath) :
+    MockPolicy(sdbusplus::bus_t& bus, const char* objPath) :
         Manager(bus, objPath) {};
 
     std::string getSelPolicy() override

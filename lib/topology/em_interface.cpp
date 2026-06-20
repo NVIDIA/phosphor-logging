@@ -31,7 +31,7 @@ std::vector<PropertyMap> EntityManagerInterface::queryAllDevices()
 
         // ManagedObjects returns: map<objectPath, map<interfaceName,
         // map<propertyName, variant>>>
-        using ManagedObjectType = std::map<sdbusplus::message::object_path,
+        using ManagedObjectType = std::map<sdbusplus::object_path,
                                            std::map<std::string, PropertyMap>>;
 
         ManagedObjectType allObjects;
@@ -77,7 +77,7 @@ void EntityManagerInterface::setupSignalMonitoring(
 
 void EntityManagerInterface::handleInterfacesAdded(sdbusplus::message_t& msg)
 {
-    sdbusplus::message::object_path objectPath;
+    sdbusplus::object_path objectPath;
     InterfaceMap interfaces;
 
     try

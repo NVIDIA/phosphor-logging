@@ -74,7 +74,7 @@ inline auto getLevel(const std::string& errMsg)
  * @param bus
  * @param objPath
  */
-Manager::Manager(sdbusplus::bus::bus& bus, const std::string& objPath) :
+Manager::Manager(sdbusplus::bus_t& bus, const std::string& objPath) :
     details::ServerObject<details::ManagerIface>(bus, objPath.c_str()),
 #ifdef ENABLE_LOG_STREAMING
     logSocket(LOG_STREAMER_SOCKET_PATH),
@@ -387,8 +387,7 @@ std::string Manager::getSelPolicy()
 
 auto Manager::createEntry(std::string errMsg, Entry::Level errLvl,
                           std::map<std::string, std::string> additionalData,
-                          const FFDCEntries& ffdc)
-    -> sdbusplus::message::object_path
+                          const FFDCEntries& ffdc) -> sdbusplus::object_path
 {
     // For the incoming entry, find the bin associated with the entry
     // Set entryBinName as default
@@ -421,7 +420,7 @@ auto Manager::createEntry(std::string errMsg, Entry::Level errLvl,
                 {
                     lg2::info("Default Capacity limit reached: {BIN_NAME}",
                               "BIN_NAME", entryBinName);
-                    return sdbusplus::message::object_path("/");
+                    return sdbusplus::object_path("/");
                 }
             }
             else
@@ -434,7 +433,7 @@ auto Manager::createEntry(std::string errMsg, Entry::Level errLvl,
                     {
                         lg2::info("Error Capacity limit reached: {BIN_NAME}",
                                   "BIN_NAME", entryBinName);
-                        return sdbusplus::message::object_path("/");
+                        return sdbusplus::object_path("/");
                     }
                 }
                 else
@@ -444,7 +443,7 @@ auto Manager::createEntry(std::string errMsg, Entry::Level errLvl,
                         lg2::info(
                             "Information Error Capacity limit reached: {BIN_NAME}",
                             "BIN_NAME", entryBinName);
-                        return sdbusplus::message::object_path("/");
+                        return sdbusplus::object_path("/");
                     }
                 }
             }
@@ -624,7 +623,7 @@ auto Manager::createEntry(std::string errMsg, Entry::Level errLvl,
 
 auto Manager::createFromEvent(
     sdbusplus::exception::generated_event_base&& event)
-    -> sdbusplus::message::object_path
+    -> sdbusplus::object_path
 {
     auto [msg, level, data] = lg2::details::extractEvent(std::move(event));
     return this->createEntry(msg, level, std::move(data));
@@ -1518,9 +1517,9 @@ phosphor::logging::ManagedObject Manager::getAll(
         obj.insert(obj.begin(),
                    std::make_pair("xyz.openbmc_project.Logging.Entry", prop));
 
-        ret_obj[sdbusplus::message::object_path(
-            std::string(OBJ_ENTRY) + '/' +
-            std::to_string(iter->second->id()))] = obj;
+        ret_obj[sdbusplus::object_path(std::string(OBJ_ENTRY) + '/' +
+                                       std::to_string(iter->second->id()))] =
+            obj;
 
         ++iter;
     }
@@ -1615,7 +1614,7 @@ phosphor::logging::ManagedObject Manager::getAll(
                        std::make_pair("xyz.openbmc_project.Logging.Entry",
                                       prop));
 
-            ret_obj[sdbusplus::message::object_path(
+            ret_obj[sdbusplus::object_path(
                 std::string(OBJ_ENTRY) + '/' +
                 std::to_string(entryFound->second->id()))] = obj;
         }
@@ -1688,7 +1687,7 @@ phosphor::logging::ManagedObject Manager::getAll(
                        std::make_pair("xyz.openbmc_project.Logging.Entry",
                                       prop));
 
-            ret_obj[sdbusplus::message::object_path(
+            ret_obj[sdbusplus::object_path(
                 std::string(OBJ_ENTRY) + '/' +
                 std::to_string(entryFound->second->id()))] = obj;
         }
@@ -1743,7 +1742,7 @@ std::tuple<uint32_t, uint64_t> Manager::getStats(const std::string& nspace)
 
 auto Manager::create(const std::string& message, Entry::Level severity,
                      const std::map<std::string, std::string>& additionalData,
-                     const FFDCEntries& ffdc) -> sdbusplus::message::object_path
+                     const FFDCEntries& ffdc) -> sdbusplus::object_path
 {
     return createEntry(message, severity, additionalData, ffdc);
 }

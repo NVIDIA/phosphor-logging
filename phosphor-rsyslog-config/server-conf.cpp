@@ -732,7 +732,7 @@ void Server::handleIpProps(const std::map<std::string, Variant>& props)
 
 void Server::onInterfacesAdded(sdbusplus::message_t& msg)
 {
-    sdbusplus::message::object_path objPath;
+    sdbusplus::object_path objPath;
     std::map<
         std::string,
         std::map<std::string,
