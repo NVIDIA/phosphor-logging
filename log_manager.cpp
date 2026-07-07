@@ -1347,22 +1347,16 @@ bool Manager::deleteAll(
     // Info Errors
     if (severity >= Entry::sevLowerLimit)
     {
-        this->_pendingPurgeEvents.reserve(
-            this->_pendingPurgeEvents.size() + thisBin->infoEntries.size());
-        for (auto id : thisBin->infoEntries)
-        {
-            this->_pendingPurgeEvents.push_back(id);
-        }
+        this->_pendingPurgeEvents.insert(this->_pendingPurgeEvents.end(),
+                                         thisBin->infoEntries.begin(),
+                                         thisBin->infoEntries.end());
     }
     // Real Errors
     else
     {
-        this->_pendingPurgeEvents.reserve(
-            this->_pendingPurgeEvents.size() + thisBin->errorEntries.size());
-        for (auto id : thisBin->errorEntries)
-        {
-            this->_pendingPurgeEvents.push_back(id);
-        }
+        this->_pendingPurgeEvents.insert(this->_pendingPurgeEvents.end(),
+                                         thisBin->errorEntries.begin(),
+                                         thisBin->errorEntries.end());
     }
 
     if (!this->_pendingPurgeEvents.empty())
@@ -1412,17 +1406,12 @@ bool Manager::deleteAllTypes(const std::string& nspace)
     }
 
 #ifdef ENABLE_ERASE_WITH_CALLBACK
-    this->_pendingPurgeEvents.reserve(
-        this->_pendingPurgeEvents.size() + thisBin->infoEntries.size() +
-        thisBin->errorEntries.size());
-    for (auto id : thisBin->infoEntries)
-    {
-        this->_pendingPurgeEvents.push_back(id);
-    }
-    for (auto id : thisBin->errorEntries)
-    {
-        this->_pendingPurgeEvents.push_back(id);
-    }
+    this->_pendingPurgeEvents.insert(this->_pendingPurgeEvents.end(),
+                                     thisBin->infoEntries.begin(),
+                                     thisBin->infoEntries.end());
+    this->_pendingPurgeEvents.insert(this->_pendingPurgeEvents.end(),
+                                     thisBin->errorEntries.begin(),
+                                     thisBin->errorEntries.end());
 
     if (!this->_pendingPurgeEvents.empty())
     {
