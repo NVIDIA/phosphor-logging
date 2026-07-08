@@ -18,7 +18,7 @@ option(
     'sel-extension',
     type: 'feature',
     description: 'Enable SEL support',
-    value: 'enabled',
+    value: 'disabled',
 )
 
 option(
