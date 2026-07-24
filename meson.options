@@ -47,7 +47,7 @@ option(
     'error_cap',
     type: 'integer',
     value: 200,
-    description: 'Max number of error enttries allowed for commit',
+    description: 'Max number of error entries allowed for commit',
 )
 option(
     'error_info_cap',
@@ -144,4 +144,11 @@ option(
     type: 'boolean',
     value: true,
     description: 'If the BMC position should be encoded into the event log ID',
+)
+
+option(
+    'redundant-bmc',
+    type: 'boolean',
+    value: false,
+    description: 'Enable support for redundant BMC systems',
 )

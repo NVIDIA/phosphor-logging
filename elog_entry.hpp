@@ -1,5 +1,7 @@
 #pragma once
 
+#include "config.h"
+
 #include "xyz/openbmc_project/Logging/Entry/server.hpp"
 #include "xyz/openbmc_project/Object/Delete/server.hpp"
 #include "xyz/openbmc_project/Software/Version/server.hpp"
@@ -42,7 +44,6 @@ class Entry : public EntryIfaces
   public:
     Entry() = delete;
     Entry(const Entry&) = delete;
-    Entry& operator=(const Entry&) = delete;
     Entry(Entry&&) = delete;
     Entry& operator=(Entry&&) = delete;
     virtual ~Entry() = default;
@@ -102,6 +103,17 @@ class Entry : public EntryIfaces
     {
         id(entryId, true);
     };
+
+    /**
+     * @brief Assignment operator to update entry properties.
+     *
+     * Updates properties from source entry, emitting D-Bus signals for changes.
+     * Used to refresh in-memory entries from persisted data.
+     *
+     * @param[in] source - The source entry
+     * @return Reference to this entry
+     */
+    Entry& operator=(const Entry& source);
 
     /** @brief Set resolution status of the error.
      *  @param[in] value - boolean indicating resolution
@@ -166,6 +178,9 @@ class Entry : public EntryIfaces
      * @param[in] source - The event source object used
      */
     void closeFD(int fd, sdeventplus::source::EventBase& source);
+
+    /** @brief Persist the entry state */
+    void persist();
 };
 
 } // namespace logging

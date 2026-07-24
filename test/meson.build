@@ -32,12 +32,18 @@ tests = [
     'remote_logging_test_config',
     'remote_logging_test_port',
     'sdtest',
+    'serialization_test_json',
     'serialization_test_path',
     'serialization_test_properties',
     'serialization_test_additional',
     'linear_policy_test',
     'log_purge_policy_test',
 ]
+
+if get_option('redundant-bmc')
+    tests += ['log_manager_rbmc_sync_test']
+endif
+
 foreach t : tests
     test(
         'test_' + t.underscorify(),

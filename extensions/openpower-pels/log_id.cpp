@@ -68,7 +68,7 @@ namespace detail
 uint32_t addLogIDPrefix(uint32_t id)
 {
     uint32_t pos = 0;
-    if (USE_BMC_POS_IN_ID || IS_UNIT_TEST)
+    if (REDUNDANT_BMC || IS_UNIT_TEST)
     {
         pos = (position::bmcPosition & 0xF) << 24;
     }
@@ -137,6 +137,13 @@ uint32_t generatePELID()
     {
         // Just make up an ID so we don't reuse one next time
         lg2::error("Unable to write PEL ID File!");
+        return detail::getTimeBasedLogID();
+    }
+
+    // In redundant BMC systems, if position is invalid, use time-based ID
+    if ((REDUNDANT_BMC || IS_UNIT_TEST) &&
+        position::bmcPosition == invalidPELIDPosition)
+    {
         return detail::getTimeBasedLogID();
     }
 

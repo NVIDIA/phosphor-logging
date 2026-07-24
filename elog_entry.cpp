@@ -15,6 +15,12 @@ namespace phosphor
 namespace logging
 {
 
+void Entry::persist()
+{
+    serialize(*this);
+    serializeJSON(*this);
+}
+
 // TODO Add interfaces to handle the error log id numbering
 
 void Entry::delete_()
@@ -65,7 +71,7 @@ bool Entry::resolved(bool value)
                           .count();
         updateTimestamp(ms);
 
-        serialize(*this);
+        persist();
 
         /* if the entry is marked as "Resolved" and purging of resolved logs
          * is enabled, queue the deletion of the log.
@@ -73,7 +79,6 @@ bool Entry::resolved(bool value)
         if (value == true && parent.getAutoPurgeResolved())
         {
             parent.addPendingLogDelete(id());
-            // lg2::debug("Entry::resolved(true) set for {ID}", "ID", id());
         }
     }
 
@@ -89,7 +94,7 @@ std::string Entry::eventId(std::string value)
         current =
             sdbusplus::server::xyz::openbmc_project::logging::Entry::eventId(
                 value);
-        serialize(*this);
+        persist();
     }
 
     return current;
@@ -104,7 +109,7 @@ std::string Entry::resolution(std::string value)
         current =
             sdbusplus::server::xyz::openbmc_project::logging::Entry::resolution(
                 value);
-        serialize(*this);
+        persist();
     }
 
     return current;
@@ -112,7 +117,8 @@ std::string Entry::resolution(std::string value)
 
 sdbusplus::message::unix_fd Entry::getEntry()
 {
-    int fd = open(path().c_str(), O_RDONLY | O_NONBLOCK);
+    std::string jsonPath = path() + ".json";
+    int fd = open(jsonPath.c_str(), O_RDONLY | O_NONBLOCK);
     if (fd == -1)
     {
         auto e = errno;
@@ -125,8 +131,7 @@ sdbusplus::message::unix_fd Entry::getEntry()
     // D-Bus.
     sdeventplus::Event event = sdeventplus::Event::get_default();
     fdCloseEventSource = std::make_unique<sdeventplus::source::Defer>(
-        event, std::bind(std::mem_fn(&Entry::closeFD), this, fd,
-                         std::placeholders::_1));
+        event, std::bind_front(&Entry::closeFD, this, fd));
 
     return fd;
 }
@@ -135,6 +140,46 @@ void Entry::closeFD(int fd, sdeventplus::source::EventBase& /*source*/)
 {
     close(fd);
     fdCloseEventSource.reset();
+}
+
+Entry& Entry::operator=(const Entry& source)
+{
+    if (resolved() != source.resolved())
+    {
+        resolved(source.resolved());
+    }
+
+    if (resolution() != source.resolution())
+    {
+        resolution(source.resolution());
+    }
+
+    if (eventId() != source.eventId())
+    {
+        eventId(source.eventId());
+    }
+
+    if (severity() != source.severity())
+    {
+        severity(source.severity());
+    }
+
+    if (message() != source.message())
+    {
+        message(source.message());
+    }
+
+    if (additionalData() != source.additionalData())
+    {
+        additionalData(source.additionalData());
+    }
+
+    if (serviceProviderNotify() != source.serviceProviderNotify())
+    {
+        serviceProviderNotify(source.serviceProviderNotify());
+    }
+
+    return *this;
 }
 
 } // namespace logging

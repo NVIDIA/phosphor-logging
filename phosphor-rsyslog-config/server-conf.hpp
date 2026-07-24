@@ -184,7 +184,7 @@ class Server : public Iface
         restart();
     }
 
-    sdbusplus::bus::match_t hostnameChange;
+    sdbusplus::match hostnameChange;
 };
 
 } // namespace rsyslog_config

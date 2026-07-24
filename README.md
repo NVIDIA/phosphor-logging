@@ -431,8 +431,8 @@ The BMC will send everything. Any kind of filtering and appropriate storage will
 have to be managed on the rsyslog server. Various examples are available on the
 internet. Here are few pointers :
 <https://www.rsyslog.com/storing-and-forwarding-remote-messages/>
-<https://www.rsyslog.com/doc/rsyslog%255Fconf%255Ffilter.html>
-<https://www.thegeekdiary.com/understanding-rsyslog-filter-options/>
+<https://docs.rsyslog.com/doc/configuration/filters.html>
+<https://docs.rsyslog.com/doc/configuration/index.html>
 
 ### Configuring rsyslog server for remote logging
 
@@ -516,9 +516,8 @@ Resolve or clear the corresponding entry to allow the system to boot.
 ## Encoding the BMC position in the entry ID
 
 On redundant BMC systems where multiple BMCs can be creating event logs, the
-'use-bmc-pos-in-id' meson option will trigger the encoding of the BMC position
-into the upper byte of the event log ID so that all event logs will have unique
-IDs.
+'redundant-bmc' meson option will trigger the encoding of the BMC position into
+the upper byte of the event log ID so that all event logs will have unique IDs.
 
 The BMC position is read from the file /run/openbmc/bmc_position.
 

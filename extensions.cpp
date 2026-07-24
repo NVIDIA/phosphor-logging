@@ -47,6 +47,12 @@ DeleteAllFunctions& Extensions::getDeleteAllFunctions()
     return deleteAllFunctions;
 }
 
+ExtensionLogAssociations& Extensions::getExtensionLogAssociationFunctions()
+{
+    static ExtensionLogAssociations extensionLogAssociationFunctions{};
+    return extensionLogAssociationFunctions;
+}
+
 Extensions::DefaultErrorCaps& Extensions::getDefaultErrorCaps()
 {
     static DefaultErrorCaps defaultErrorCaps = DefaultErrorCaps::enable;

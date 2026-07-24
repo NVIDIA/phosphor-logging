@@ -290,8 +290,10 @@ TEST_F(TestSerialization, testGetEntrySuccess)
         Entry::Level::Error, "msg", std::map<std::string, std::string>{},
         AssociationList{}, "fw", serialPath, manager);
 
-    serialize(*e, TestSerialization::dir);
-    ASSERT_TRUE(std::filesystem::exists(serialPath));
+    // getEntry() opens path()+".json" (JSON format), so use serializeJSON
+    serializeJSON(*e, TestSerialization::dir);
+    std::string jsonPath = serialPath + ".json";
+    ASSERT_TRUE(std::filesystem::exists(jsonPath));
 
     sdbusplus::message::unix_fd fd = e->getEntry();
     EXPECT_GE(fd, 0);

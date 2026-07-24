@@ -25,6 +25,7 @@
 #include <phosphor-logging/lg2.hpp>
 #include <phosphor-logging/log.hpp>
 #include <sdbusplus/bus.hpp>
+#include <sdeventplus/source/io.hpp>
 #include <sdeventplus/source/time.hpp>
 #include <xyz/openbmc_project/Common/File/error.hpp>
 
@@ -98,12 +99,7 @@ class Manager : public details::ServerObject<details::ManagerIface>
     Manager& operator=(const Manager&) = delete;
     Manager(Manager&&) = delete;
     Manager& operator=(Manager&&) = delete;
-    virtual ~Manager()
-    {
-#ifdef ENABLE_LOG_STREAMING
-        logSocket.stop();
-#endif
-    }
+    virtual ~Manager();
 
     /** @brief Constructor to put object onto bus at a dbus path.
      *  @param[in] bus - Bus to attach to.
@@ -652,6 +648,14 @@ class Manager : public details::ServerObject<details::ManagerIface>
      */
     void checkAndRemoveBlockingError(uint32_t entryId);
 
+    /**
+     * @brief Sets up an inotify watch on the error entry directory.
+     *
+     * Watches for interested events which indicate that a new error entry
+     * file has been synced in a redundant BMC system.
+     */
+    void setupErrorFileWatch();
+
     /** @brief Persistent map of Entry dbus objects and their ID */
     std::map<uint32_t, std::unique_ptr<Entry>> entries;
 
@@ -784,8 +788,41 @@ class Manager : public details::ServerObject<details::ManagerIface>
     void rfSendEvent(
         std::string rfMessage, Entry::Level rfSeverity,
         std::map<std::string, std::string> rfAdditionalData) override;
+
+    /** @brief Restore a single error entry from disk into the entries map and
+     *         D-Bus
+     *
+     * @param[in] id - The entry ID to restore
+     * @return true if the entry was successfully restored, false otherwise
+     */
+    bool restoreFromDisk(uint32_t id);
+
+    /** @brief Refresh a single error entry from disk
+     *
+     * @param[in] id - The entry ID to refresh
+     * @return true if the entry was successfully refreshed,
+     *         false otherwise
+     */
+    bool refreshFromDisk(uint32_t id);
+
+    /**
+     * @brief Handles inotify events for the error entry directory.
+     *
+     * @param[in] io - The event source object.
+     * @param[in] fd - File descriptor for the inotify instance.
+     * @param[in] revents - Event flags returned by epoll.
+     */
+    void errorFileChanged(sdeventplus::source::IO& io, int fd,
+                          uint32_t revents);
+
     /** @brief Persistent sdbusplus DBus bus connection. */
     sdbusplus::bus_t& busLog;
+
+    /** @brief List of error ids for high severity errors */
+    std::list<uint32_t> realErrors;
+
+    /** @brief List of error ids for Info(and below) severity */
+    std::list<uint32_t> infoErrors;
 
     /** @brief Id of last error log entry */
     uint32_t entryId;
@@ -802,7 +839,7 @@ class Manager : public details::ServerObject<details::ManagerIface>
     std::vector<std::unique_ptr<Block>> blockingErrors;
 
     /** @brief Map of entry id to call back object on properties changed */
-    std::map<uint32_t, std::unique_ptr<sdbusplus::bus::match_t>>
+    std::map<uint32_t, std::unique_ptr<sdbusplus::match>>
         propChangedEntryCallback;
 
     /** @brief Path to persistent R/W config (for log purge policy setting) */
@@ -814,6 +851,9 @@ class Manager : public details::ServerObject<details::ManagerIface>
     /** @brief Stack containing pending log deletes awaiting deletion */
     std::vector<uint32_t> _pendingPurgeEvents;
 
+    /** @brief sd-event loop wrapper; must be declared before event sources. */
+    sdeventplus::Event event;
+
     /** @brief Event source used to trigger log deletion
      *
      * Time is used instead of Defer so it can round-robin with D-Bus
@@ -824,6 +864,23 @@ class Manager : public details::ServerObject<details::ManagerIface>
 
     /** @brief Encodes the BMC position in the entryId when enabled */
     std::unique_ptr<BMCPosMgr> bmcPosMgr;
+
+    /**
+     * @brief Event source used to monitor error entry directory changes.
+     */
+    std::unique_ptr<sdeventplus::source::IO> errorFileWatchEventSource;
+
+    /**
+     * @brief File descriptor returned by inotify_init1() for the error entry
+     * watcher.
+     */
+    int errDirInotifyFD = -1;
+
+    /**
+     * @brief Watch descriptor returned by inotify_add_watch() for the error
+     * entry directory.
+     */
+    int errDirWatcherWD = -1;
 };
 
 } // namespace internal

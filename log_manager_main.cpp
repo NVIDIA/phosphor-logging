@@ -3,6 +3,7 @@
 #include "config_main.h"
 
 #include "bin.hpp"
+#include "constants.hpp"
 #include "extensions.hpp"
 #include "log_manager.hpp"
 #include "paths.hpp"
@@ -27,6 +28,16 @@ int main(int argc, char* argv[])
 
     phosphor::logging::internal::Manager iMgr(bus, OBJ_INTERNAL);
     phosphor::logging::Manager mgr(bus, OBJ_LOGGING, iMgr);
+
+    // Create a directory to persist errors.
+    std::filesystem::create_directories(phosphor::logging::paths::error());
+    std::filesystem::create_directories(phosphor::logging::paths::error_json());
+
+    if constexpr (REDUNDANT_BMC)
+    {
+        // Start watching for newly synced error files.
+        iMgr.setupErrorFileWatch();
+    }
 
     auto parseErrHandler = [](const std::function<uint32_t(const std::string&)>&
                                   fn,

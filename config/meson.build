@@ -29,6 +29,9 @@ conf_data.set(
     lg2_commit_strategy == 'journal' or lg2_commit_strategy == 'both' ? 'true' : 'false',
 )
 
+redundant_bmc = get_option('redundant-bmc')
+conf_data.set10('redundant_bmc', redundant_bmc)
+
 use_bmc_pos_in_id = get_option('use-bmc-pos-in-id')
 conf_data.set10('use_bmc_pos_in_id', use_bmc_pos_in_id)
 
@@ -38,7 +41,7 @@ if cxx.has_header('poll.h')
 endif
 
 conf_h_dep = declare_dependency(
-    include_directories: include_directories('.'),
+    include_directories: include_directories('.', '..'),
     sources: configure_file(
         input: 'config.h.meson',
         output: 'config.h',

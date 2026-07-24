@@ -33,7 +33,7 @@ using PrepareFunction = std::function<void(
  *  @brief The function type that will be called after an event log
  *         is created.
  * @param[in] const std::string& - The Message property
- * @param[in] uin32_t - The event log ID
+ * @param[in] uint32_t - The event log ID
  * @param[in] uint64_t - The event log timestamp
  * @param[in] Level - The event level
  * @param[in] const AdditionalDataArg&) - the additional data
@@ -51,11 +51,10 @@ using CreateFunction = std::function<void(
 using DeleteFunction = std::function<void(uint32_t)>;
 
 /**
- * @brief The function type that will to check if an event log is prohibited
- *        from being deleted.
- *        The same function is used to check if an event log is prohibited from
- *        setting Resolved flag, as Resolve is prohibited as long as Delete is
- *        prohibited.
+ * @brief The function type that will be used to check if an event log is
+ * prohibited from being deleted.The same function is used to check if an event
+ * log is prohibited from setting Resolved flag, as Resolve is prohibited as
+ * long as Delete is prohibited.
  *
  * @param[in] uint32_t - The event log ID
  * @param[out] bool - set to true if the delete is prohibited
@@ -78,12 +77,22 @@ using LogIDsWithHwIsolationFunctions =
  */
 using DeleteAllFunction = std::function<void(void)>;
 
+/**
+ * @brief Function type used to handle associations for a restored
+ *        log entry in an extension.
+ * @param[in] uint32_t - OpenBMC log ID of the entry
+ * @param[in] const std::string - D-Bus object path of the entry
+ */
+using ExtensionLogAssociation =
+    std::function<void(uint32_t, const std::string&)>;
+
 using StartupFunctions = std::vector<StartupFunction>;
 using PrepareFunctions = std::vector<PrepareFunction>;
 using CreateFunctions = std::vector<CreateFunction>;
 using DeleteFunctions = std::vector<DeleteFunction>;
 using DeleteProhibitedFunctions = std::vector<DeleteProhibitedFunction>;
 using DeleteAllFunctions = std::vector<DeleteAllFunction>;
+using ExtensionLogAssociations = std::vector<ExtensionLogAssociation>;
 
 /**
  * @brief Register an extension hook function
@@ -228,6 +237,20 @@ class Extensions
     }
 
     /**
+     * @brief Constructor to register a log entry association function
+     *
+     * Functions registered with this constructor are called after a
+     * log entry is restored from disk, allowing extensions to
+     * establish any required associations for that entry.
+     *
+     * @param[in] func - The function to register
+     */
+    explicit Extensions(ExtensionLogAssociation func)
+    {
+        getExtensionLogAssociationFunctions().push_back(func);
+    }
+
+    /**
      * @brief Constructor to disable event log capping
      *
      * This constructor should only be called by the
@@ -289,6 +312,12 @@ class Extensions
      * @return DefaultErrorCaps - the DefaultErrorCaps value
      */
     static DefaultErrorCaps& getDefaultErrorCaps();
+
+    /**
+     * @brief Returns the ExtensionLogAssociation functions
+     * @return ExtensionLogAssociations - the ExtensionLogAssociation functions
+     */
+    static ExtensionLogAssociations& getExtensionLogAssociationFunctions();
 
     /**
      * @brief Say if the default log capping policy should be disabled

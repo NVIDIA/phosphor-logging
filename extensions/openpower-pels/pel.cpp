@@ -6,6 +6,7 @@
 #include "pel.hpp"
 
 #include "bcd_time.hpp"
+#include "constants.hpp"
 #include "extended_user_data.hpp"
 #include "extended_user_header.hpp"
 #include "failing_mtms.hpp"
@@ -929,7 +930,7 @@ std::unique_ptr<UserData> makeSysInfoUserDataSection(
     addBMCFWVersionIDToJSON(json, dataIface);
     addIMKeyword(json, dataIface);
     addStatesToJSON(json, dataIface);
-    if (USE_BMC_POS_IN_ID || IS_UNIT_TEST)
+    if (REDUNDANT_BMC || IS_UNIT_TEST)
     {
         addBMCRedundancyFieldsToJSON(json, dataIface);
     }
