@@ -29,6 +29,7 @@
 #include <set>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <vector>
 
 using namespace std::chrono;
@@ -1114,16 +1115,50 @@ void Manager::restore()
     };
 
     fs::path dir(paths::error());
-    if (!fs::exists(dir) || fs::is_empty(dir))
+
+    // Use the non-throwing overloads: a log store that cannot be read must
+    // never be fatal to the log manager.
+    std::error_code dirEc{};
+    if (!fs::exists(dir, dirEc) || fs::is_empty(dir, dirEc))
     {
+        // Missing or empty is normal; a failure to tell is not.  Reaching
+        // this needs an unreadable paths::error(), which the unit tests
+        // cannot arrange (it is a shared compile-time path), so its branches
+        // are excluded from coverage.  Exercised on hardware.
+        // GCOVR_EXCL_BR_START
+        if (dirEc)
+        {
+            lg2::error("Failed to read error log directory {PATH}: {ERROR}",
+                       "PATH", dir.string(), "ERROR", dirEc.message());
+        }
+        // GCOVR_EXCL_BR_STOP
         return;
     }
 
-    // using recursive_directory_iterator to get every directory
-    for (const auto& file : std::filesystem::recursive_directory_iterator(dir))
+    // using recursive_directory_iterator to get every directory.  Iterate
+    // explicitly so that a failure to construct it, or to increment it,
+    // reports through dirEc rather than throwing out of a range-for.  Both
+    // leave the iterator equal to end, so both land on the check after the
+    // loop.
+    auto it = fs::recursive_directory_iterator(
+        dir, fs::directory_options::skip_permission_denied, dirEc);
+
+    const auto end = fs::recursive_directory_iterator();
+    for (; it != end; it.increment(dirEc))
     {
-        if (fs::is_directory(file))
+        const auto& file = *it;
+
+        // An entry whose inode cannot be stat()ed (EUCLEAN on a damaged
+        // store) is skipped, not fatal.
+        std::error_code entryEc{};
+        if (fs::is_directory(file.path(), entryEc) || entryEc)
         {
+            if (entryEc)
+            {
+                lg2::error(
+                    "Skipping unreadable error log entry {PATH}: {ERROR}",
+                    "PATH", file.path().string(), "ERROR", entryEc.message());
+            }
             continue;
         }
 
@@ -1187,8 +1222,22 @@ void Manager::restore()
                     // lg2::error(
                     //     "Log entry {ID_NUM} is resolved, so purging it at
                     //     bootup.", "ID_NUM", idNum);
-                    fs::remove(file.path());
-                    continue;
+                    std::error_code rmEc{};
+                    fs::remove(file.path(), rmEc);
+                    // A failed remove() needs an undeletable file, which
+                    // the unit tests cannot arrange; branches excluded.
+                    // GCOVR_EXCL_BR_START
+                    if (!rmEc)
+                    {
+                        continue;
+                    }
+                    // The file is still on disk, so fall through and
+                    // restore it anyway; skipping would leave its id out
+                    // of entryId and allow a later id to collide with it.
+                    lg2::error(
+                        "Failed to purge resolved log entry {PATH}: {ERROR}",
+                        "PATH", file.path().string(), "ERROR", rmEc.message());
+                    // GCOVR_EXCL_BR_STOP
                 }
                 e->path(file.path(), true);
                 if (e->severity() >= Entry::sevLowerLimit)
@@ -1212,6 +1261,16 @@ void Manager::restore()
             }
         }
     }
+
+    // Same as above: only reachable when the directory itself cannot be
+    // read, which the unit tests cannot arrange.
+    // GCOVR_EXCL_BR_START
+    if (dirEc)
+    {
+        lg2::error("Failed to read error log directory {PATH}: {ERROR}", "PATH",
+                   dir.string(), "ERROR", dirEc.message());
+    }
+    // GCOVR_EXCL_BR_STOP
 
     // Prune all namespaces to capacity
     for (auto& pair : binNameMap)
