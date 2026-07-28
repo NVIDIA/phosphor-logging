@@ -735,6 +735,76 @@ TEST_F(TestSerialization, LogManagerRestoreCalled)
     EXPECT_TRUE(true);
 }
 
+/**
+ * restore(): an entry that cannot be stat()ed must be skipped, and restore
+ * must carry on and load the readable entries.
+ *
+ * On a BMC this was hit by an ext4 directory entry whose inode could not be
+ * resolved, so stat() returned EUCLEAN ("Structure needs cleaning"): readdir()
+ * listed the name but every stat() on it failed.  fs::is_directory() then threw
+ * filesystem_error out of restore() and aborted the log manager on every boot.
+ *
+ * A self-referential symlink reproduces the same shape portably - readdir()
+ * lists it, and status() fails with ELOOP instead of EUCLEAN.
+ */
+TEST_F(TestSerialization, LogManagerRestoreSkipsUnreadableEntry)
+{
+    std::error_code ec{};
+    auto errorDir = paths::error();
+    fs::create_directories(errorDir, ec);
+
+    // Ids unlikely to collide with entries left by other testcases.
+    constexpr uint32_t unreadableId = 88888888;
+    constexpr uint32_t goodId = 88888890;
+    auto unreadable = errorDir / std::to_string(unreadableId);
+    auto subDir = errorDir / "88888889";
+    auto badName = errorDir / "not-a-number";
+    auto goodPath = errorDir / std::to_string(goodId);
+
+    auto cleanup = [&]() {
+        std::error_code rmEc{};
+        fs::remove(unreadable, rmEc);
+        fs::remove_all(subDir, rmEc);
+        fs::remove(badName, rmEc);
+        fs::remove(goodPath, rmEc);
+    };
+    cleanup();
+
+    // An entry readdir() lists but status() cannot resolve.
+    fs::create_symlink(unreadable.filename(), unreadable, ec);
+    ASSERT_FALSE(ec) << "failed to create test symlink: " << ec.message();
+    ec.clear();
+    static_cast<void>(fs::status(unreadable, ec));
+    ASSERT_TRUE(ec) << "test symlink unexpectedly resolved";
+
+    // A directory, which restore() skips silently.
+    ec.clear();
+    fs::create_directory(subDir, ec);
+
+    // A name std::stol cannot parse.
+    {
+        std::ofstream f(badName);
+        f << "{}";
+    }
+
+    // A well-formed entry, which must still be restored.
+    std::map<std::string, std::string> additionalData;
+    AssociationList assocs;
+    Entry good(bus, std::string(OBJ_ENTRY) + '/' + std::to_string(goodId),
+               goodId, 100, Entry::Level::Error, "test",
+               std::move(additionalData), std::move(assocs), "fwLevel",
+               getEntrySerializePath(goodId, errorDir), manager);
+    serialize(good, errorDir);
+
+    EXPECT_NO_THROW(manager.restore());
+
+    // The unreadable entry is skipped; the readable one is still restored.
+    EXPECT_EQ(manager.entries.count(goodId), 1u);
+    EXPECT_EQ(manager.entries.count(unreadableId), 0u);
+
+    cleanup();
+}
+
 // --- Branch coverage: getAll (Resolved/Unresolved filters), callFQPNsMethods,
 // processMetadata, createEntry FQPN ---
 

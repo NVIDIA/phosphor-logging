@@ -59,8 +59,17 @@ int main(int argc, char* argv[])
             RW_CONFIG_FILE_PATH);
     }
 
-    // Restore all errors
-    iMgr.restore();
+    // Restore all errors.  restore() already skips individual entries it
+    // cannot read; this guard is a backstop so that an unexpected failure
+    // still leaves a running log manager rather than aborting startup.
+    try
+    {
+        iMgr.restore();
+    }
+    catch (const std::exception& e)
+    {
+        error("Failed to restore error logs: {ERROR}", "ERROR", e);
+    }
 
     for (auto& startup : phosphor::logging::Extensions::getStartupFunctions())
     {
