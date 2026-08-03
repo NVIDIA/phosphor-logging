@@ -3,6 +3,7 @@
 #include "elog_serialize.hpp"
 #include "extensions.hpp"
 #include "log_manager.hpp"
+#include "paths.hpp"
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -117,13 +118,18 @@ std::string Entry::resolution(std::string value)
 
 sdbusplus::message::unix_fd Entry::getEntry()
 {
-    std::string jsonPath = path() + ".json";
+    // Derive the JSON path from the JSON directory rather than from path().
+    // path() points at the cereal file, which for a namespaced log lives in a
+    // bin subdirectory, whereas serializeJSON() always writes flat into
+    // paths::error_json().
+    auto jsonPath = paths::error_json() / (std::to_string(id()) + ".json");
+
     int fd = open(jsonPath.c_str(), O_RDONLY | O_NONBLOCK);
     if (fd == -1)
     {
         auto e = errno;
         lg2::error("Failed to open Entry File ERRNO={ERRNO}, PATH={PATH}",
-                   "ERRNO", e, "PATH", path());
+                   "ERRNO", e, "PATH", jsonPath);
         throw sdbusplus::xyz::openbmc_project::Common::File::Error::Open();
     }
 

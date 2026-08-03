@@ -93,7 +93,7 @@ Manager::Manager(sdbusplus::bus_t& bus, const std::string& objPath) :
 {
     this->addBin(this->defaultBin);
     this->_autoPurgeEventSource.set_enabled(sdeventplus::source::Enabled::Off);
-    if constexpr (USE_BMC_POS_IN_ID)
+    if constexpr (REDUNDANT_BMC)
     {
         bmcPosMgr = std::make_unique<BMCPosMgr>();
     }
@@ -563,6 +563,14 @@ auto Manager::createEntry(std::string errMsg, Entry::Level errLvl,
     {
         auto path = serialize(*e, fs::path(entryPath));
         e->path(path);
+
+        // The JSON copy is what Entry::getEntry() hands back to Redfish for
+        // the AdditionalDataURI attachment. It lives in its own flat
+        // directory rather than alongside the cereal file: entry IDs are
+        // unique across bins, nothing restores from JSON, and keeping
+        // ".json" filenames out of the directory restore() walks avoids
+        // building D-Bus object paths containing a '.'.
+        serializeJSON(*e);
     }
 
 #ifdef ENABLE_LOG_STREAMING
@@ -1072,6 +1080,12 @@ void Manager::erase(uint32_t entryId)
         errorPath /= std::to_string(entryId);
         fs::remove(errorPath);
 
+        // The JSON copy lives outside the bin layout, so it has to be
+        // removed separately or it is orphaned for the life of the BMC.
+        fs::path jsonPath(phosphor::logging::paths::error_json());
+        jsonPath /= std::to_string(entryId) + ".json";
+        fs::remove(jsonPath);
+
         auto removeId = [](std::set<uint32_t>& ids, uint32_t id) {
             auto it = std::find(ids.begin(), ids.end(), id);
             if (it != ids.end())
@@ -1299,7 +1313,7 @@ void Manager::restore()
         }
     }
 
-    if constexpr (!USE_BMC_POS_IN_ID)
+    if constexpr (!REDUNDANT_BMC)
     {
         if (!entries.empty())
         {
@@ -1997,9 +2011,16 @@ bool Manager::restoreFromDisk(uint32_t id)
         }
     }
 
-    if (bmcPosMgr->idContainsCurrentPosition(id))
+    // bmcPosMgr only exists when REDUNDANT_BMC is enabled. This function is
+    // normally only reached through the peer-BMC file watch, which is itself
+    // gated on REDUNDANT_BMC, but guard here too so the disabled build stays
+    // safe if it is ever called directly (e.g. from a unit test).
+    if constexpr (REDUNDANT_BMC)
     {
-        entryId = std::max(entryId, id);
+        if (bmcPosMgr->idContainsCurrentPosition(id))
+        {
+            entryId = std::max(entryId, id);
+        }
     }
 
     return true;

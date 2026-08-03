@@ -25,7 +25,6 @@ static constexpr auto LOG_PURGE_POLICY_DEFAULT = @log_purge_policy_default@;
 
 static constexpr auto LOG_STREAMER_SOCKET_PATH = "@log_streamer_socket_path@";
 
-static constexpr bool USE_BMC_POS_IN_ID = @use_bmc_pos_in_id@;
 static constexpr bool REDUNDANT_BMC = @redundant_bmc@;
 
 // vim: ft=cpp

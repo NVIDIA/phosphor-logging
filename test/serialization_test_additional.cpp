@@ -290,9 +290,11 @@ TEST_F(TestSerialization, testGetEntrySuccess)
         Entry::Level::Error, "msg", std::map<std::string, std::string>{},
         AssociationList{}, "fw", serialPath, manager);
 
-    // getEntry() opens path()+".json" (JSON format), so use serializeJSON
-    serializeJSON(*e, TestSerialization::dir);
-    std::string jsonPath = serialPath + ".json";
+    // getEntry() reads the JSON copy out of paths::error_json(), keyed by
+    // entry ID, not from path()+".json" - path() points at the cereal file,
+    // which for a namespaced log is in a bin subdirectory.
+    std::filesystem::create_directories(paths::error_json());
+    auto jsonPath = serializeJSON(*e);
     ASSERT_TRUE(std::filesystem::exists(jsonPath));
 
     sdbusplus::message::unix_fd fd = e->getEntry();
@@ -300,6 +302,8 @@ TEST_F(TestSerialization, testGetEntrySuccess)
 
     sdeventplus::Event event = sdeventplus::Event::get_default();
     event.run(std::chrono::milliseconds(10));
+
+    std::filesystem::remove(jsonPath);
 }
 
 /**

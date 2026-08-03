@@ -32,9 +32,6 @@ conf_data.set(
 redundant_bmc = get_option('redundant-bmc')
 conf_data.set10('redundant_bmc', redundant_bmc)
 
-use_bmc_pos_in_id = get_option('use-bmc-pos-in-id')
-conf_data.set10('use_bmc_pos_in_id', use_bmc_pos_in_id)
-
 cxx = meson.get_compiler('cpp')
 if cxx.has_header('poll.h')
     add_project_arguments('-DPLDM_HAS_POLL=1', language: 'cpp')

@@ -140,15 +140,8 @@ option(
 )
 
 option(
-    'use-bmc-pos-in-id',
-    type: 'boolean',
-    value: true,
-    description: 'If the BMC position should be encoded into the event log ID',
-)
-
-option(
     'redundant-bmc',
     type: 'boolean',
     value: false,
-    description: 'Enable support for redundant BMC systems',
+    description: 'Enable support for redundant BMC systems. Encodes the BMC position into the event log ID and keeps in-memory entries in sync with event log files synced from a peer BMC.',
 )
