@@ -7,6 +7,7 @@
 using namespace phosphor::logging;
 
 int main(int argc, char** argv)
+try
 {
     if (2 != argc)
     {
@@ -27,4 +28,14 @@ int main(int argc, char** argv)
     }
 
     return 0;
+}
+catch (const std::exception& e)
+{
+    std::cerr << "callout-test: unhandled exception: " << e.what() << std::endl;
+    return EXIT_FAILURE;
+}
+catch (...)
+{
+    std::cerr << "callout-test: unknown unhandled exception" << std::endl;
+    return EXIT_FAILURE;
 }
