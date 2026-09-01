@@ -15,6 +15,9 @@
  */
 #include "util.hpp"
 
+#include <sys/inotify.h>
+#include <unistd.h>
+
 #include <sdbusplus/exception.hpp>
 
 #include <filesystem>
@@ -480,4 +483,42 @@ TEST_F(UtilTest, CombineAdditionalDataSpecialCharacters)
     EXPECT_EQ(result[0], "KEY1=VALUE WITH SPACES");
     EXPECT_EQ(result[1], "KEY2=VALUE\nWITH\nNEWLINES");
     EXPECT_EQ(result[2], "KEY3=VALUE\tWITH\tTABS");
+}
+
+/**
+ * setupInotifyWatch() on a directory that exists: both descriptors come back
+ * valid and the caller owns them.
+ */
+TEST_F(UtilTest, SetupInotifyWatchSucceedsOnExistingDirectory)
+{
+    using phosphor::logging::util::setupInotifyWatch;
+
+    int inotifyFD = -1;
+    int watcherWD = -1;
+
+    ASSERT_TRUE(setupInotifyWatch(tempDir.string(), IN_MOVED_TO | IN_DELETE,
+                                  inotifyFD, watcherWD));
+    EXPECT_NE(inotifyFD, -1);
+    EXPECT_NE(watcherWD, -1);
+
+    inotify_rm_watch(inotifyFD, watcherWD);
+    close(inotifyFD);
+}
+
+/**
+ * setupInotifyWatch() on a missing directory: inotify_add_watch() fails with
+ * ENOENT and the helper must close the inotify instance it just created rather
+ * than leaking the descriptor back to the caller.
+ */
+TEST_F(UtilTest, SetupInotifyWatchFailsOnMissingDirectory)
+{
+    using phosphor::logging::util::setupInotifyWatch;
+
+    int inotifyFD = -1;
+    int watcherWD = -1;
+
+    EXPECT_FALSE(setupInotifyWatch((tempDir / "no_such_dir").string(),
+                                   IN_MOVED_TO, inotifyFD, watcherWD));
+    EXPECT_EQ(inotifyFD, -1);
+    EXPECT_EQ(watcherWD, -1);
 }

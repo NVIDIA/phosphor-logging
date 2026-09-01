@@ -105,16 +105,16 @@ Manager::~Manager()
 #ifdef ENABLE_LOG_STREAMING
     logSocket.stop();
 #endif
-    if constexpr (REDUNDANT_BMC)
+    // Not gated on REDUNDANT_BMC: setupErrorFileWatch() is a public method
+    // that can be called independently of the compile-time option, so release
+    // the descriptors whenever the watch was actually established.
+    if (errDirInotifyFD != -1)
     {
-        if (errDirInotifyFD != -1)
+        if (errDirWatcherWD != -1)
         {
-            if (errDirWatcherWD != -1)
-            {
-                inotify_rm_watch(errDirInotifyFD, errDirWatcherWD);
-            }
-            close(errDirInotifyFD);
+            inotify_rm_watch(errDirInotifyFD, errDirWatcherWD);
         }
+        close(errDirInotifyFD);
     }
 }
 
@@ -1869,9 +1869,9 @@ size_t Manager::setInfoLogCapacity(size_t infoLogCapacity,
     return infoLogCapacity;
 }
 
-void Manager::rfSendEvent(
+void Manager::rfSendEvent( // GCOVR_EXCL_FUNCTION
     std::string rfMessage, Entry::Level rfSeverity,
-    std::map<std::string, std::string> rfAdditionalData) // GCOVR_EXCL_FUNCTION
+    std::map<std::string, std::string> rfAdditionalData)
 {
     std::vector<std::string> ad;
     if (rfAdditionalData.find("REDFISH_MESSAGE_ID") == rfAdditionalData.end() ||

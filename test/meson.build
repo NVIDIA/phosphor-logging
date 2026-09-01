@@ -38,11 +38,12 @@ tests = [
     'serialization_test_additional',
     'linear_policy_test',
     'log_purge_policy_test',
+    # Built unconditionally.  setupErrorFileWatch(), restoreFromDisk() and
+    # refreshFromDisk() are compiled regardless of the redundant-bmc option -
+    # only the call site in log_manager_main.cpp is gated - so keep the synced
+    # entry path compiled and tested even while the feature is off in product.
+    'log_manager_rbmc_sync_test',
 ]
-
-if get_option('redundant-bmc')
-    tests += ['log_manager_rbmc_sync_test']
-endif
 
 foreach t : tests
     test(
