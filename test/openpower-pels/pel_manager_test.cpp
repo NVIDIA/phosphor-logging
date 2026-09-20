@@ -294,7 +294,7 @@ TEST_F(ManagerTest, TestCreateWithMessageRegistry)
               "BD612030                        ");
     // Check if the eventId creation is good
     EXPECT_EQ(manager.getEventId(pel),
-              "BD612030 00000055 00000010 00000000 00000000 00000000 00000000 "
+              "BD612030 00000055 00000001 00000000 00000000 00000000 00000000 "
               "00000000 00000000");
     // Check if resolution property creation is good
     EXPECT_EQ(manager.getResolution(pel),
@@ -898,11 +898,11 @@ TEST_F(ManagerTest, TestServiceIndicators)
             .Times(1)
             .WillOnce(Return(names));
 
-        EXPECT_CALL(*mockIface, expandLocationCode("P42-C23", 0))
+        EXPECT_CALL(*mockIface, expandLocationCode("P42-C23", 1))
             .WillOnce(Return("U42-P42-C23"));
 
         // First call to this is when building the Callout section
-        EXPECT_CALL(*mockIface, getInventoryFromLocCode("P42-C23", 0, false))
+        EXPECT_CALL(*mockIface, getInventoryFromLocCode("P42-C23", 1, false))
             .WillOnce(
                 Return(std::vector<std::string>{"/system/chassis/processor"}));
 
@@ -1132,16 +1132,16 @@ TEST_F(ManagerTest, TestFruPlug)
         reinterpret_cast<MockDataInterface*>(dataIface.get());
 
     // Set up the mock calls used when building callouts
-    EXPECT_CALL(*mockIface, getInventoryFromLocCode("P0", 0, false))
+    EXPECT_CALL(*mockIface, getInventoryFromLocCode("P0", 1, false))
         .WillRepeatedly(Return(std::vector<std::string>{"motherboard"}));
-    EXPECT_CALL(*mockIface, expandLocationCode("P0", 0))
+    EXPECT_CALL(*mockIface, expandLocationCode("P0", 1))
         .WillRepeatedly(Return("U1234-P0"));
-    EXPECT_CALL(*mockIface, getInventoryFromLocCode("U1234-P0", 0, true))
+    EXPECT_CALL(*mockIface, getInventoryFromLocCode("U1234-P0", 1, true))
         .WillRepeatedly(Return(std::vector<std::string>{"motherboard"}));
 
-    EXPECT_CALL(*mockIface, getInventoryFromLocCode("A3", 0, false))
+    EXPECT_CALL(*mockIface, getInventoryFromLocCode("A3", 1, false))
         .WillRepeatedly(Return(std::vector<std::string>{"fan"}));
-    EXPECT_CALL(*mockIface, expandLocationCode("A3", 0))
+    EXPECT_CALL(*mockIface, expandLocationCode("A3", 1))
         .WillRepeatedly(Return("U1234-A3"));
     EXPECT_CALL(*mockIface, getInventoryFromLocCode("U1234-A3", 0, true))
         .WillRepeatedly(Return(std::vector<std::string>{"fan"}));
@@ -1274,7 +1274,7 @@ TEST_F(ManagerTest, TestPELDeleteWithoutHWIsolation)
     MockDataInterface* mockIface =
         reinterpret_cast<MockDataInterface*>(dataIface.get());
 
-    EXPECT_CALL(*mockIface, getInventoryFromLocCode("Ufcs-DIMM0", 0, false))
+    EXPECT_CALL(*mockIface, getInventoryFromLocCode("Ufcs-DIMM0", 1, false))
         .WillOnce(Return(std::vector<std::string>{
             "/xyz/openbmc_project/inventory/system/chassis/motherboard/dimm0"}));
 
@@ -1375,7 +1375,7 @@ TEST_F(ManagerTest, TestPELDeleteWithHWIsolation)
     MockDataInterface* mockIface =
         reinterpret_cast<MockDataInterface*>(dataIface.get());
 
-    EXPECT_CALL(*mockIface, getInventoryFromLocCode("Ufcs-DIMM0", 0, false))
+    EXPECT_CALL(*mockIface, getInventoryFromLocCode("Ufcs-DIMM0", 1, false))
         .WillOnce(Return(std::vector<std::string>{
             "/xyz/openbmc_project/inventory/system/chassis/motherboard/dimm0"}));
 

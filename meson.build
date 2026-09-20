@@ -167,6 +167,7 @@ elog_process_gen = custom_target(
 log_manager_ext_sources = []
 log_manager_ext_deps = []
 log_manager_ext_args = []
+log_manager_ext_inc = []
 
 subdir('extensions')
 subdir('phosphor-rsyslog-config')
@@ -210,7 +211,9 @@ log_manager_lib = static_library(
     log_sources,
     log_manager_sources,
     log_manager_ext_sources,
-    include_directories: include_directories('gen'),
+    include_directories: [
+        include_directories('gen'),
+    ] + log_manager_ext_inc,
     dependencies: [log_manager_deps, log_manager_ext_deps],
     cpp_args: log_manager_ext_args,
 )
@@ -218,7 +221,9 @@ executable(
     'phosphor-log-manager',
     'log_manager_main.cpp',
     generated_headers,
-    include_directories: include_directories('gen'),
+    include_directories: [
+        include_directories('gen'),
+    ] + log_manager_ext_inc,
     cpp_args: log_manager_ext_args,
     dependencies: [
         conf_h_dep,
@@ -235,7 +240,7 @@ executable(
 
 executable(
     'log-create',
-    'log_create_main.cpp',
+    ['log_create_main.cpp', 'log_create_extensions.cpp'],
     dependencies: [
         CLI11_dep,
         nlohmann_json_dep,

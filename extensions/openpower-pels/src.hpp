@@ -4,6 +4,7 @@
 #include "ascii_string.hpp"
 #include "callouts.hpp"
 #include "data_interface.hpp"
+#include "log_id.hpp"
 #include "pel_types.hpp"
 #include "registry.hpp"
 #include "section.hpp"
@@ -19,7 +20,6 @@ constexpr uint8_t srcSectionSubtype = 0x01;
 constexpr size_t numSRCHexDataWords = 8;
 constexpr uint8_t srcVersion = 0x02;
 constexpr uint8_t bmcSRCFormat = 0x55;
-constexpr uint8_t primaryBMCPosition = 0x10;
 constexpr size_t baseSRCSize = 72;
 
 enum class DetailLevel
@@ -389,14 +389,19 @@ class SRC : public Section
     }
 
     /**
-     * @brief Sets the hex word field that specifies which BMC
-     *        (primary vs backup) created the error.
-     *
-     * Can be hardcoded until there are systems with redundant BMCs.
+     * @brief Sets the BMC position in hex data word data.
+     *        Encoding:
+     *          BMC A -> 0b0001
+     *          BMC B -> 0b0010
+     *        If the position is not available, no bits are set.
      */
     inline void setBMCPosition()
     {
-        _hexData[1] |= primaryBMCPosition;
+        auto pos = position::getBMCPosition();
+        if (pos.has_value())
+        {
+            _hexData[1] |= static_cast<uint32_t>(1) << pos.value();
+        }
     }
 
     /**
@@ -493,11 +498,14 @@ class SRC : public Section
      * @param[in] dataIface - The DataInterface object
      * @param[in] trustedSymbolicFRUInvPath - The optional inventory path used
      *                                        in the symbolic FRU case.
+     * @param[in] additionalData - The AdditionalData property for dynamic
+     *                            chassis number lookup
      */
     void addRegistryCallouts(
         const std::vector<message::RegistryCallout>& callouts,
         const DataInterfaceBase& dataIface,
-        std::optional<std::string> trustedSymbolicFRUInvPath);
+        std::optional<std::string> trustedSymbolicFRUInvPath,
+        const AdditionalData& additionalData);
 
     /**
      * @brief Adds a single FRU callout from the message registry.
@@ -511,11 +519,14 @@ class SRC : public Section
      * @param[in] dataIface - The DataInterface object
      * @param[in] trustedSymbolicFRUInvPath - The optional inventory path used
      *                                        in the symbolic FRU case.
+     * @param[in] additionalData - The AdditionalData property for dynamic
+     *                            chassis number lookup
      */
     void addRegistryCallout(
         const message::RegistryCallout& callout,
         const DataInterfaceBase& dataIface,
-        const std::optional<std::string>& trustedSymbolicFRUInvPath);
+        const std::optional<std::string>& trustedSymbolicFRUInvPath,
+        const AdditionalData& additionalData);
 
     /**
      * @brief Creates the Callouts object _callouts
@@ -581,7 +592,7 @@ class SRC : public Section
     CalloutPriority getPriorityFromJSON(const nlohmann::json& json);
 
     /**
-     * @brief Exracts MRU values and their priorities from the
+     * @brief Extracts MRU values and their priorities from the
      *        input JSON array.
      *
      * @param[in] mruJSON - The JSON array

@@ -528,6 +528,82 @@ example, the 'air_mover' callout will be added if 'PROC_NUM' isn't 0.
 
 ```
 
+#### Callouts example based on system type with an AdditionalData field
+
+An alternative layout for `CalloutsUsingAD` places the system type as the outer
+discriminator and the AdditionalData value as the inner one. This is useful when
+the set of possible AD values differs per system type.
+
+In this layout each entry in `CalloutsWithTheirADValues` carries an optional
+`System` or `Systems` key and a required `ADValues` array. Each item in
+`ADValues` has an `ADValue` string and a `CalloutList`. An entry without a
+`System` or `Systems` key is the default and is used when no system-specific
+entry matches.
+
+```json
+"CalloutsUsingAD":
+{
+    "ADName": "RAIL_NAME",
+    "CalloutsWithTheirADValues":
+    [
+        {
+            "System": "system1",
+            "ADValues":
+            [
+                {
+                    "ADValue": "VDD",
+                    "CalloutList":
+                    [
+                        { "Priority": "high", "LocCode": "P1-C1" }
+                    ]
+                },
+                {
+                    "ADValue": "VIO",
+                    "CalloutList":
+                    [
+                        { "Priority": "high", "LocCode": "P1-C2" }
+                    ]
+                }
+            ]
+        },
+        {
+            "Systems": ["system2", "system3"],
+            "ADValues":
+            [
+                {
+                    "ADValue": "VIO",
+                    "CalloutList":
+                    [
+                        { "Priority": "high", "LocCode": "P1-C4" }
+                    ]
+                }
+            ]
+        },
+        {
+            "ADValues":
+            [
+                {
+                    "ADValue": "VDD",
+                    "CalloutList":
+                    [
+                        { "Priority": "high", "Procedure": "BMC0001" }
+                    ]
+                }
+            ]
+        }
+    ]
+}
+```
+
+In this example, on `system1` the FRU at P1-C1 is called out when RAIL_NAME is
+VDD, and P1-C2 when it is VIO. On `system2` or `system3` only VIO is handled,
+calling out P1-C4. On every other system the default entry is used, calling out
+the maintenance procedure BMC0001 when RAIL_NAME is VDD. If the AD value is not
+found in the matched entry an empty callout list is returned.
+
+Note that this layout cannot be mixed with the `ADValue`/`Callouts` layout
+within the same `CalloutsWithTheirADValues` array.
+
 #### CalloutType
 
 This field can be used to modify the failing component type field in the callout
@@ -569,6 +645,115 @@ the first callout in the registry for this to work.
   "UseInventoryLocCode": true
 }
 ```
+
+### Multi-chassis callout in registry
+
+To identify the FRU in the callout, the code needs the chassis associated with
+the location code in the registry, since the value is relative to the chassis.
+
+#### BMC Chassis
+
+For location code where chassis information is not provided, the running BMC
+chassis is used by default (including support for the legacy format). This
+chassis number is dynamically fetched by the PEL application at runtime.
+
+**Example:**
+
+```json
+"Callouts": [
+    {
+        "CalloutList": [
+            {
+                "Priority": "high",
+                "LocCode": "P0"
+            }
+        ]
+    }
+]
+```
+
+In this example, Location Code "P0" will be resolved using the BMC's chassis
+number.
+
+#### Static Chassis Number
+
+When the chassis number can be statically defined in the registry, use the
+`ChassisNumber` keyword to explicitly specify the chassis along with the
+location code.
+
+**Example:**
+
+```json
+"Callouts": [
+    {
+        "CalloutList": [
+            {
+                "Priority": "high",
+                "LocCode": "P0",
+                "ChassisNumber": 2
+            }
+        ]
+    }
+]
+```
+
+In this example, the location code "P0" will always be associated with chassis
+number 2, regardless of which chassis the BMC is running on.
+
+#### Dynamic Chassis Number
+
+For scenarios where the chassis number cannot be determined until runtime, use
+the `ChassisNumADKey` field in the registry. A key name is used to identify the
+chassis containing the FRU in the registry. This value is determined dynamically
+and passed by the user through the AdditionalData field during PEL creation.
+
+**Example:**
+
+```json
+"Callouts": [
+    {
+        "CalloutList": [
+            {
+                "Priority": "high",
+                "LocCode": "P0-C14",
+                "ChassisNumADKey": "VRM_CHASSIS_NUMBER"
+            },
+            {
+                "Priority": "medium",
+                "LocCode": "P1",
+                "ChassisNumADKey": "DASD_CHASSIS_NUMBER"
+            }
+        ]
+    }
+]
+```
+
+The creator must provide as many chassis number values in AdditionalData as
+there are `ChassisNumADKey` entries in the registry.
+
+**Creating the Error Log:**
+
+When creating a PEL with dynamic chassis numbers, the creator must pass the
+chassis number values through the AdditionalData property. The keyword names
+must match those specified in the registry's `ChassisNumADKey` fields.
+
+**Example:**
+
+```cpp
+// Create error log with dynamic chassis numbers
+std::map<std::string, std::string> additionalData;
+additionalData["VRM_CHASSIS_NUMBER"] = "2";
+additionalData["DASD_CHASSIS_NUMBER"] = "3";
+
+// Create the error log with the additional data
+createErrorLog(errorMessage, additionalData);
+```
+
+In this example:
+
+- The callout with location code "P0-C14" will be associated with chassis number
+  2
+- The callout with location code "P1" will be associated with chassis number 3
 
 ### Capturing the Journal
 
@@ -631,6 +816,7 @@ The general process for adding new entries to the message registry is:
 
 4. One can test what PELs are generated from these new entries without writing
    any code to create the corresponding event logs:
+
    1. Copy the modified message_registry.json into `/etc/phosphor-logging/` on
       the BMC. That directory may need to be created.
    2. Use busctl to call the Create method to create an event log corresponding

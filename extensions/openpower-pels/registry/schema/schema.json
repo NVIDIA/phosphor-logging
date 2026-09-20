@@ -544,8 +544,19 @@
             "type": "boolean"
         },
 
+        "chassisNumber": {
+            "description": "The chassis number used in a multi-chassis system to identify which chassis the unexpanded location code belongs to.",
+            "type": "integer",
+            "minimum": 0
+        },
+
+        "chassisNumADKey": {
+            "description": "The AdditionalData key name that contains the chassis number to use for this callout. Used when the chassis number cannot be determined until runtime.",
+            "type": "string"
+        },
+
         "calloutList": {
-            "description": "The list of FRU callouts to add to a PEL.  If just LocCode is specified, it is a normal hardware FRU callout.  If Procedure is specified, it is a procedure callout.  If SymbolicFRU or SymbolicFRUTrusted are specified, it is a Symbolic FRU callout.  SymbolicFRUTrusted also requires LocCode.",
+            "description": "The list of FRU callouts to add to a PEL.  If just LocCode is specified, it is a normal hardware FRU callout. If Procedure is specified, it is a procedure callout.  If SymbolicFRU or SymbolicFRUTrusted are specified, it is a Symbolic FRU callout.  SymbolicFRUTrusted also requires LocCode.",
             "type": "array",
             "items": {
                 "type": "object",
@@ -559,6 +570,10 @@
                     "Procedure": { "$ref": "#/definitions/procedure" },
                     "UseInventoryLocCode": {
                         "$ref": "#/definitions/useInventoryLocCode"
+                    },
+                    "ChassisNumber": { "$ref": "#/definitions/chassisNumber" },
+                    "ChassisNumADKey": {
+                        "$ref": "#/definitions/chassisNumADKey"
                     }
                 },
                 "additionalProperties": false,
@@ -591,7 +606,6 @@
                             { "not": { "required": ["UseInventoryLocCode"] } }
                         ]
                     },
-
                     {
                         "allOf": [
                             {
@@ -602,7 +616,8 @@
                             },
                             { "not": { "required": ["SymbolicFRU"] } },
                             { "not": { "required": ["Procedure"] } },
-                            { "not": { "required": ["LocCode"] } }
+                            { "not": { "required": ["LocCode"] } },
+                            { "not": { "required": ["ChassisNumber"] } }
                         ]
                     },
 
@@ -612,6 +627,7 @@
                             { "not": { "required": ["SymbolicFRU"] } },
                             { "not": { "required": ["SymbolicFRUTrusted"] } },
                             { "not": { "required": ["LocCode"] } },
+                            { "not": { "required": ["ChassisNumber"] } },
                             { "not": { "required": ["UseInventoryLocCode"] } }
                         ]
                     }
@@ -691,6 +707,15 @@
                     },
                     {
                         "CalloutList": [
+                            {
+                                "Priority": "high",
+                                "LocCode": "P1",
+                                "ChassisNumber": 2
+                            }
+                        ]
+                    },
+                    {
+                        "CalloutList": [
                             { "Priority": "high", "Procedure": "NEXTLVL" }
                         ]
                     }
@@ -698,18 +723,45 @@
             ]
         },
 
+        "adValues": {
+            "description": "A list of ADValue/CalloutList pairs used when the system type is the outer discriminator in CalloutsWithTheirADValues.",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "ADValue": { "$ref": "#/definitions/adValue" },
+                    "CalloutList": { "$ref": "#/definitions/calloutList" }
+                },
+                "additionalProperties": false,
+                "required": ["ADValue", "CalloutList"]
+            },
+            "minItems": 1
+        },
+
         "calloutsWithTheirADValues": {
-            "description": "This contains callouts along with the AdditionalData value used to select an entry into the callout list.  The AdditionalData entry was specified by ADName in the CalloutsUsingAD parent entry.",
+            "description": "This contains callouts along with the AdditionalData value used to select an entry into the callout list.  The AdditionalData entry was specified by ADName in the CalloutsUsingAD parent entry.  Each entry is either the original format (ADValue+Callouts) or the system-outer format (System/Systems+ADValues).",
             "type": "array",
 
             "items": {
                 "type": "object",
                 "properties": {
                     "ADValue": { "$ref": "#/definitions/adValue" },
-                    "Callouts": { "$ref": "#/definitions/callouts" }
+                    "Callouts": { "$ref": "#/definitions/callouts" },
+                    "System": { "$ref": "#/definitions/system" },
+                    "Systems": { "$ref": "#/definitions/systems" },
+                    "ADValues": { "$ref": "#/definitions/adValues" }
                 },
                 "additionalProperties": false,
-                "required": ["ADValue", "Callouts"]
+                "oneOf": [
+                    {
+                        "required": ["ADValue", "Callouts"],
+                        "not": { "required": ["ADValues"] }
+                    },
+                    {
+                        "required": ["ADValues"],
+                        "not": { "required": ["ADValue", "Callouts"] }
+                    }
+                ]
             },
             "minItems": 1,
 
@@ -731,6 +783,38 @@
                             {
                                 "CalloutList": [
                                     { "Priority": "high", "LocCode": "P2" }
+                                ]
+                            }
+                        ]
+                    }
+                ],
+                [
+                    {
+                        "System": "system1",
+                        "ADValues": [
+                            {
+                                "ADValue": "VDD",
+                                "CalloutList": [
+                                    { "Priority": "high", "LocCode": "P1-C1" }
+                                ]
+                            },
+                            {
+                                "ADValue": "VIO",
+                                "CalloutList": [
+                                    { "Priority": "high", "LocCode": "P1-C2" }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "ADValues": [
+                            {
+                                "ADValue": "VDD",
+                                "CalloutList": [
+                                    {
+                                        "Priority": "high",
+                                        "Procedure": "BMC0001"
+                                    }
                                 ]
                             }
                         ]

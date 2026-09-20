@@ -926,7 +926,7 @@ class Manager :
      */
     void deleteAll() override
     {
-        log<level::INFO>("Deleting all log entries");
+        lg2::info("Deleting all log entries");
         auto numbersOfLogs = manager.eraseAll();
         manager.createFromEvent(
             LoggingCleared("NUMBER_OF_LOGS", numbersOfLogs));
@@ -1030,14 +1030,14 @@ class Manager :
      * @param[in] additionalData - The AdditionalData property for the error
      * @param[in] ffdc - A vector of FFDC file info
      */
-    void createWithFFDCFiles(
+    auto createWithFFDCFiles(
         std::string message, Severity severity,
         std::map<std::string, std::string> additionalData,
         std::vector<std::tuple<CreateIface::FFDCFormat, uint8_t, uint8_t,
                                sdbusplus::message::unix_fd>>
-            ffdc) override
+            ffdc) -> sdbusplus::object_path override
     {
-        manager.create(message, severity, additionalData, ffdc);
+        return manager.create(message, severity, additionalData, ffdc);
     }
 
   private:

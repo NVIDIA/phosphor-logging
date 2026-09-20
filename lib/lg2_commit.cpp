@@ -106,10 +106,14 @@ static auto data_from_json(sdbusplus::exception::generated_event_base& t)
     return result;
 }
 
-auto extractEvent(sdbusplus::exception::generated_event_base&& t)
-    -> std::tuple<std::string, Entry::Level, std::map<std::string, std::string>>
+auto extractEvent(sdbusplus::exception::generated_event_base&& event)
+    -> EventInfo
 {
-    return {t.name(), severity_from_syslog(t.severity()), data_from_json(t)};
+    return {
+        .message = event.name(),
+        .level = severity_from_syslog(event.severity()),
+        .additionalData = data_from_json(event),
+    };
 }
 
 } // namespace details
@@ -177,9 +181,21 @@ auto commit(sdbusplus::async::context& ctx,
     using details::Create;
     int severity = overrideLevel.value_or(t.severity());
 
+    // Check event filters first.
+    if ((severity == LOG_INFO) && details::filterEvent(t.name()))
+    {
+        co_return {};
+    }
+    else if (details::filterError(t.name()))
+    {
+        co_return {};
+    }
+
     if constexpr (LG2_COMMIT_JOURNAL)
     {
-        lg2::error("OPENBMC_MESSAGE_ID={DATA}", "DATA", t.to_json().dump());
+        nlohmann::json entry = t.to_json();
+        entry["severity"] = severity;
+        lg2::error("OPENBMC_MESSAGE_ID={DATA}", "DATA", entry.dump());
     }
 
     if constexpr (LG2_COMMIT_DBUS)
