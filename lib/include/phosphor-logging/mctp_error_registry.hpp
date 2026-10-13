@@ -39,22 +39,32 @@
  * ENOMEM     |  12   | Out of memory (Host controller error)
  * EBUSY      |  16   | Device or resource busy / all tags in use
  * ENODEV     |  19   | No such device / device was removed
- * EINVAL     |  22   | Invalid argument / BMC driver bug (SERIAL Tx)
+ * EINVAL     |  22   | Invalid argument (SERIAL Tx)
  * EPIPE      |  32   | Broken pipe / endpoint in stall state
  * EPROTO     |  71   | Protocol error / fragmentation error (Rx)
- * EMSGSIZE   |  90   | Message too long / exceeds 64KB limit (Rx)
+ * EMSGSIZE   |  90   | Message too long / exceeds 64 KiB limit (Rx)
  * ECONNRESET |  104  | Connection reset / URB unlinked
- * ETIMEDOUT  |  110  | Connection timed out / fragmentation timeout
+ * ETIMEDOUT  |  110  | Connection timed out / Tx timeout / fragmentation
+ *            |       | timeout (Rx)
  * EHOSTUNREACH| 113  | No route to host / host unreachable
  * ECOMM      |  70   | Communication error on send
  * ESHUTDOWN  |  108  | Cannot send after transport endpoint shutdown
  *
+ * Note: I2C binding specific error codes:
+ *   - TX: ETIMEDOUT (110) - I2C transfer timed out (DEVICE)
+ *   - RX: ETIMEDOUT (110) - Fragmentation timeout (DEVICE)
+ *
  * Note: SERIAL binding specific error codes:
- *   - TX: EINVAL (22) - BMC driver bug (HOST_CONTROLLER)
- *   - TX: ETIMEDOUT (110) - End device failure
+ *   - TX: EINVAL (22) - Invalid argument (HOST_CONTROLLER)
+ *   - TX: ETIMEDOUT (110) - End device failure (same as I2C)
  *   - RX: EPROTO (71) - Fragmentation error (same as I2C)
- *   - RX: EMSGSIZE (90) - Message exceeds 64KB (same as I2C)
+ *   - RX: EMSGSIZE (90) - Message exceeds 64 KiB (same as I2C)
  *   - RX: ETIMEDOUT (110) - Fragmentation timeout (same as I2C)
+ *
+ * For known errno values, every description ends with the errno name, e.g.
+ * "... (ETIMEDOUT)". Codes with no mapping use the strerror() text instead,
+ * e.g. "Connection timed out (ETIMEDOUT)". Unknown errno values have no name,
+ * so only the strerror() text is used, e.g. "Unknown error 9999".
  *
  * =============================================================================
  * BINDING TYPE REFERENCE
@@ -65,7 +75,7 @@
  * Binding    | Value | Description              | Error Map Available
  * -----------|-------|--------------------------|--------------------
  * I2C        | 0x01  | I2C/SMBus binding        | Yes
- * PCIE       | 0x02  | PCIe VDM binding         | Yes
+ * PCIE       | 0x02  | PCIe VDM binding         | No (strerror fallback)
  * USB        | 0x03  | USB binding              | Yes
  * KCS        | 0x04  | KCS binding              | No (future)
  * SERIAL     | 0x05  | Serial binding           | Yes
@@ -174,7 +184,7 @@ struct RedfishRegistry
                          // controller error
     std::string errorId; // RAS catalog error name
                          // (e.g., "FWUP_I2C_DEVICE_TX_BUS_BUSY"); empty if
-                         // unmapped
+                         // unmapped or the catalog has no name for it
 };
 
 /**
@@ -190,17 +200,24 @@ struct RedfishRegistry
  * @param[in] binding - MCTP binding type:
  *                      - USB: USB binding-specific errors
  *                      - I2C: I2C binding-specific errors
- *                      - PCIE: PCIe binding-specific errors
+ *                      - SERIAL: SPI-SPB binding-specific errors
  *                      - SYNC: MCTP core/sync API errors (binding-independent)
+ *                      Other bindings (e.g. PCIE) have no error map and
+ *                      always take the unmapped path.
  * @param[in] endpointid - Endpoint ID
  * @param[in] driverOperation - Driver operation string (e.g., "FirmwareUpdate")
- * @param[in] deviceRedfishName - Optional device Redfish name. Only used for
- *                                device errors (not host controller errors).
- *                                For host controller errors, "BMC" is always
- * used.
+ * @param[in] deviceRedfishName - Optional device Redfish name, used as the
+ *                                device name (Args[1]) for both device and
+ *                                host controller errors. If absent or empty,
+ *                                the name falls back to "EID_0xNN".
  *
- * @return Optional RedfishRegistry structure filled with registry information,
- *         or std::nullopt if error code/binding combination is not mapped
+ * @return RedfishRegistry structure filled with registry information. A value
+ *         is always returned; the std::optional return type is kept for API
+ *         compatibility with existing callers. An unmapped error code/
+ *         direction/binding combination is reported with the
+ *         DeviceDriverErrorsDetected registry, the device power-cycle
+ *         resolution, the strerror() text followed by the errno name (for
+ *         known errno values) as the description, and an empty errorId.
  *
  * @example Usage for USB binding error:
  * auto registry = mctp::errorToRedfishRegistry(

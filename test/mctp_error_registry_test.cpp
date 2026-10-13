@@ -19,8 +19,24 @@
 
 #include <cerrno>
 #include <iostream>
+#include <optional>
+#include <string>
 
 using namespace phosphor::logging::mctp;
+
+namespace
+{
+
+constexpr auto deviceRegistry =
+    "NvidiaResourceEvent.1.0.DeviceDriverErrorsDetected";
+constexpr auto bmcRegistry = "NvidiaResourceEvent.1.0.BmcDriverErrorsDetected";
+constexpr auto deviceResolution =
+    "If problem persists, perform power cycle of the system to recover the device.";
+constexpr auto bmcResolution = "If problem persists, perform BMC reboot.";
+constexpr auto driverOperation = "RequestUpdate";
+constexpr uint8_t endpointId = 0x0D;
+constexpr auto eidDeviceName = "EID_0x0D";
+constexpr auto redfishDeviceName = "HGX_FW_GPU_0";
 
 // Helper function to convert Level enum to string for display
 std::string levelToString(Level level)
@@ -48,385 +64,269 @@ std::string levelToString(Level level)
     }
 }
 
-void testUSBDeviceError()
+struct MappingTestCase
 {
-    std::cout << "Test 1: USB Device Disconnection (ENODEV)" << std::endl;
+    const char* name;
+    uint32_t errorCode;
+    Direction direction;
+    Binding binding;
+    bool isDeviceError;
+    const char* expectedErrorId;
+    const char* description;
+};
 
+// Runs one case and checks every RedfishRegistry field. On mismatch, prints
+// the full result next to the expected values.
+bool checkMapping(const MappingTestCase& testCase,
+                  const std::optional<std::string>& deviceRedfishName,
+                  const std::string& expectedDeviceName)
+{
     auto registry = errorToRedfishRegistry(
-        ENODEV,          // error code
-        Direction::TX,   // direction
-        Binding::USB,    // binding
-        0x15,            // endpointid
-        "FirmwareUpdate" // driver operation
-    );
+        testCase.errorCode, testCase.direction, testCase.binding, endpointId,
+        driverOperation, deviceRedfishName);
+    const std::string expectedRegistry =
+        testCase.isDeviceError ? deviceRegistry : bmcRegistry;
+    const std::string expectedResolution =
+        testCase.isDeviceError ? deviceResolution : bmcResolution;
+    const std::string expectedArgs[] = {driverOperation, expectedDeviceName,
+                                        testCase.description};
 
-    if (registry)
+    const bool passed =
+        registry && registry->args.size() == 3 &&
+        registry->registryId == expectedRegistry &&
+        registry->severity == Level::Critical &&
+        registry->args[0] == expectedArgs[0] &&
+        registry->args[1] == expectedArgs[1] &&
+        registry->args[2] == expectedArgs[2] &&
+        registry->resolution == expectedResolution &&
+        registry->isDeviceError == testCase.isDeviceError &&
+        registry->errorId == testCase.expectedErrorId;
+    if (passed)
     {
-        std::cout << "  Registry ID: " << registry->registryId << std::endl;
-        std::cout << "  Severity: " << levelToString(registry->severity)
-                  << std::endl;
-        std::cout << "  Args[0]: " << registry->args[0] << std::endl;
-        std::cout << "  Args[1]: " << registry->args[1] << std::endl;
-        std::cout << "  Args[2]: " << registry->args[2] << std::endl;
-        std::cout << "  Resolution: " << registry->resolution << std::endl;
-        std::cout << "  Is Device Error: "
-                  << (registry->isDeviceError ? "true" : "false") << std::endl;
-        std::cout << "  Error ID: " << registry->errorId << std::endl;
-        std::cout << "  PASS" << std::endl;
+        return true;
     }
-    else
-    {
-        std::cout << "  FAIL: No registry mapping found" << std::endl;
-    }
-    std::cout << std::endl;
-}
 
-void testI2CHostControllerError()
-{
-    std::cout << "Test 2: I2C Host Controller Memory Error (ENOMEM)"
+    std::cerr << "FAIL: " << testCase.name << " (deviceRedfishName: "
+              << (deviceRedfishName ? "'" + *deviceRedfishName + "'"
+                                    : std::string("std::nullopt"))
+              << ")" << std::endl;
+    if (!registry)
+    {
+        std::cerr << "  returned std::nullopt" << std::endl;
+        return false;
+    }
+    std::cerr << std::boolalpha;
+    std::cerr << "  registryId:    '" << registry->registryId << "' (expected '"
+              << expectedRegistry << "')" << std::endl;
+    std::cerr << "  severity:      " << levelToString(registry->severity)
+              << " (expected Critical)" << std::endl;
+    std::cerr << "  resolution:    '" << registry->resolution << "' (expected '"
+              << expectedResolution << "')" << std::endl;
+    std::cerr << "  isDeviceError: " << registry->isDeviceError << " (expected "
+              << testCase.isDeviceError << ")" << std::endl;
+    std::cerr << "  errorId:       '" << registry->errorId << "' (expected '"
+              << testCase.expectedErrorId << "')" << std::endl;
+    std::cerr << "  args.size():   " << registry->args.size() << " (expected 3)"
               << std::endl;
-
-    auto registry = errorToRedfishRegistry(
-        ENOMEM,           // error code
-        Direction::TX,    // direction
-        Binding::I2C,     // binding
-        0x20,             // endpointid
-        "DeviceDiscovery" // driver operation
-    );
-
-    if (registry)
+    for (size_t i = 0; i < registry->args.size(); ++i)
     {
-        std::cout << "  Registry ID: " << registry->registryId << std::endl;
-        std::cout << "  Severity: " << levelToString(registry->severity)
-                  << std::endl;
-        std::cout << "  Args[0]: " << registry->args[0] << std::endl;
-        std::cout << "  Args[1]: " << registry->args[1] << std::endl;
-        std::cout << "  Args[2]: " << registry->args[2] << std::endl;
-        std::cout << "  Resolution: " << registry->resolution << std::endl;
-        std::cout << "  Is Device Error: "
-                  << (registry->isDeviceError ? "true" : "false") << std::endl;
-        std::cout << "  Error ID: " << registry->errorId << std::endl;
-        std::cout << "  PASS" << std::endl;
+        std::cerr << "  args[" << i << "]:       '" << registry->args[i] << "'";
+        if (i < 3)
+        {
+            std::cerr << " (expected '" << expectedArgs[i] << "')";
+        }
+        std::cerr << std::endl;
     }
-    else
-    {
-        std::cout << "  FAIL: No registry mapping found" << std::endl;
-    }
-    std::cout << std::endl;
+    return false;
 }
 
-void testUSBRxTimeout()
+bool testCanonicalRegistryMappings()
 {
-    std::cout << "Test 3: USB Rx Fragmentation Timeout (ETIMEDOUT)"
+    static constexpr MappingTestCase testCases[] = {
+        {"USB Tx ENOMEM", ENOMEM, Direction::TX, Binding::USB, false,
+         "FWUP_USB_HOST_CONTROLLER_TX_MEMORY_ALLOCATION_FAILURE",
+         "USB Tx host-controller memory allocation failed (ENOMEM)"},
+        {"USB Tx ECOMM", ECOMM, Direction::TX, Binding::USB, false,
+         "FWUP_USB_HOST_CONTROLLER_TX_CONTROLLER_WRITE_ERROR",
+         "USB Tx host-controller buffer overflow (FIFO full) (ECOMM)"},
+        {"USB Tx ECONNRESET", ECONNRESET, Direction::TX, Binding::USB, true,
+         "FWUP_USB_DEVICE_TX_DRIVER_UNLINK_FAILURE",
+         "USB Tx URB was unlinked by the watchdog timeout or interface "
+         "teardown (ECONNRESET)"},
+        {"USB Tx ENOENT", ENOENT, Direction::TX, Binding::USB, true,
+         "FWUP_USB_DEVICE_TX_DEVICE_ENDPOINT_MISSING",
+         "USB Tx interface or endpoint does not exist or is disabled "
+         "(ENOENT)"},
+        {"USB Tx ENODEV", ENODEV, Direction::TX, Binding::USB, true,
+         "FWUP_USB_DEVICE_TX_DISCONNECTION_FAILURE",
+         "USB Tx device was removed (ENODEV)"},
+        {"USB Tx EPIPE", EPIPE, Direction::TX, Binding::USB, true,
+         "FWUP_USB_DEVICE_TX_STALL_FAILURE",
+         "USB Tx endpoint is stalled (EPIPE)"},
+        {"USB Tx ESHUTDOWN", ESHUTDOWN, Direction::TX, Binding::USB, true,
+         "FWUP_USB_DEVICE_TX_SHUTDOWN_FAILURE",
+         "USB Tx physical disconnection (ESHUTDOWN)"},
+        {"USB Tx EPROTO", EPROTO, Direction::TX, Binding::USB, true,
+         "FWUP_USB_DEVICE_TX_PROTOCOL_FAILURE",
+         "USB Tx protocol violation leading to ACK failure (EPROTO)"},
+        {"USB Rx EPROTO", EPROTO, Direction::RX, Binding::USB, true,
+         "FWUP_USB_DEVICE_RX_FRAGMENTATION_FAILURE",
+         "USB Rx fragmentation reassembly failed (EPROTO)"},
+        {"USB Rx EMSGSIZE", EMSGSIZE, Direction::RX, Binding::USB, true,
+         "FWUP_USB_DEVICE_RX_MESSAGE_SIZE_FAILURE",
+         "USB Rx reassembled message exceeds 64 KiB (EMSGSIZE)"},
+        {"USB Rx ETIMEDOUT", ETIMEDOUT, Direction::RX, Binding::USB, true,
+         "FWUP_USB_DEVICE_RX_FRAGMENTATION_TIMEOUT_FAILURE",
+         "USB Rx fragmentation timed out (ETIMEDOUT)"},
+        {"MCTP Tx EHOSTUNREACH", EHOSTUNREACH, Direction::TX, Binding::SYNC,
+         true, "",
+         "MCTP Tx destination endpoint is unreachable (EHOSTUNREACH)"},
+        {"MCTP Tx ENODEV", ENODEV, Direction::TX, Binding::SYNC, true, "",
+         "MCTP Tx destination endpoint was removed or is not present "
+         "(ENODEV)"},
+        {"MCTP Tx ENOMEM", ENOMEM, Direction::TX, Binding::SYNC, false, "",
+         "MCTP Tx could not allocate memory for internal transport state "
+         "(ENOMEM)"},
+        {"MCTP Tx EBUSY", EBUSY, Direction::TX, Binding::SYNC, false, "",
+         "MCTP Tx could not allocate a message tag (EBUSY)"},
+        {"I2C Tx ENOMEM", ENOMEM, Direction::TX, Binding::I2C, false,
+         "FWUP_I2C_HOST_CONTROLLER_TX_MEMORY_ALLOCATION_FAILURE",
+         "I2C Tx host-controller memory allocation failed (ENOMEM)"},
+        {"I2C Tx EBUSY", EBUSY, Direction::TX, Binding::I2C, true,
+         "FWUP_I2C_DEVICE_TX_BUS_BUSY",
+         "I2C Tx clock-stretch timeout; SDA/SCL stuck low (EBUSY)"},
+        {"I2C Tx EAGAIN", EAGAIN, Direction::TX, Binding::I2C, true,
+         "FWUP_I2C_DEVICE_TX_ARBITRATION_FAILURE",
+         "I2C Tx arbitration was lost during a multi-master transaction "
+         "(EAGAIN)"},
+        {"I2C Tx ENXIO", ENXIO, Direction::TX, Binding::I2C, true,
+         "FWUP_I2C_DEVICE_TX_ACK_FAILURE",
+         "I2C Tx received no acknowledgement for the transaction (ENXIO)"},
+        {"I2C Tx ETIMEDOUT", ETIMEDOUT, Direction::TX, Binding::I2C, true,
+         "FWUP_I2C_DEVICE_TX_TIMEOUT_FAILURE", "I2C Tx timed out (ETIMEDOUT)"},
+        {"I2C Tx EPROTO", EPROTO, Direction::TX, Binding::I2C, true,
+         "FWUP_I2C_DEVICE_TX_PROTOCOL_FAILURE",
+         "I2C Tx protocol violation (EPROTO)"},
+        {"I2C Rx EPROTO", EPROTO, Direction::RX, Binding::I2C, true,
+         "FWUP_I2C_DEVICE_RX_FRAGMENTATION_FAILURE",
+         "I2C Rx fragmentation reassembly failed (EPROTO)"},
+        {"I2C Rx EMSGSIZE", EMSGSIZE, Direction::RX, Binding::I2C, true,
+         "FWUP_I2C_DEVICE_RX_MESSAGE_SIZE_FAILURE",
+         "I2C Rx reassembled message exceeds 64 KiB (EMSGSIZE)"},
+        {"I2C Rx ETIMEDOUT", ETIMEDOUT, Direction::RX, Binding::I2C, true,
+         "FWUP_I2C_DEVICE_RX_FRAGMENTATION_TIMEOUT_FAILURE",
+         "I2C Rx fragmentation timed out (ETIMEDOUT)"},
+        {"SPI-SPB Tx EINVAL", EINVAL, Direction::TX, Binding::SERIAL, false, "",
+         "SPI-SPB Tx received an invalid argument (EINVAL)"},
+        {"SPI-SPB Tx ETIMEDOUT", ETIMEDOUT, Direction::TX, Binding::SERIAL,
+         true, "", "SPI-SPB Tx timed out waiting for the endpoint (ETIMEDOUT)"},
+        {"SPI-SPB Rx EPROTO", EPROTO, Direction::RX, Binding::SERIAL, true, "",
+         "SPI-SPB Rx fragmentation reassembly failed (EPROTO)"},
+        {"SPI-SPB Rx EMSGSIZE", EMSGSIZE, Direction::RX, Binding::SERIAL, true,
+         "", "SPI-SPB Rx reassembled message exceeds 64 KiB (EMSGSIZE)"},
+        {"SPI-SPB Rx ETIMEDOUT", ETIMEDOUT, Direction::RX, Binding::SERIAL,
+         true, "", "SPI-SPB Rx fragmentation timed out (ETIMEDOUT)"},
+    };
+
+    bool allPassed = true;
+    for (const auto& testCase : testCases)
+    {
+        allPassed &=
+            checkMapping(testCase, redfishDeviceName, redfishDeviceName);
+    }
+
+    std::cout << "Canonical mapping matrix: " << (allPassed ? "PASS" : "FAIL")
               << std::endl;
-
-    auto registry = errorToRedfishRegistry(
-        ETIMEDOUT,       // error code
-        Direction::RX,   // direction
-        Binding::USB,    // binding
-        0x08,            // endpointid
-        "MessageReceive" // driver operation
-    );
-
-    if (registry)
-    {
-        std::cout << "  Registry ID: " << registry->registryId << std::endl;
-        std::cout << "  Severity: " << levelToString(registry->severity)
-                  << std::endl;
-        std::cout << "  Args[0]: " << registry->args[0] << std::endl;
-        std::cout << "  Args[1]: " << registry->args[1] << std::endl;
-        std::cout << "  Args[2]: " << registry->args[2] << std::endl;
-        std::cout << "  Resolution: " << registry->resolution << std::endl;
-        std::cout << "  Is Device Error: "
-                  << (registry->isDeviceError ? "true" : "false") << std::endl;
-        std::cout << "  Error ID: " << registry->errorId << std::endl;
-        std::cout << "  PASS" << std::endl;
-    }
-    else
-    {
-        std::cout << "  FAIL: No registry mapping found" << std::endl;
-    }
-    std::cout << std::endl;
+    return allPassed;
 }
 
-void testI2CDeviceErrorWithRedfishName()
+bool testUnmappedErrors()
 {
-    std::cout
-        << "Test 4: I2C Device ACK Failure with Custom Redfish Name (ENXIO)"
-        << std::endl;
+    // Unmapped combinations fall back to the device registry, the device
+    // power-cycle resolution, strerror() text with the errno name appended,
+    // and an empty errorId. The lookup must honor both binding and direction.
+    static constexpr MappingTestCase testCases[] = {
+        {"USB Tx EINVAL (no USB mapping)", EINVAL, Direction::TX, Binding::USB,
+         true, "", "Invalid argument (EINVAL)"},
+        {"USB Tx EBUSY (mapped for I2C and SYNC only)", EBUSY, Direction::TX,
+         Binding::USB, true, "", "Device or resource busy (EBUSY)"},
+        {"USB Rx ENOMEM (mapped for Tx only)", ENOMEM, Direction::RX,
+         Binding::USB, true, "", "Cannot allocate memory (ENOMEM)"},
+        {"PCIe Tx ETIMEDOUT (no PCIe map)", ETIMEDOUT, Direction::TX,
+         Binding::PCIE, true, "", "Connection timed out (ETIMEDOUT)"},
+        // glibc's strerror() format for unknown codes; other libcs differ.
+        {"USB Tx unknown errno (no errno name)", 9999, Direction::TX,
+         Binding::USB, true, "", "Unknown error 9999"},
+    };
 
-    auto registry = errorToRedfishRegistry(
-        ENXIO,                                             // error code
-        Direction::TX,                                     // direction
-        Binding::I2C,                                      // binding
-        0x20,                                              // endpointid
-        "FirmwareUpdate",                                  // driver operation
-        "/redfish/v1/UpdateService/FirmwareInventory/GPU0" // custom device name
-    );
-
-    if (registry)
+    bool allPassed = true;
+    for (const auto& testCase : testCases)
     {
-        std::cout << "  Registry ID: " << registry->registryId << std::endl;
-        std::cout << "  Severity: " << levelToString(registry->severity)
-                  << std::endl;
-        std::cout << "  Args[0]: " << registry->args[0] << std::endl;
-        std::cout << "  Args[1]: " << registry->args[1] << std::endl;
-        std::cout << "  Args[2]: " << registry->args[2] << std::endl;
-        std::cout << "  Resolution: " << registry->resolution << std::endl;
-        std::cout << "  Is Device Error: "
-                  << (registry->isDeviceError ? "true" : "false") << std::endl;
-        std::cout << "  Error ID: " << registry->errorId << std::endl;
-        std::cout << "  PASS" << std::endl;
+        allPassed &=
+            checkMapping(testCase, redfishDeviceName, redfishDeviceName);
     }
-    else
-    {
-        std::cout << "  FAIL: No registry mapping found" << std::endl;
-    }
-    std::cout << std::endl;
-}
 
-void testMCTPTagAllocationFailure()
-{
-    std::cout << "Test 5: MCTP Tag Allocation Failure (EBUSY)" << std::endl;
-
-    auto registry = errorToRedfishRegistry(
-        EBUSY,            // error code
-        Direction::TX,    // direction
-        Binding::USB,     // binding
-        0x25,             // endpointid
-        "MessageTransmit" // driver operation
-    );
-
-    if (registry)
-    {
-        std::cout << "  Registry ID: " << registry->registryId << std::endl;
-        std::cout << "  Severity: " << levelToString(registry->severity)
-                  << std::endl;
-        std::cout << "  Args[0]: " << registry->args[0] << std::endl;
-        std::cout << "  Args[1]: " << registry->args[1] << std::endl;
-        std::cout << "  Args[2]: " << registry->args[2] << std::endl;
-        std::cout << "  Resolution: " << registry->resolution << std::endl;
-        std::cout << "  Is Device Error: "
-                  << (registry->isDeviceError ? "true" : "false") << std::endl;
-        std::cout << "  Error ID: " << registry->errorId << std::endl;
-        std::cout << "  PASS" << std::endl;
-    }
-    else
-    {
-        std::cout << "  FAIL: No registry mapping found" << std::endl;
-    }
-    std::cout << std::endl;
-}
-
-void testUnmappedError()
-{
-    std::cout << "Test 6: Unmapped Error Code (EINVAL)" << std::endl;
-
-    auto registry = errorToRedfishRegistry(
-        EINVAL,         // error code - not mapped
-        Direction::TX,  // direction
-        Binding::USB,   // binding
-        0x15,           // endpointid
-        "TestOperation" // driver operation
-    );
-
-    if (registry)
-    {
-        std::cout << "  Registry ID: " << registry->registryId << std::endl;
-        std::cout << "  Severity: " << levelToString(registry->severity)
-                  << std::endl;
-        std::cout << "  Args[0]: " << registry->args[0] << std::endl;
-        std::cout << "  Args[1]: " << registry->args[1] << std::endl;
-        std::cout << "  Args[2]: " << registry->args[2] << std::endl;
-        std::cout << "  Resolution: " << registry->resolution << std::endl;
-        std::cout << "  Is Device Error: "
-                  << (registry->isDeviceError ? "true" : "false") << std::endl;
-        std::cout << "  PASS: Unmapped error handled with errno description"
-                  << std::endl;
-    }
-    else
-    {
-        std::cout
-            << "  FAIL: Should have returned registry with errno description"
-            << std::endl;
-    }
-    std::cout << std::endl;
-}
-
-void testSyncApiHostUnreachable()
-{
-    std::cout << "Test 7: SYNC API Host Unreachable (EHOSTUNREACH)"
+    std::cout << "Unmapped error fallback: " << (allPassed ? "PASS" : "FAIL")
               << std::endl;
-
-    auto registry = errorToRedfishRegistry(
-        EHOSTUNREACH,     // error code
-        Direction::TX,    // direction
-        Binding::SYNC,    // binding
-        0x20,             // endpointid
-        "MessageTransmit" // driver operation
-    );
-
-    if (registry)
-    {
-        std::cout << "  Registry ID: " << registry->registryId << std::endl;
-        std::cout << "  Severity: " << levelToString(registry->severity)
-                  << std::endl;
-        std::cout << "  Args[0]: " << registry->args[0] << std::endl;
-        std::cout << "  Args[1]: " << registry->args[1] << std::endl;
-        std::cout << "  Args[2]: " << registry->args[2] << std::endl;
-        std::cout << "  Resolution: " << registry->resolution << std::endl;
-        std::cout << "  Is Device Error: "
-                  << (registry->isDeviceError ? "true" : "false") << std::endl;
-        std::cout << "  Error ID: " << registry->errorId << std::endl;
-        std::cout << "  PASS" << std::endl;
-    }
-    else
-    {
-        std::cout << "  FAIL: No registry mapping found" << std::endl;
-    }
-    std::cout << std::endl;
+    return allPassed;
 }
 
-void testSyncApiMemoryError()
+bool testDeviceNameFallback()
 {
-    std::cout << "Test 8: SYNC API Memory Error (ENOMEM)" << std::endl;
+    // A missing or empty Redfish name falls back to the EID-based name for
+    // device, host-controller and unmapped errors alike.
+    static constexpr MappingTestCase testCases[] = {
+        {"USB Tx ENODEV (device)", ENODEV, Direction::TX, Binding::USB, true,
+         "FWUP_USB_DEVICE_TX_DISCONNECTION_FAILURE",
+         "USB Tx device was removed (ENODEV)"},
+        {"USB Tx ENOMEM (host controller)", ENOMEM, Direction::TX, Binding::USB,
+         false, "FWUP_USB_HOST_CONTROLLER_TX_MEMORY_ALLOCATION_FAILURE",
+         "USB Tx host-controller memory allocation failed (ENOMEM)"},
+        {"USB Tx EINVAL (unmapped)", EINVAL, Direction::TX, Binding::USB, true,
+         "", "Invalid argument (EINVAL)"},
+    };
+    const std::optional<std::string> missingNames[] = {std::nullopt,
+                                                       std::string()};
 
-    auto registry = errorToRedfishRegistry(
-        ENOMEM,           // error code
-        Direction::TX,    // direction
-        Binding::SYNC,    // binding
-        0x15,             // endpointid
-        "DeviceDiscovery" // driver operation
-    );
+    bool allPassed = true;
+    for (const auto& testCase : testCases)
+    {
+        for (const auto& deviceRedfishName : missingNames)
+        {
+            allPassed &=
+                checkMapping(testCase, deviceRedfishName, eidDeviceName);
+        }
+    }
 
-    if (registry)
-    {
-        std::cout << "  Registry ID: " << registry->registryId << std::endl;
-        std::cout << "  Severity: " << levelToString(registry->severity)
-                  << std::endl;
-        std::cout << "  Args[0]: " << registry->args[0] << std::endl;
-        std::cout << "  Args[1]: " << registry->args[1] << std::endl;
-        std::cout << "  Args[2]: " << registry->args[2] << std::endl;
-        std::cout << "  Resolution: " << registry->resolution << std::endl;
-        std::cout << "  Is Device Error: "
-                  << (registry->isDeviceError ? "true" : "false") << std::endl;
-        std::cout << "  Error ID: " << registry->errorId << std::endl;
-        std::cout << "  PASS" << std::endl;
-    }
-    else
-    {
-        std::cout << "  FAIL: No registry mapping found" << std::endl;
-    }
-    std::cout << std::endl;
+    std::cout << "EID device-name fallback: " << (allPassed ? "PASS" : "FAIL")
+              << std::endl;
+    return allPassed;
 }
 
-void testSyncApiTagBusy()
+bool testGetDeviceNameByEid()
 {
-    std::cout << "Test 9: SYNC API Tag Busy (EBUSY)" << std::endl;
+    const bool passed = getDeviceNameByEid(0x15) == "EID_0x15" &&
+                        getDeviceNameByEid(0x08) == "EID_0x08" &&
+                        getDeviceNameByEid(0xFF) == "EID_0xFF";
 
-    auto registry = errorToRedfishRegistry(
-        EBUSY,           // error code
-        Direction::TX,   // direction
-        Binding::SYNC,   // binding
-        0x18,            // endpointid
-        "FirmwareUpdate" // driver operation
-    );
-
-    if (registry)
-    {
-        std::cout << "  Registry ID: " << registry->registryId << std::endl;
-        std::cout << "  Severity: " << levelToString(registry->severity)
-                  << std::endl;
-        std::cout << "  Args[0]: " << registry->args[0] << std::endl;
-        std::cout << "  Args[1]: " << registry->args[1] << std::endl;
-        std::cout << "  Args[2]: " << registry->args[2] << std::endl;
-        std::cout << "  Resolution: " << registry->resolution << std::endl;
-        std::cout << "  Is Device Error: "
-                  << (registry->isDeviceError ? "true" : "false") << std::endl;
-        std::cout << "  Error ID: " << registry->errorId << std::endl;
-        std::cout << "  PASS" << std::endl;
-    }
-    else
-    {
-        std::cout << "  FAIL: No registry mapping found" << std::endl;
-    }
-    std::cout << std::endl;
+    std::cout << "Get device name by EID: " << (passed ? "PASS" : "FAIL")
+              << std::endl;
+    return passed;
 }
 
-void testSyncApiDeviceRemoved()
-{
-    std::cout << "Test 10: SYNC API Device Removed (ENODEV)" << std::endl;
-
-    auto registry = errorToRedfishRegistry(
-        ENODEV,           // error code
-        Direction::TX,    // direction
-        Binding::SYNC,    // binding
-        0x22,             // endpointid
-        "MessageTransmit" // driver operation
-    );
-
-    if (registry)
-    {
-        std::cout << "  Registry ID: " << registry->registryId << std::endl;
-        std::cout << "  Severity: " << levelToString(registry->severity)
-                  << std::endl;
-        std::cout << "  Args[0]: " << registry->args[0] << std::endl;
-        std::cout << "  Args[1]: " << registry->args[1] << std::endl;
-        std::cout << "  Args[2]: " << registry->args[2] << std::endl;
-        std::cout << "  Resolution: " << registry->resolution << std::endl;
-        std::cout << "  Is Device Error: "
-                  << (registry->isDeviceError ? "true" : "false") << std::endl;
-        std::cout << "  Error ID: " << registry->errorId << std::endl;
-        std::cout << "  PASS" << std::endl;
-    }
-    else
-    {
-        std::cout << "  FAIL: No registry mapping found" << std::endl;
-    }
-    std::cout << std::endl;
-}
-
-void testGetDeviceNameByEid()
-{
-    std::cout << "Test 11: Get Device Name by EID" << std::endl;
-
-    std::string name1 = getDeviceNameByEid(0x15);
-    std::string name2 = getDeviceNameByEid(0x08);
-    std::string name3 = getDeviceNameByEid(0xFF);
-
-    std::cout << "  EID 0x15 -> " << name1 << std::endl;
-    std::cout << "  EID 0x08 -> " << name2 << std::endl;
-    std::cout << "  EID 0xFF -> " << name3 << std::endl;
-
-    if (name1 == "EID_0x15" && name2 == "EID_0x08" && name3 == "EID_0xFF")
-    {
-        std::cout << "  PASS" << std::endl;
-    }
-    else
-    {
-        std::cout << "  FAIL" << std::endl;
-    }
-    std::cout << std::endl;
-}
+} // namespace
 
 int main()
 {
     std::cout << "=== MCTP Error Registry Unit Tests ===" << std::endl;
-    std::cout << std::endl;
 
-    testUSBDeviceError();
-    testI2CHostControllerError();
-    testUSBRxTimeout();
-    testI2CDeviceErrorWithRedfishName();
-    testMCTPTagAllocationFailure();
-    testUnmappedError();
-    testSyncApiHostUnreachable();
-    testSyncApiMemoryError();
-    testSyncApiTagBusy();
-    testSyncApiDeviceRemoved();
-    testGetDeviceNameByEid();
+    bool allTestsPassed = true;
+    allTestsPassed &= testCanonicalRegistryMappings();
+    allTestsPassed &= testUnmappedErrors();
+    allTestsPassed &= testDeviceNameFallback();
+    allTestsPassed &= testGetDeviceNameByEid();
 
     std::cout << "=== All Tests Completed ===" << std::endl;
 
-    return 0;
+    return allTestsPassed ? 0 : 1;
 }
