@@ -436,6 +436,23 @@ TEST_F(TestSerialization, OuterManagerDeleteAllNoArgs)
     EXPECT_TRUE(true);
 }
 
+/**
+ * Directly cover internal Manager::createFromEvent (refactored to use
+ * lg2::details::EventInfo). deleteAll() reaches it only indirectly, so drive it
+ * on its own with a generated event using an isolated bus/manager.
+ */
+TEST_F(TestSerialization, ManagerCreateFromEvent)
+{
+    sdbusplus::SdBusMock mock2;
+    sdbusplus::bus_t bus2 = sdbusplus::get_mocked_new(&mock2);
+    phosphor::logging::internal::Manager manager2(
+        bus2, "/xyz/openbmc_project/logging/internal/createfromevent");
+
+    auto numbersOfLogs = manager2.eraseAll();
+    EXPECT_NO_THROW(manager2.createFromEvent(
+        phosphor::logging::LoggingCleared("NUMBER_OF_LOGS", numbersOfLogs)));
+}
+
 // --- log_manager.cpp coverage (plan: getStats, setInfoLogCapacity,
 // deleteAll/deleteAllTypes, erase, pending purge, rfSendEvent) ---
 
