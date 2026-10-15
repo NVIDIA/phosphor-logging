@@ -326,21 +326,35 @@ TEST_F(TestSerialization, testGetEntryThrowsWhenFileMissing)
 // --- log_manager.hpp outer Manager coverage ---
 
 /**
+ * The outer Manager's D-Bus overrides are small enough that the compiler
+ * inlines them when they are called on the concrete type, which leaves the
+ * out-of-line copies (the ones gcov counts as the functions) unexecuted.  The
+ * sdbusplus dispatcher calls them through the interface base class, so do the
+ * same here.
+ */
+template <typename Iface>
+[[gnu::noinline]] Iface& viaIface(phosphor::logging::Manager& outerManager)
+{
+    return outerManager;
+}
+
+/**
  * Cover outer Manager: autoClearResolvedLogEnabled get/set, getStats,
  * setInfoLogCapacity, infoLogCapacity
  */
 TEST_F(TestSerialization, OuterManagerAutoClearAndStatsAndCapacity)
 {
     phosphor::logging::Manager outerManager(bus, OBJ_LOGGING, manager);
+    auto& nsIface = viaIface<phosphor::logging::NamespaceIface>(outerManager);
 
-    bool prev = outerManager.autoClearResolvedLogEnabled();
-    outerManager.autoClearResolvedLogEnabled(true);
-    EXPECT_TRUE(outerManager.autoClearResolvedLogEnabled());
-    outerManager.autoClearResolvedLogEnabled(false);
-    EXPECT_FALSE(outerManager.autoClearResolvedLogEnabled());
-    outerManager.autoClearResolvedLogEnabled(prev);
+    bool prev = nsIface.autoClearResolvedLogEnabled();
+    nsIface.autoClearResolvedLogEnabled(true);
+    EXPECT_TRUE(nsIface.autoClearResolvedLogEnabled());
+    nsIface.autoClearResolvedLogEnabled(false);
+    EXPECT_FALSE(nsIface.autoClearResolvedLogEnabled());
+    nsIface.autoClearResolvedLogEnabled(prev);
 
-    auto [id, ts] = outerManager.getStats("default");
+    auto [id, ts] = nsIface.getStats("default");
     (void)id;
     (void)ts;
 
@@ -391,11 +405,12 @@ TEST_F(TestSerialization, OuterManagerGetAll)
 TEST_F(TestSerialization, OuterManagerDeleteAllWithNamespace)
 {
     phosphor::logging::Manager outerManager(bus, OBJ_LOGGING, manager);
+    auto& nsIface = viaIface<phosphor::logging::NamespaceIface>(outerManager);
 
-    bool del = outerManager.deleteAll("default",
-                                      sdbusplus::xyz::openbmc_project::Logging::
-                                          server::Entry::Level::Informational);
-    bool delTypes = outerManager.deleteAllTypes("default");
+    bool del =
+        nsIface.deleteAll("default", sdbusplus::xyz::openbmc_project::Logging::
+                                         server::Entry::Level::Informational);
+    bool delTypes = nsIface.deleteAllTypes("default");
     // Return value indicates whether any logs were deleted (coverage of API
     // path)
     EXPECT_TRUE(del || !del);
@@ -410,12 +425,13 @@ TEST_F(TestSerialization, OuterManagerCreateWithFFDCFiles)
     phosphor::logging::Manager outerManager(bus, OBJ_LOGGING, manager);
 
     phosphor::logging::FFDCEntries emptyFfdc;
-    outerManager.createWithFFDCFiles(
-        "ffdc test msg", phosphor::logging::Entry::Level::Informational,
-        std::map<std::string, std::string>{}, std::move(emptyFfdc));
-    // createWithFFDCFiles returns void; validation is successful execution (no
-    // throw)
-    EXPECT_TRUE(true);
+    auto path =
+        viaIface<phosphor::logging::CreateIface>(outerManager)
+            .createWithFFDCFiles(
+                "ffdc test msg", phosphor::logging::Entry::Level::Informational,
+                std::map<std::string, std::string>{}, std::move(emptyFfdc));
+    // createWithFFDCFiles returns the object path of the new entry.
+    EXPECT_TRUE(path.str.starts_with(OBJ_ENTRY));
 }
 
 /**
