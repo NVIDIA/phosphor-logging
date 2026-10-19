@@ -414,11 +414,15 @@ auto Manager::createEntry(std::string errMsg, Entry::Level errLvl,
 
     for (const auto& [key, value] : additionalData)
     {
-        if ((key == DEFAULT_BIN_KEY) &&
-            (binNameMap.find(value) != binNameMap.end()))
+        if (key == DEFAULT_BIN_KEY)
         {
-            entryBinName = value;
-            entryBin = &(binNameMap[value]);
+            // Use the bin of the namespace; for the instance of a configured
+            // device class (for example GPU_0) the bin is created now.
+            if (auto* namespaceBin = createClassBin(value))
+            {
+                entryBinName = value;
+                entryBin = namespaceBin;
+            }
         }
     }
     // lg2::info("Bin of Incoming Entry: {BIN_NAME}", "BIN_NAME", entryBinName);
@@ -1430,9 +1434,15 @@ bool Manager::deleteAll(
         }
     }
 
-    // If bin is not present then return error
+    // If bin is not present then return error, unless the namespace is an
+    // instance of a configured device class: its bin is created with the
+    // first log, until then there is nothing to delete
     if (!binPresent)
     {
+        if (findClassPolicy(nspace) != nullptr)
+        {
+            return true;
+        }
         throw sdbusplus::xyz::openbmc_project::Common::Error::
             ResourceNotFound();
     }
@@ -1492,9 +1502,14 @@ bool Manager::deleteAllTypes(const std::string& nspace)
             break;
         }
     }
-    // If bin is not present then return error
+    // If bin is not present then return error, unless the namespace is an
+    // instance of a configured device class (nothing to delete yet)
     if (!binPresent)
     {
+        if (findClassPolicy(nspace) != nullptr)
+        {
+            return true;
+        }
         throw sdbusplus::xyz::openbmc_project::Common::Error::
             ResourceNotFound();
     }
@@ -1619,17 +1634,26 @@ phosphor::logging::ManagedObject Manager::getAll(
 {
     std::string entryBinName = DEFAULT_BIN_NAME;
     Bin* thisBin = &(binNameMap[entryBinName]);
+    bool binFound = false;
 
     for (auto& pair : binNameMap)
     {
         if (pair.first == nspace)
         {
             thisBin = &(pair.second);
+            binFound = true;
             break;
         }
     }
 
     phosphor::logging::ManagedObject ret_obj;
+
+    // An instance of a configured device class has no bin until its first
+    // log: no logs, not the logs of the default bin
+    if (!binFound && findClassPolicy(nspace) != nullptr)
+    {
+        return ret_obj;
+    }
 
     // Go over errorEntries
     for (auto iter = (thisBin)->errorEntries.begin();
@@ -1789,6 +1813,12 @@ std::tuple<uint32_t, uint64_t> Manager::getStats(const std::string& nspace)
 
     if (binNameMap.find(nspace) == binNameMap.end())
     {
+        // An instance of a configured device class has an empty bin until
+        // its first log
+        if (findClassPolicy(nspace) != nullptr)
+        {
+            return (std::make_tuple(0, 0));
+        }
         throw sdbusplus::xyz::openbmc_project::Common::Error::
             ResourceNotFound();
     }
@@ -1832,6 +1862,13 @@ auto Manager::create(const std::string& message, Entry::Level severity,
 
 size_t Manager::getInfoLogCapacity(const std::string& binName)
 {
+    if (binNameMap.find(binName) == binNameMap.end())
+    {
+        if (const Bin* policy = findClassPolicy(binName))
+        {
+            return policy->errorInfoCap;
+        }
+    }
     Bin* entryBin = &(binNameMap[binName]);
     return entryBin->errorInfoCap;
 }

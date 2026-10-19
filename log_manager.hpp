@@ -131,8 +131,9 @@ class Manager : public details::ServerObject<details::ManagerIface>
             }
             else
             {
-                lg2::error("Couldn't open argument file passed in. Using only "
-                           "default namespaces.");
+                lg2::info("Couldn't open argument file {FILE}. Using the "
+                          "default device classes and namespaces only.",
+                          "FILE", jsonPath);
                 return 1;
             }
         }
@@ -197,6 +198,11 @@ class Manager : public details::ServerObject<details::ManagerIface>
                     this->addBin(bin);
                 }
             }
+
+            // Device classes: one entry per class ("GPU") instead of one per
+            // instance ("GPU_0", "GPU_1" ...); they add to or replace the
+            // default classes
+            parseClasses(data);
         }
         else
         {
@@ -218,6 +224,16 @@ class Manager : public details::ServerObject<details::ManagerIface>
                 continue;
             }
 
+            // A folder left by a previous boot for an instance of a
+            // configured device class: bring its bin back (before restore())
+            std::error_code dirEc{};
+            if (std::filesystem::is_directory(p.path(), dirEc) &&
+                createClassBin(dirName) != nullptr)
+            {
+                dirsToPreserve.push_back(dirName);
+                continue;
+            }
+
             std::error_code ec{};
             if (!std::filesystem::is_directory(p.path(), ec))
             {
@@ -234,6 +250,106 @@ class Manager : public details::ServerObject<details::ManagerIface>
         }
 
         return 0;
+    }
+
+    /**
+     * @fn parseClasses
+     * @brief Read the "Classes" array of a json config.
+     *
+     * Each entry is a device class: the bin of an instance of the class
+     * (for example "GPU_0" for the class "GPU") is created from the class
+     * policy when the instance first needs it (see createClassBin()). A class
+     * that is already known is replaced.
+     *
+     * @param data - parsed json
+     */
+    void parseClasses(const nlohmann::json& data)
+    {
+        if (!data.contains("Classes") || !data["Classes"].is_array())
+        {
+            return;
+        }
+
+        for (const auto& item : data["Classes"])
+        {
+            if (!item.is_object() || !item.contains("ID") ||
+                !item["ID"].is_string())
+            {
+                continue;
+            }
+            std::string id = item["ID"].get<std::string>();
+            if (phosphor::logging::internal::binClassKey(id) != id)
+            {
+                lg2::error("Ignoring invalid device class {CLASS}", "CLASS",
+                           id);
+                continue;
+            }
+
+            uint32_t errorCap = item.value("ErrorCapacity", 0U);
+            uint32_t errorInfoCap = item.value("InfoErrorCapacity", 0U);
+            bool persistInfoLog = item.value("PersistInfoLog", true);
+            uint32_t defaultCapacity = item.value("DefaultCapacity", 0U);
+
+            binClasses.insert_or_assign(
+                id, phosphor::logging::internal::Bin(
+                        id, errorCap, errorInfoCap, "", persistInfoLog,
+                        defaultCapacity));
+        }
+    }
+
+    /**
+     * @fn loadDeviceClasses
+     * @brief Load the default device classes shipped with phosphor-logging.
+     *
+     * @param jsonPath - the default device classes file
+     * @return 0 on success, non-zero when the file cannot be used (the
+     *         daemon then runs without default classes)
+     */
+    uint32_t loadDeviceClasses(const std::string& jsonPath)
+    {
+        std::ifstream jsonStream(jsonPath);
+        if (!jsonStream.is_open())
+        {
+            lg2::info("No default device classes file {FILE}", "FILE",
+                      jsonPath);
+            return 1;
+        }
+
+        auto data = nlohmann::json::parse(jsonStream, nullptr, false);
+        if (data.is_discarded())
+        {
+            lg2::error("Invalid device classes file {FILE}", "FILE", jsonPath);
+            return 2;
+        }
+        parseClasses(data);
+        return 0;
+    }
+
+    /**
+     * @fn restoreClassBins
+     * @brief Bring back the bins of device class instances from the folders
+     *        a previous boot left (GPU_0 ...), before restore() reads the
+     *        logs in them. Folders of other names are left alone.
+     */
+    void restoreClassBins()
+    {
+        std::error_code ec{};
+        std::filesystem::directory_iterator it(
+            std::filesystem::path(
+                std::string{phosphor::logging::paths::error()}),
+            ec);
+        if (ec)
+        {
+            return;
+        }
+        for (const auto& p : it)
+        {
+            std::error_code dirEc{};
+            if (p.is_directory(dirEc))
+            {
+                createClassBin(p.path().filename().string());
+            }
+        }
     }
 
     uint32_t parseRWConfigJson(const std::string& jsonPath)
@@ -502,6 +618,51 @@ class Manager : public details::ServerObject<details::ManagerIface>
         return binNameMap[binName];
     }
 
+    /** @brief Policy of the device class a namespace belongs to.
+     *
+     * @param[in] nspace - namespace name, for example "GPU_0"
+     * @return the class policy (name is the class key), or nullptr when the
+     *         namespace is not valid or its class is not configured
+     */
+    const Bin* findClassPolicy(const std::string& nspace) const
+    {
+        auto key = phosphor::logging::internal::binClassKey(nspace);
+        if (key.empty())
+        {
+            return nullptr;
+        }
+        auto it = binClasses.find(key);
+        return it == binClasses.end() ? nullptr : &it->second;
+    }
+
+    /** @brief Create the bin of a namespace from its device class policy.
+     *
+     * The bin is created, with its folder, only when the namespace has no bin
+     * yet and its class is configured.
+     *
+     * @param[in] nspace - namespace name, for example "GPU_0"
+     * @return the bin of the namespace, or nullptr when it has no bin and its
+     *         class is not configured
+     */
+    Bin* createClassBin(const std::string& nspace)
+    {
+        auto binIt = binNameMap.find(nspace);
+        if (binIt != binNameMap.end())
+        {
+            return &binIt->second;
+        }
+        const Bin* policy = findClassPolicy(nspace);
+        if (policy == nullptr)
+        {
+            return nullptr;
+        }
+        Bin bin(nspace, policy->errorCap, policy->errorInfoCap,
+                std::string(phosphor::logging::paths::error()) + "/" + nspace,
+                policy->persistInfoLog, policy->defaultCapacity);
+        addBin(bin);
+        return &binNameMap[nspace];
+    }
+
     /** @brief Delete logs of serverity per namespace
      *
      * Some description
@@ -675,6 +836,9 @@ class Manager : public details::ServerObject<details::ManagerIface>
   private:
     /** @brief Persistent map of namespaces structure and their strings */
     std::map<std::string, Bin> binNameMap;
+
+    /** @brief Policy per device class, key is the class key ("GPU") */
+    std::map<std::string, Bin> binClasses;
 
     /*
      * @fn _commit()

@@ -1,0 +1,142 @@
+{
+    "Classes": [
+        {
+            "ID": "Baseboard",
+            "ErrorCapacity": 200,
+            "InfoErrorCapacity": 10
+        },
+        {
+            "ID": "CPU",
+            "ErrorCapacity": 180,
+            "InfoErrorCapacity": 10
+        },
+        {
+            "ID": "CX",
+            "ErrorCapacity": 50,
+            "InfoErrorCapacity": 10
+        },
+        {
+            "ID": "DeviceErrorLog",
+            "ErrorCapacity": 100,
+            "InfoErrorCapacity": 200,
+            "PersistInfoLog": false
+        },
+        {
+            "ID": "ERoT_FPGA",
+            "ErrorCapacity": 5,
+            "InfoErrorCapacity": 0
+        },
+        {
+            "ID": "ERoT_GPU",
+            "ErrorCapacity": 5,
+            "InfoErrorCapacity": 0
+        },
+        {
+            "ID": "ERoT_GPU_SXM",
+            "ErrorCapacity": 5,
+            "InfoErrorCapacity": 0
+        },
+        {
+            "ID": "ERoT_HMC",
+            "ErrorCapacity": 5,
+            "InfoErrorCapacity": 0
+        },
+        {
+            "ID": "ERoT_NVSwitch",
+            "ErrorCapacity": 5,
+            "InfoErrorCapacity": 0
+        },
+        {
+            "ID": "ERoT_PCIeSwitch",
+            "ErrorCapacity": 5,
+            "InfoErrorCapacity": 0
+        },
+        {
+            "ID": "FPGA",
+            "ErrorCapacity": 10,
+            "InfoErrorCapacity": 0
+        },
+        {
+            "ID": "FWUpdate",
+            "ErrorCapacity": 30,
+            "InfoErrorCapacity": 200,
+            "PersistInfoLog": false
+        },
+        {
+            "ID": "GPU",
+            "ErrorCapacity": 180,
+            "InfoErrorCapacity": 10
+        },
+        {
+            "ID": "GPU_SXM",
+            "ErrorCapacity": 180,
+            "InfoErrorCapacity": 10
+        },
+        {
+            "ID": "GPU_SXM_XID",
+            "ErrorCapacity": 200,
+            "InfoErrorCapacity": 0
+        },
+        {
+            "ID": "GPU_Threshold",
+            "ErrorCapacity": 200,
+            "InfoErrorCapacity": 10
+        },
+        {
+            "ID": "GPU_XID",
+            "ErrorCapacity": 200,
+            "InfoErrorCapacity": 0
+        },
+        {
+            "ID": "HMC",
+            "ErrorCapacity": 10,
+            "InfoErrorCapacity": 0
+        },
+        {
+            "ID": "HSC",
+            "ErrorCapacity": 20,
+            "InfoErrorCapacity": 0
+        },
+        {
+            "ID": "IO_Board",
+            "ErrorCapacity": 100,
+            "InfoErrorCapacity": 10
+        },
+        {
+            "ID": "Manager",
+            "ErrorCapacity": 100,
+            "InfoErrorCapacity": 200,
+            "PersistInfoLog": false
+        },
+        {
+            "ID": "NVSwitch",
+            "ErrorCapacity": 180,
+            "InfoErrorCapacity": 10
+        },
+        {
+            "ID": "NVSwitch_Threshold",
+            "ErrorCapacity": 200,
+            "InfoErrorCapacity": 10
+        },
+        {
+            "ID": "NVSwitch_XID",
+            "ErrorCapacity": 20,
+            "InfoErrorCapacity": 10
+        },
+        {
+            "ID": "PCIeRetimer",
+            "ErrorCapacity": 10,
+            "InfoErrorCapacity": 0
+        },
+        {
+            "ID": "PCIeSwitch",
+            "ErrorCapacity": 20,
+            "InfoErrorCapacity": 0
+        },
+        {
+            "ID": "SEL",
+            "ErrorCapacity": 1500,
+            "InfoErrorCapacity": 1500
+        }
+    ]
+}

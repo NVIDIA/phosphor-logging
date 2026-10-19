@@ -10,6 +10,10 @@ conf_data.set(
     get_option('rsyslog_fwd_actions_conf_dir_path'),
 )
 conf_data.set('rw_config_file_path', get_option('rw_config_file_path'))
+conf_data.set(
+    'device_classes_file_path',
+    get_option('device_classes_file_path'),
+)
 conf_data.set('log_streamer_socket_path', get_option('log_streamer_socket_path'))
 conf_data.set(
     'log_purge_policy_default',

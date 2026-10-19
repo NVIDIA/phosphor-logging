@@ -61,6 +61,9 @@ int main(int argc, char* argv[])
         }
     };
 
+    // Default device classes first: a platform json may add to or replace them
+    iMgr.loadDeviceClasses(DEVICE_CLASSES_FILE_PATH);
+
     if (argc == 2)
     {
         parseErrHandler([&iMgr](auto path) { return iMgr.parseJson(path); },
@@ -69,6 +72,10 @@ int main(int argc, char* argv[])
             [&iMgr](auto path) { return iMgr.parseRWConfigJson(path); },
             RW_CONFIG_FILE_PATH);
     }
+
+    // Bring back the bins of device class instances (GPU_0 ...) from the
+    // folders of the previous boot, before the logs in them are restored
+    iMgr.restoreClassBins();
 
     // Restore all errors.  restore() already skips individual entries it
     // cannot read; this guard is a backstop so that an unexpected failure

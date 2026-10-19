@@ -278,6 +278,13 @@ executable(
     install: true,
 )
 
+# Default device classes: namespace policy per class of device (GPU, CPU ...)
+install_data(
+    'config/phosphor-logging-device-classes.json',
+    install_dir: get_option('datadir') / 'phosphor-logging',
+    rename: 'device-classes.json',
+)
+
 subdir('dist')
 
 if get_option('tests').allowed()

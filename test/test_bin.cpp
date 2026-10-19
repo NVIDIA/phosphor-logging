@@ -113,3 +113,40 @@ TEST(BinTest, JsonPathAndDefaultCapacityAssignment)
     b.jsonPath = "/etc/phosphor/sel_config.json";
     EXPECT_EQ(b.jsonPath, "/etc/phosphor/sel_config.json");
 }
+
+/**
+ * Class key of a namespace: all-digit parts are removed
+ */
+TEST(BinTest, ClassKeyRemovesInstanceNumbers)
+{
+    using phosphor::logging::internal::binClassKey;
+
+    EXPECT_EQ(binClassKey("GPU_0"), "GPU");
+    EXPECT_EQ(binClassKey("GPU_12"), "GPU");
+    EXPECT_EQ(binClassKey("GPU_0_XID"), "GPU_XID");
+    EXPECT_EQ(binClassKey("IO_Board_2"), "IO_Board");
+    EXPECT_EQ(binClassKey("CX_7"), "CX");
+    EXPECT_EQ(binClassKey("Baseboard_0"), "Baseboard");
+    EXPECT_EQ(binClassKey("FWUpdate"), "FWUpdate");
+    EXPECT_EQ(binClassKey("SEL"), "SEL");
+}
+
+/**
+ * Names that must never become a folder name give an empty class key
+ */
+TEST(BinTest, ClassKeyRejectsUnsafeNames)
+{
+    using phosphor::logging::internal::binClassKey;
+
+    EXPECT_EQ(binClassKey(""), "");
+    EXPECT_EQ(binClassKey("0"), "");
+    EXPECT_EQ(binClassKey("12_34"), "");
+    EXPECT_EQ(binClassKey("../GPU_0"), "");
+    EXPECT_EQ(binClassKey("GPU/0"), "");
+    EXPECT_EQ(binClassKey("GPU_0 XID"), "");
+    EXPECT_EQ(binClassKey("GPU__0"), "");
+    EXPECT_EQ(binClassKey("_GPU_0"), "");
+    EXPECT_EQ(binClassKey("GPU_0_"), "");
+    EXPECT_EQ(binClassKey("GPU_12345"), "");
+    EXPECT_EQ(binClassKey(std::string(65, 'A')), "");
+}

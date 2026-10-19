@@ -85,6 +85,13 @@ option(
 )
 
 option(
+    'device_classes_file_path',
+    type: 'string',
+    value: '/usr/share/phosphor-logging/device-classes.json',
+    description: 'Path to the installed default device classes (namespace policies per class of device)',
+)
+
+option(
     'log_purge_policy_default',
     type: 'boolean',
     value: false,

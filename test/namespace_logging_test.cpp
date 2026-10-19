@@ -21,9 +21,12 @@
 #include "paths.hpp"
 
 #include <sdbusplus/bus.hpp>
+#include <nlohmann/json.hpp>
 #include <sdbusplus/test/sdbus_mock.hpp>
+#include <xyz/openbmc_project/Common/error.hpp>
 
 #include <filesystem>
+#include <fstream>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -346,6 +349,120 @@ TEST_F(TestNamespaceLogging, testManagerStatsAndConfig)
     auto [id2, ts2] = manager.getStats(binName);
     EXPECT_EQ(id2, manager.lastEntryID());
     EXPECT_EQ(ts2, manager.lastEntryTimestamp());
+}
+
+TEST_F(TestNamespaceLogging, testDeviceClassBinCreatedOnFirstLog)
+{
+    manager.parseClasses(nlohmann::json::parse(
+        R"({"Classes": [{"ID": "GPU", "ErrorCapacity": 5,
+            "InfoErrorCapacity": 7}]})"));
+
+    const std::string binName = "GPU_0";
+    const auto binDir = fs::path(std::string(phosphor::logging::paths::error()) +
+                                 "/" + binName);
+    fs::remove_all(binDir);
+
+    // No bin and no folder yet, but the namespace of a configured class
+    // answers like an empty bin
+    auto [entryId, timestamp] = manager.getStats(binName);
+    EXPECT_EQ(entryId, 0);
+    EXPECT_EQ(timestamp, 0);
+    EXPECT_EQ(manager.getInfoLogCapacity(binName), 7);
+    EXPECT_TRUE(manager.deleteAll(binName, Entry::Level::Informational));
+    EXPECT_FALSE(fs::exists(binDir));
+
+    // The first log creates the bin and its folder with the class policy
+    manager.create("Test", Entry::Level::Informational,
+                   {{DEFAULT_BIN_KEY, binName}});
+    EXPECT_EQ(manager.binEntryMap[manager.lastEntryID()], binName);
+    EXPECT_TRUE(fs::exists(binDir));
+    EXPECT_EQ(manager.getBin(binName).errorCap, 5u);
+    EXPECT_EQ(manager.getBin(binName).errorInfoCap, 7u);
+    EXPECT_EQ(manager.getBin(binName).infoEntries.size(), 1u);
+
+    manager.eraseAll();
+    fs::remove_all(binDir);
+}
+
+TEST_F(TestNamespaceLogging, testDeviceClassUnknownNamespace)
+{
+    manager.parseClasses(nlohmann::json::parse(
+        R"({"Classes": [{"ID": "GPU", "ErrorCapacity": 5,
+            "InfoErrorCapacity": 7}]})"));
+
+    // A namespace of a class that is not configured is not found
+    EXPECT_THROW(manager.getStats("CPU_0"),
+                 sdbusplus::xyz::openbmc_project::Common::Error::
+                     ResourceNotFound);
+    EXPECT_THROW(manager.deleteAll("CPU_0", Entry::Level::Informational),
+                 sdbusplus::xyz::openbmc_project::Common::Error::
+                     ResourceNotFound);
+
+    // and its logs go to the default bin
+    manager.create("Test", Entry::Level::Informational,
+                   {{DEFAULT_BIN_KEY, "CPU_0"}});
+    EXPECT_EQ(manager.binEntryMap[manager.lastEntryID()], DEFAULT_BIN_NAME);
+
+    manager.eraseAll();
+}
+
+TEST_F(TestNamespaceLogging, testDeviceClassGetAllIsEmptyBeforeFirstLog)
+{
+    manager.parseClasses(nlohmann::json::parse(
+        R"({"Classes": [{"ID": "GPU", "ErrorCapacity": 5,
+            "InfoErrorCapacity": 7}]})"));
+
+    // A log in the default bin must not show up for a class instance
+    manager.create("Test", Entry::Level::Informational, {});
+    EXPECT_TRUE(
+        manager
+            .getAll("GPU_0", NamespaceIface::ResolvedFilterType::Unresolved)
+            .empty());
+
+    manager.eraseAll();
+}
+
+TEST_F(TestNamespaceLogging, testDeviceClassBinRestoredFromFolder)
+{
+    manager.parseClasses(nlohmann::json::parse(
+        R"({"Classes": [{"ID": "GPU", "ErrorCapacity": 5,
+            "InfoErrorCapacity": 7}]})"));
+
+    const auto binDir = fs::path(std::string(phosphor::logging::paths::error()) +
+                                 "/GPU_3");
+    fs::create_directories(binDir);
+
+    manager.restoreClassBins();
+    EXPECT_EQ(manager.getBin("GPU_3").name, "GPU_3");
+    EXPECT_EQ(manager.getBin("GPU_3").errorCap, 5u);
+
+    fs::remove_all(binDir);
+}
+
+TEST_F(TestNamespaceLogging, testLoadDeviceClasses)
+{
+    const auto dir = fs::temp_directory_path() / "plog_device_classes_test";
+    fs::create_directories(dir);
+    const auto missing = (dir / "missing.json").string();
+    const auto invalid = (dir / "invalid.json").string();
+    const auto valid = (dir / "valid.json").string();
+    std::ofstream(invalid) << "{\"Classes\": [";
+    std::ofstream(valid) << R"({"Classes": [{"ID": "HSC", "ErrorCapacity": 20,
+        "InfoErrorCapacity": 4, "PersistInfoLog": false}]})";
+
+    // A missing or broken file leaves the daemon without default classes
+    EXPECT_EQ(static_cast<int>(manager.loadDeviceClasses(missing)), 1);
+    EXPECT_EQ(static_cast<int>(manager.loadDeviceClasses(invalid)), 2);
+    EXPECT_EQ(manager.findClassPolicy("HSC_0"), nullptr);
+
+    EXPECT_EQ(static_cast<int>(manager.loadDeviceClasses(valid)), 0);
+    const auto* policy = manager.findClassPolicy("HSC_0");
+    ASSERT_NE(policy, nullptr);
+    EXPECT_EQ(policy->errorCap, 20u);
+    EXPECT_EQ(policy->errorInfoCap, 4u);
+    EXPECT_FALSE(policy->persistInfoLog);
+
+    fs::remove_all(dir);
 }
 
 } // namespace test

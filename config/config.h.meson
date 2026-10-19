@@ -21,6 +21,8 @@ static constexpr bool LG2_COMMIT_DBUS = @lg2_commit_dbus@;
 static constexpr bool LG2_COMMIT_JOURNAL = @lg2_commit_journal@;
 
 static constexpr auto RW_CONFIG_FILE_PATH = "@rw_config_file_path@";
+static constexpr auto DEVICE_CLASSES_FILE_PATH =
+    "@device_classes_file_path@";
 static constexpr auto LOG_PURGE_POLICY_DEFAULT = @log_purge_policy_default@;
 
 static constexpr auto LOG_STREAMER_SOCKET_PATH = "@log_streamer_socket_path@";
