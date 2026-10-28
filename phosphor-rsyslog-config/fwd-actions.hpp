@@ -38,7 +38,7 @@ class RsyslogFwdAction : public RsyslogFwdActionInherit
         RsyslogFwdActionInherit(
             bus, objPath.c_str(),
             RsyslogFwdActionInherit::action::emit_interface_added),
-        bus(bus), parent(parent)
+        parent(parent)
     {
         /* Modify without overriding conf files */
         RsyslogFwd::index(index);
@@ -85,7 +85,6 @@ class RsyslogFwdAction : public RsyslogFwdActionInherit
     }
 
   private:
-    sdbusplus::bus_t& bus;
     Conf* parent;
 };
 

@@ -9,8 +9,10 @@ namespace has no bin goes to the default bin.
 The class of a namespace is its name with the all-numeric `_`-separated parts
 removed: `GPU_0` is class `GPU`, `GPU_0_XID` is `GPU_XID`, `IO_Board_2` is
 `IO_Board`, `FWUpdate` is `FWUpdate`. Only letters, digits and `_` are
-accepted (the name becomes a folder name), so any other name never matches a
-class and goes to the default bin.
+accepted (the name becomes a folder name), a name is at most 64 characters, no
+`_`-separated part is empty and an all-numeric part has at most 4 digits. Any
+other name never matches a class and goes to the default bin. A name that is
+all numeric parts has no class either.
 
 ## Default device classes
 
@@ -43,4 +45,6 @@ listed in `Namespaces` always wins over a class. The platform json is optional.
 
 Until then the namespace answers like an empty bin: `GetStats` returns
 `(0, 0)`, `GetAll` returns no entries, `DeleteAll` succeeds. A namespace that
-matches no class keeps the earlier behaviour (`ResourceNotFound`, default bin).
+has no bin and matches no class keeps the earlier behavior: `GetStats` and
+`DeleteAll` return `ResourceNotFound`, `GetAll` returns the entries of the
+default bin and its logs go to the default bin.

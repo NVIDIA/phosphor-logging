@@ -113,11 +113,9 @@ int main(int argc, char* argv[])
               "{ERROR}",
               "ERROR", e);
     }
-#ifdef ENABLE_LOG_STREAMING
     if (!iMgr.startLogSocket())
     {
         lg2::error("Failed to start SEL Socket");
     }
-#endif
     return event.loop();
 }

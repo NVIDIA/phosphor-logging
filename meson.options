@@ -99,20 +99,6 @@ option(
 )
 
 option(
-    'enable_rsyslog_fwd_actions_conf',
-    type: 'boolean',
-    value: false,
-    description: 'Enable the creation of fwd actions conf files by phosphor-rsyslog-config',
-)
-
-option(
-    'enable_log_streaming',
-    type: 'boolean',
-    value: false,
-    description: 'Enable log socket',
-)
-
-option(
     'enable_erase_with_callback',
     type: 'boolean',
     value: false,

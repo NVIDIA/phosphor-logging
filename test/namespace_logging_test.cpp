@@ -20,8 +20,8 @@
 #include "log_manager.hpp"
 #include "paths.hpp"
 
-#include <sdbusplus/bus.hpp>
 #include <nlohmann/json.hpp>
+#include <sdbusplus/bus.hpp>
 #include <sdbusplus/test/sdbus_mock.hpp>
 #include <xyz/openbmc_project/Common/error.hpp>
 
@@ -358,8 +358,8 @@ TEST_F(TestNamespaceLogging, testDeviceClassBinCreatedOnFirstLog)
             "InfoErrorCapacity": 7}]})"));
 
     const std::string binName = "GPU_0";
-    const auto binDir = fs::path(std::string(phosphor::logging::paths::error()) +
-                                 "/" + binName);
+    const auto binDir = fs::path(
+        std::string(phosphor::logging::paths::error()) + "/" + binName);
     fs::remove_all(binDir);
 
     // No bin and no folder yet, but the namespace of a configured class
@@ -391,12 +391,12 @@ TEST_F(TestNamespaceLogging, testDeviceClassUnknownNamespace)
             "InfoErrorCapacity": 7}]})"));
 
     // A namespace of a class that is not configured is not found
-    EXPECT_THROW(manager.getStats("CPU_0"),
-                 sdbusplus::xyz::openbmc_project::Common::Error::
-                     ResourceNotFound);
-    EXPECT_THROW(manager.deleteAll("CPU_0", Entry::Level::Informational),
-                 sdbusplus::xyz::openbmc_project::Common::Error::
-                     ResourceNotFound);
+    EXPECT_THROW(
+        manager.getStats("CPU_0"),
+        sdbusplus::xyz::openbmc_project::Common::Error::ResourceNotFound);
+    EXPECT_THROW(
+        manager.deleteAll("CPU_0", Entry::Level::Informational),
+        sdbusplus::xyz::openbmc_project::Common::Error::ResourceNotFound);
 
     // and its logs go to the default bin
     manager.create("Test", Entry::Level::Informational,
@@ -415,11 +415,35 @@ TEST_F(TestNamespaceLogging, testDeviceClassGetAllIsEmptyBeforeFirstLog)
     // A log in the default bin must not show up for a class instance
     manager.create("Test", Entry::Level::Informational, {});
     EXPECT_TRUE(
-        manager
-            .getAll("GPU_0", NamespaceIface::ResolvedFilterType::Unresolved)
+        manager.getAll("GPU_0", NamespaceIface::ResolvedFilterType::Unresolved)
             .empty());
 
     manager.eraseAll();
+}
+
+TEST_F(TestNamespaceLogging, testDeviceClassWrongTypedFieldsSkipped)
+{
+    EXPECT_NO_THROW(manager.parseClasses(nlohmann::json::parse(
+        R"({"Classes": [
+            {"ID": "A", "ErrorCapacity": "50"},
+            {"ID": "B", "ErrorCapacity": -1},
+            {"ID": "C", "ErrorCapacity": 4294967296},
+            {"ID": "D", "InfoErrorCapacity": 1.5},
+            {"ID": "E", "DefaultCapacity": [1]},
+            {"ID": "F", "PersistInfoLog": "no"},
+            {"ID": "G", "ErrorCapacity": 4294967295, "InfoErrorCapacity": 2,
+             "DefaultCapacity": 3, "PersistInfoLog": false}]})")));
+
+    for (const char* nspace : {"A_0", "B_0", "C_0", "D_0", "E_0", "F_0"})
+    {
+        EXPECT_EQ(manager.findClassPolicy(nspace), nullptr) << nspace;
+    }
+    const auto* policy = manager.findClassPolicy("G_0");
+    ASSERT_NE(policy, nullptr);
+    EXPECT_EQ(policy->errorCap, 4294967295u);
+    EXPECT_EQ(policy->errorInfoCap, 2u);
+    EXPECT_EQ(policy->defaultCapacity, 3u);
+    EXPECT_FALSE(policy->persistInfoLog);
 }
 
 TEST_F(TestNamespaceLogging, testDeviceClassBinRestoredFromFolder)
@@ -428,8 +452,8 @@ TEST_F(TestNamespaceLogging, testDeviceClassBinRestoredFromFolder)
         R"({"Classes": [{"ID": "GPU", "ErrorCapacity": 5,
             "InfoErrorCapacity": 7}]})"));
 
-    const auto binDir = fs::path(std::string(phosphor::logging::paths::error()) +
-                                 "/GPU_3");
+    const auto binDir =
+        fs::path(std::string(phosphor::logging::paths::error()) + "/GPU_3");
     fs::create_directories(binDir);
 
     manager.restoreClassBins();

@@ -26,7 +26,6 @@ using InvalidArgument =
 using Argument = xyz::openbmc_project::Common::InvalidArgument;
 
 constexpr size_t MAX_ENTRIES = 10;
-constexpr size_t MAX_LOGTYPES = 4;
 constexpr size_t INVALID_INDEX = static_cast<size_t>(-1);
 
 const std::unordered_map<RsyslogFwd::LogType, std::string> logTypeStringMap = {

@@ -78,11 +78,8 @@ inline auto getLevel(const std::string& errMsg)
  */
 Manager::Manager(sdbusplus::bus_t& bus, const std::string& objPath) :
     details::ServerObject<details::ManagerIface>(bus, objPath.c_str()),
-#ifdef ENABLE_LOG_STREAMING
-    logSocket(LOG_STREAMER_SOCKET_PATH),
-#endif
-    busLog(bus), entryId(0), lastCreatedTimeStamp(0),
-    fwVersion(readFWVersion()),
+    logSocket(LOG_STREAMER_SOCKET_PATH), busLog(bus), entryId(0),
+    lastCreatedTimeStamp(0), fwVersion(readFWVersion()),
     defaultBin(DEFAULT_BIN_NAME, ERROR_CAP, ERROR_INFO_CAP,
                phosphor::logging::paths::error(), true, 0),
     _autoPurgeResolved(LOG_PURGE_POLICY_DEFAULT),
@@ -102,9 +99,7 @@ Manager::Manager(sdbusplus::bus_t& bus, const std::string& objPath) :
 
 Manager::~Manager()
 {
-#ifdef ENABLE_LOG_STREAMING
     logSocket.stop();
-#endif
     // Not gated on REDUNDANT_BMC: setupErrorFileWatch() is a public method
     // that can be called independently of the compile-time option, so release
     // the descriptors whenever the watch was actually established.
@@ -578,7 +573,6 @@ auto Manager::createEntry(std::string errMsg, Entry::Level errLvl,
         serializeJSON(*e);
     }
 
-#ifdef ENABLE_LOG_STREAMING
     if (entryBinName == "/SEL")
     {
         /* Creates SEL data for streaming */
@@ -591,7 +585,6 @@ auto Manager::createEntry(std::string errMsg, Entry::Level errLvl,
             lg2::error("Failed to stream SEL data");
         }
     }
-#endif
 
     // Entry written; drop oldest (crash here leaves cap+1, pruned on boot).
     if (circularEvictAfterWrite)

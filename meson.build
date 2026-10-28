@@ -13,17 +13,9 @@ project(
     version: '1.0.0',
 )
 
-enable_rsyslog_fwd_actions_conf = get_option('enable_rsyslog_fwd_actions_conf')
-enable_log_streaming = get_option('enable_log_streaming')
 enable_erase_with_callback = get_option('enable_erase_with_callback')
 
 # Define a preprocessor macro if the option is enabled
-if enable_rsyslog_fwd_actions_conf
-    add_project_arguments('-DENABLE_RSYSLOG_FWD_ACTIONS_CONF', language: 'cpp')
-endif
-if enable_log_streaming
-    add_project_arguments('-DENABLE_LOG_STREAMING', language: 'cpp')
-endif
 if enable_erase_with_callback
     add_project_arguments('-DENABLE_ERASE_WITH_CALLBACK', language: 'cpp')
 endif
@@ -172,11 +164,6 @@ log_manager_ext_inc = []
 subdir('extensions')
 subdir('phosphor-rsyslog-config')
 
-log_sources = []
-if enable_log_streaming
-    log_sources = ['log_streamer.cpp']
-endif
-
 # Generate daemon.
 log_manager_sources = [
     generated_sources,
@@ -190,6 +177,7 @@ log_manager_sources = [
         'elog_serialize.cpp',
         'extensions.cpp',
         'log_manager.cpp',
+        'log_streamer.cpp',
         'paths.cpp',
         'util.cpp',
     ),
@@ -208,7 +196,6 @@ log_manager_deps = [
 ]
 log_manager_lib = static_library(
     'log_manager_lib',
-    log_sources,
     log_manager_sources,
     log_manager_ext_sources,
     include_directories: [

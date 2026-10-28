@@ -85,7 +85,6 @@ void selPrepare([[maybe_unused]] internal::Manager& logManager,
         {
             additionalData.emplace("SEL_RECORD_ID",
                                    std::to_string(selRecordId));
-#ifdef ENABLE_LOG_STREAMING
             /* Creates SEL data for streaming */
             std::string msg = " SelRecordId:" + std::to_string(selRecordId);
             /* Stream SEL data */
@@ -94,7 +93,6 @@ void selPrepare([[maybe_unused]] internal::Manager& logManager,
             {
                 lg2::error("Failed to stream SEL data");
             }
-#endif
             selRecordId++;
             // Wrap around if selRecordId exceeds uint16_t max value
             if (selRecordId >= std::numeric_limits<uint16_t>::max())

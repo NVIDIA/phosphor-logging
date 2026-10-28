@@ -1,5 +1,7 @@
 # List of source files
 sources = [
+    'conf.cpp',
+    'fwd-actions.cpp',
     'main.cpp',
     'server-conf.cpp',
     '../elog_meta.cpp',
@@ -7,11 +9,6 @@ sources = [
     elog_process_gen,
     callouts_gen,
 ]
-
-# Conditionally add source files
-if enable_rsyslog_fwd_actions_conf
-    sources += ['conf.cpp', 'fwd-actions.cpp']
-endif
 
 # Define the executable
 executable(

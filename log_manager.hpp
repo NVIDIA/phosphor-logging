@@ -6,16 +6,14 @@
 #include "bmc_pos_mgr.hpp"
 #include "elog_block.hpp"
 #include "elog_entry.hpp"
+#include "log_streamer.hpp"
 #include "paths.hpp"
 #include "util.hpp"
-#include "xyz/openbmc_project/Logging/Internal/Manager/server.hpp"
-#ifdef ENABLE_LOG_STREAMING
-#include "log_streamer.hpp"
-#endif
 #include "xyz/openbmc_project/Collection/DeleteAll/server.hpp"
 #include "xyz/openbmc_project/Logging/Capacity/server.hpp"
 #include "xyz/openbmc_project/Logging/Create/server.hpp"
 #include "xyz/openbmc_project/Logging/Entry/server.hpp"
+#include "xyz/openbmc_project/Logging/Internal/Manager/server.hpp"
 #include "xyz/openbmc_project/Logging/Namespace/server.hpp"
 #include "xyz/openbmc_project/Logging/event.hpp"
 
@@ -30,6 +28,7 @@
 #include <xyz/openbmc_project/Common/File/error.hpp>
 
 #include <fstream>
+#include <limits>
 #include <list>
 #include <map>
 #include <vector>
@@ -285,15 +284,46 @@ class Manager : public details::ServerObject<details::ManagerIface>
                 continue;
             }
 
-            uint32_t errorCap = item.value("ErrorCapacity", 0U);
-            uint32_t errorInfoCap = item.value("InfoErrorCapacity", 0U);
-            bool persistInfoLog = item.value("PersistInfoLog", true);
-            uint32_t defaultCapacity = item.value("DefaultCapacity", 0U);
+            // A field of the wrong type skips the class instead of throwing
+            const auto capacity = [&item](const char* key, size_t& value) {
+                if (!item.contains(key))
+                {
+                    return true;
+                }
+                const auto& field = item[key];
+                if (!field.is_number_unsigned() ||
+                    field.get<uint64_t>() >
+                        std::numeric_limits<uint32_t>::max())
+                {
+                    return false;
+                }
+                value = field.get<size_t>();
+                return true;
+            };
+            size_t errorCap = 0;
+            size_t errorInfoCap = 0;
+            size_t defaultCapacity = 0;
+            bool persistInfoLog = true;
+            bool persistValid = !item.contains("PersistInfoLog") ||
+                                item["PersistInfoLog"].is_boolean();
+            if (!persistValid || !capacity("ErrorCapacity", errorCap) ||
+                !capacity("InfoErrorCapacity", errorInfoCap) ||
+                !capacity("DefaultCapacity", defaultCapacity))
+            {
+                lg2::error("Ignoring device class {CLASS} with invalid fields",
+                           "CLASS", id);
+                continue;
+            }
+            if (item.contains("PersistInfoLog"))
+            {
+                persistInfoLog = item["PersistInfoLog"].get<bool>();
+            }
 
             binClasses.insert_or_assign(
                 id, phosphor::logging::internal::Bin(
-                        id, errorCap, errorInfoCap, "", persistInfoLog,
-                        defaultCapacity));
+                        id, static_cast<uint32_t>(errorCap),
+                        static_cast<uint32_t>(errorInfoCap), "", persistInfoLog,
+                        static_cast<uint32_t>(defaultCapacity)));
         }
     }
 
@@ -305,7 +335,7 @@ class Manager : public details::ServerObject<details::ManagerIface>
      * @return 0 on success, non-zero when the file cannot be used (the
      *         daemon then runs without default classes)
      */
-    uint32_t loadDeviceClasses(const std::string& jsonPath)
+    int loadDeviceClasses(const std::string& jsonPath)
     {
         std::ifstream jsonStream(jsonPath);
         if (!jsonStream.is_open())
@@ -822,7 +852,6 @@ class Manager : public details::ServerObject<details::ManagerIface>
 
     /** @brief Persistent map of entry id to bin Name */
     std::map<uint32_t, std::string> binEntryMap;
-#ifdef ENABLE_LOG_STREAMING
     /** @brief Starts SEL streaming */
     bool startLogSocket()
     {
@@ -831,7 +860,6 @@ class Manager : public details::ServerObject<details::ManagerIface>
 
     /** @brief Socket for SEL logging */
     LogStreamer logSocket;
-#endif
 
   private:
     /** @brief Persistent map of namespaces structure and their strings */

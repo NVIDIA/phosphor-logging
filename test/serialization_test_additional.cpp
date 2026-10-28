@@ -1075,10 +1075,9 @@ TEST_F(TestSerialization, DeserializeCorruptFile)
                 !std::filesystem::exists(savedCorrupt));
 }
 
-#ifdef ENABLE_LOG_STREAMING
 /**
  * startLogSocket(): cover private method via friend; starts SEL streaming
- * socket. Build with -Denable_log_streaming=true to include this test.
+ * socket.
  */
 TEST_F(TestSerialization, LogManagerStartLogSocket)
 {
@@ -1086,7 +1085,6 @@ TEST_F(TestSerialization, LogManagerStartLogSocket)
     // In test env socket may or may not connect; we only need to cover the call
     EXPECT_TRUE(started || !started);
 }
-#endif
 
 } // namespace test
 } // namespace logging
