@@ -17,9 +17,12 @@
 
 #include "log_streamer.hpp"
 
+#include <sys/time.h>
+
 #include <phosphor-logging/lg2.hpp>
 #include <xyz/openbmc_project/Common/error.hpp>
 
+#include <cerrno>
 #include <csignal>
 #include <cstdint>
 #include <cstring>
@@ -34,24 +37,44 @@ namespace logging
 bool LogStreamer::start()
 {
     sockfd = createSocket();
-    return sockfd != -1;
+    if (sockfd == -1)
+    {
+        return false;
+    }
+    stopping = false;
+    sender = std::thread(&LogStreamer::senderLoop, this);
+    return true;
 }
 
 void LogStreamer::stop()
 {
-    if (sockfd != -1)
     {
-        closeSocket();
-        lg2::info("Socket closed gracefully");
+        std::lock_guard<std::mutex> lock(mutex);
+        stopping = true;
     }
+    queued.notify_all();
+    /* Wait until senderLoop has left sendto() before closing sockfd.
+     * joinable() is false when start() failed or stop() already ran;
+     * Manager and ~LogStreamer both call stop(). */
+    if (sender.joinable())
+    {
+        sender.join();
+    }
+    std::lock_guard<std::mutex> lock(mutex);
+    closeSocket();
 }
 
 bool LogStreamer::sendMessage(const std::vector<uint8_t>& message)
 {
     /* Maximum binary size 64K */
     constexpr std::size_t MAX_MESSAGE_SIZE = 65536;
+    /* Bound the queue so a stuck rsyslog cannot grow it until the BMC runs
+     * out of memory. The SEL entry is already committed before sendMessage().
+     */
+    constexpr std::size_t maxQueueDepth = 4096;
 
-    if (sockfd == -1)
+    std::lock_guard<std::mutex> lock(mutex);
+    if (stopping || sockfd == -1)
     {
         lg2::error("Socket is not connected");
         return false;
@@ -64,15 +87,15 @@ bool LogStreamer::sendMessage(const std::vector<uint8_t>& message)
         return false;
     }
 
-    ssize_t bytesSent =
-        sendto(sockfd, message.data(), message.size(), 0,
-               (struct sockaddr*)&serverAddr, sizeof(serverAddr));
-    if (bytesSent == -1)
+    if (queue.size() >= maxQueueDepth)
     {
-        lg2::error("Failed to send message: {ERROR}", "ERROR", strerror(errno));
+        lg2::error("SEL stream queue is full, dropping {SIZE} bytes", "SIZE",
+                   message.size());
         return false;
     }
-    lg2::info("Sent {BYTES} bytes", "BYTES", bytesSent);
+
+    queue.push_back(message);
+    queued.notify_one();
     return true;
 }
 
@@ -121,6 +144,21 @@ int LogStreamer::createSocket()
     strncpy(serverAddr.sun_path, socketPath.c_str(),
             sizeof(serverAddr.sun_path) - 1);
 
+    /* A full rsyslog queue blocks sendto() forever, so stop() could not
+     * join the sender thread. Bound that wait. */
+    constexpr int sendTimeoutMs = 200;
+    struct timeval sendTimeout;
+    sendTimeout.tv_sec = 0;
+    sendTimeout.tv_usec = sendTimeoutMs * 1000;
+    if (setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &sendTimeout,
+                   sizeof(sendTimeout)) == -1)
+    {
+        lg2::error("Failed to set send timeout: {ERROR}", "ERROR",
+                   strerror(errno));
+        close(sockfd);
+        return -1;
+    }
+
     return sockfd;
 }
 
@@ -130,6 +168,47 @@ void LogStreamer::closeSocket()
     {
         close(sockfd);
         sockfd = -1;
+        lg2::info("Socket closed gracefully");
+    }
+}
+
+void LogStreamer::senderLoop()
+{
+    std::unique_lock<std::mutex> lock(mutex);
+    while (!stopping)
+    {
+        queued.wait(lock, [this] { return stopping || !queue.empty(); });
+        if (stopping || queue.empty())
+        {
+            break;
+        }
+
+        std::vector<uint8_t> message = std::move(queue.front());
+        queue.pop_front();
+        lock.unlock();
+
+        bool delivered = false;
+        while (!delivered && !stopping)
+        {
+            ssize_t bytesSent =
+                sendto(sockfd, message.data(), message.size(), 0,
+                       (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+            if (bytesSent >= 0)
+            {
+                lg2::info("Sent {BYTES} bytes", "BYTES", bytesSent);
+                delivered = true;
+            }
+            else if (errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK)
+            {
+                /* ECONNREFUSED, EMSGSIZE, and other errors will not succeed
+                 * by retrying this datagram. Drop it so the queue can move. */
+                lg2::error("Dropping SEL stream message: {ERROR}", "ERROR",
+                           strerror(errno));
+                break;
+            }
+        }
+
+        lock.lock();
     }
 }
 
