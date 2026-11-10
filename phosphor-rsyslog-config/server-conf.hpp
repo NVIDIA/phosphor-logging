@@ -13,6 +13,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <variant>
 #include <vector>
 
@@ -26,6 +27,34 @@ using RsyslogClient =
     sdbusplus::xyz::openbmc_project::Logging::server::RsyslogClient;
 using Iface = sdbusplus::server::object_t<NetworkClient, RsyslogClient>;
 namespace sdbusRule = sdbusplus::bus::match::rules;
+
+namespace internal
+{
+/** @brief rsyslog TLS netstream driver line: OpenSSL (lmnsd_ossl). */
+inline constexpr std::string_view tlsDriverLine =
+    "$DefaultNetstreamDriver ossl";
+/** @brief GnuTLS driver line written by older images; no longer built. */
+inline constexpr std::string_view legacyTlsDriverLine =
+    "$DefaultNetstreamDriver gtls";
+
+/** @brief Result of migrateTlsDriver(). */
+enum class TlsMigration
+{
+    unchanged,    ///< nothing to change, or the file couldn't be updated
+    disabledOnly, ///< only a "# Disabled: " driver line was switched
+    active,       ///< a driver line rsyslog loads was switched
+};
+
+/** @brief Switch a GnuTLS driver line in an existing config file to OpenSSL.
+ *  @details /etc survives a firmware update, so a config written by an
+ *  older image may still name "gtls", which this image no longer ships.
+ *  Only the "$DefaultNetstreamDriver" line is changed (disabled or not);
+ *  every other line is left as is. rsyslog needs a restart only for
+ *  TlsMigration::active.
+ *  @param[in] filePath - rsyslog remote logging config file
+ */
+TlsMigration migrateTlsDriver(const char* filePath);
+} // namespace internal
 
 /** @class Server
  *  @brief Configuration for rsyslog server

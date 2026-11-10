@@ -597,6 +597,130 @@ TEST_F(TestRsyslogServerConfExtended, ClearAddressWithEmptyString)
     EXPECT_EQ(server->address(), "");
 }
 
+// ============================================================================
+// Tests for the OpenSSL TLS driver and the gtls -> ossl migration
+// ============================================================================
+
+using phosphor::rsyslog_config::internal::migrateTlsDriver;
+using phosphor::rsyslog_config::internal::TlsMigration;
+
+TEST_F(TestRsyslogServerConfExtended, RestoreWithOsslTLSConfig)
+{
+    createConfigFile("$DefaultNetstreamDriver ossl\n"
+                     "$ActionSendStreamDriverMode 1\n"
+                     "$ActionSendStreamDriverAuthMode anon\n"
+                     "*.* @@192.168.1.201:6514\n");
+
+    MockServerExtended testServer(
+        bus, "/xyz/openbmc_project/logging/config/remote_restore_ossl",
+        configFilePath.c_str());
+
+    EXPECT_EQ(testServer.address(), "192.168.1.201");
+    EXPECT_EQ(testServer.port(), 6514);
+    EXPECT_TRUE(testServer.tls());
+}
+
+TEST_F(TestRsyslogServerConfExtended, WriteConfigUsesOpenSslDriver)
+{
+    EXPECT_CALL(*server, restart()).Times(testing::AtLeast(0));
+
+    server->address("192.168.1.10");
+    server->port(6514);
+    server->tls(true);
+
+    auto content = readConfigFile();
+    EXPECT_NE(content.find("$DefaultNetstreamDriver ossl\n"),
+              std::string::npos);
+    EXPECT_EQ(content.find("gtls"), std::string::npos);
+}
+
+TEST_F(TestRsyslogServerConfExtended, MigrateTlsDriverChangesOnlyDriverLine)
+{
+    const std::string before =
+        "*.* /dev/null\n"
+        "$ModLoad imuxsock\n"
+        "$ModLoad omfwd\n"
+        "$DefaultNetstreamDriver gtls\n"
+        "$ActionSendStreamDriverAuthMode anon\n"
+        "$ActionSendStreamDriverMode 1\n"
+        "daemon.warning @@10.0.0.1:6514;"
+        "RSYSLOG_TraditionalForwardFormat\n"
+        "\n";
+    createConfigFile(before);
+
+    EXPECT_EQ(migrateTlsDriver(configFilePath.c_str()), TlsMigration::active);
+
+    std::string expected = before;
+    expected.replace(expected.find("gtls"), 4, "ossl");
+    EXPECT_EQ(readConfigFile(), expected);
+    EXPECT_FALSE(fs::exists(configFilePath + ".tmp"));
+}
+
+TEST_F(TestRsyslogServerConfExtended, MigrateTlsDriverKeepsFileMode)
+{
+    createConfigFile("$DefaultNetstreamDriver gtls\n*.* @@10.0.0.1:6514\n");
+    fs::permissions(configFilePath,
+                    fs::perms::owner_read | fs::perms::owner_write);
+
+    EXPECT_EQ(migrateTlsDriver(configFilePath.c_str()), TlsMigration::active);
+    EXPECT_EQ(fs::status(configFilePath).permissions() & fs::perms::all,
+              fs::perms::owner_read | fs::perms::owner_write);
+    EXPECT_EQ(readConfigFile(),
+              "$DefaultNetstreamDriver ossl\n*.* @@10.0.0.1:6514\n");
+}
+
+TEST_F(TestRsyslogServerConfExtended, MigrateTlsDriverDisabledOnly)
+{
+    createConfigFile("*.* /dev/null\n"
+                     "# Disabled: $DefaultNetstreamDriver gtls\n"
+                     "# Disabled: *.* @@10.0.0.1:6514\n");
+
+    EXPECT_EQ(migrateTlsDriver(configFilePath.c_str()),
+              TlsMigration::disabledOnly);
+    EXPECT_EQ(readConfigFile(), "*.* /dev/null\n"
+                                "# Disabled: $DefaultNetstreamDriver ossl\n"
+                                "# Disabled: *.* @@10.0.0.1:6514\n");
+}
+
+TEST_F(TestRsyslogServerConfExtended, MigrateTlsDriverActiveWinsOverDisabled)
+{
+    createConfigFile("# Disabled: $DefaultNetstreamDriver gtls\n"
+                     "$DefaultNetstreamDriver gtls\n");
+
+    EXPECT_EQ(migrateTlsDriver(configFilePath.c_str()), TlsMigration::active);
+    EXPECT_EQ(readConfigFile(), "# Disabled: $DefaultNetstreamDriver ossl\n"
+                                "$DefaultNetstreamDriver ossl\n");
+}
+
+TEST_F(TestRsyslogServerConfExtended, MigrateTlsDriverNoChangeWhenAlreadyOssl)
+{
+    const std::string content =
+        "$DefaultNetstreamDriver ossl\n*.* @@10.0.0.1:6514\n";
+    createConfigFile(content);
+
+    EXPECT_EQ(migrateTlsDriver(configFilePath.c_str()),
+              TlsMigration::unchanged);
+    EXPECT_EQ(readConfigFile(), content);
+}
+
+TEST_F(TestRsyslogServerConfExtended, MigrateTlsDriverNoChangeWithoutTls)
+{
+    const std::string content = "*.* @@10.0.0.1:514\n";
+    createConfigFile(content);
+
+    EXPECT_EQ(migrateTlsDriver(configFilePath.c_str()),
+              TlsMigration::unchanged);
+    EXPECT_EQ(readConfigFile(), content);
+}
+
+TEST_F(TestRsyslogServerConfExtended, MigrateTlsDriverMissingFile)
+{
+    fs::remove(configFilePath);
+    EXPECT_EQ(migrateTlsDriver(configFilePath.c_str()),
+              TlsMigration::unchanged);
+    EXPECT_FALSE(fs::exists(configFilePath));
+}
+
 } // namespace test
 } // namespace logging
 } // namespace phosphor

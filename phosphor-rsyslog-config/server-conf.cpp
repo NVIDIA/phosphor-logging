@@ -8,7 +8,10 @@
 #include <phosphor-logging/elog.hpp>
 #include <phosphor-logging/lg2.hpp>
 
+#include <filesystem>
 #include <fstream>
+#include <sstream>
+#include <string_view>
 #if __has_include("../../usr/include/phosphor-logging/elog-errors.hpp")
 #include "../../usr/include/phosphor-logging/elog-errors.hpp"
 #else
@@ -36,6 +39,107 @@ using namespace sdbusplus::error::xyz::openbmc_project::common;
 
 namespace internal
 {
+
+namespace
+{
+constexpr std::string_view disabledMarker = "# Disabled: ";
+
+/** @brief Whether a config line selects a TLS netstream driver: the
+ *         OpenSSL one written now, or the GnuTLS one older images wrote.
+ */
+bool isTlsDriverLine(std::string_view line)
+{
+    return line == tlsDriverLine || line == legacyTlsDriverLine;
+}
+} // namespace
+
+TlsMigration migrateTlsDriver(const char* filePath)
+{
+    std::ifstream in(filePath);
+    if (!in)
+    {
+        return TlsMigration::unchanged;
+    }
+
+    std::ostringstream out;
+    auto result = TlsMigration::unchanged;
+    std::string line;
+    while (std::getline(in, line))
+    {
+        std::string_view body = line;
+        std::string prefix;
+        if (body.starts_with(disabledMarker))
+        {
+            prefix = disabledMarker;
+            body.remove_prefix(disabledMarker.size());
+        }
+
+        // Only the driver line changes; everything else is kept as is
+        if (body == legacyTlsDriverLine)
+        {
+            line = prefix + std::string(tlsDriverLine);
+            // A disabled line isn't loaded by the running rsyslog
+            if (prefix.empty())
+            {
+                result = TlsMigration::active;
+            }
+            else if (result == TlsMigration::unchanged)
+            {
+                result = TlsMigration::disabledOnly;
+            }
+        }
+        out << line << '\n';
+    }
+    // getline stops on EOF or on an I/O error; don't rewrite from a partial
+    // read, that would drop the rest of the config
+    if (in.bad())
+    {
+        lg2::error("Failed to read {PATH}", "PATH", filePath);
+        return TlsMigration::unchanged;
+    }
+
+    if (result == TlsMigration::unchanged)
+    {
+        return result;
+    }
+
+    // Write to a temp file and rename so a crash can't leave a partial file
+    const std::string tmpPath = std::string(filePath) + ".tmp";
+    std::error_code ec;
+    {
+        std::ofstream tmp(tmpPath, std::ios::trunc);
+        tmp << out.str();
+        tmp.close();
+        if (!tmp)
+        {
+            lg2::error("Failed to write {PATH}", "PATH", tmpPath);
+            std::filesystem::remove(tmpPath, ec);
+            return TlsMigration::unchanged;
+        }
+    }
+    // The temp file gets the umask mode; keep the original file's mode
+    const auto perms = std::filesystem::status(filePath, ec).permissions();
+    if (!ec)
+    {
+        std::filesystem::permissions(tmpPath, perms, ec);
+    }
+    if (ec)
+    {
+        lg2::error("Failed to copy the mode of {PATH}: {ERR}", "PATH", filePath,
+                   "ERR", ec.message());
+        std::filesystem::remove(tmpPath, ec);
+        return TlsMigration::unchanged;
+    }
+    std::filesystem::rename(tmpPath, filePath, ec);
+    if (ec)
+    {
+        lg2::error("Failed to replace {PATH}: {ERR}", "PATH", filePath, "ERR",
+                   ec.message());
+        std::filesystem::remove(tmpPath, ec);
+        return TlsMigration::unchanged;
+    }
+    return result;
+}
 
 bool isIPv6Address(const std::string& addr)
 {
@@ -115,7 +219,7 @@ std::optional<std::tuple<
             continue;
 
         // Check for TLS-specific lines
-        if (line == "$DefaultNetstreamDriver gtls" ||
+        if (isTlsDriverLine(line) ||
             line == "$ActionSendStreamDriverAuthMode anon" ||
             line == "$ActionSendStreamDriverMode 1")
         {
@@ -536,7 +640,7 @@ void Server::writeConfig(
 
         if (tls)
         {
-            writeLine("$DefaultNetstreamDriver gtls");
+            writeLine(std::string(internal::tlsDriverLine));
             writeLine("$ActionSendStreamDriverAuthMode anon");
             writeLine("$ActionSendStreamDriverMode 1");
         }
