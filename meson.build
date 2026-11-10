@@ -163,6 +163,9 @@ log_manager_ext_inc = []
 
 subdir('extensions')
 subdir('phosphor-rsyslog-config')
+if get_option('journal-config').allowed()
+    subdir('phosphor-journal-config')
+endif
 
 # Generate daemon.
 log_manager_sources = [

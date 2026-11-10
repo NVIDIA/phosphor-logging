@@ -68,6 +68,30 @@ foreach t : tests
     )
 endforeach
 
+# phosphor-journal-config drop-in helpers plus JournalConfig with D-Bus
+# and systemd/EventLog mocked. Needs PDI Logging.Journal.
+if get_option('journal-config').allowed()
+    test(
+        'test_journal_config',
+        executable(
+            'test-journal-config',
+            'journal_config_test.cpp',
+            'common.cpp',
+            '../phosphor-journal-config/conf.cpp',
+            '../phosphor-journal-config/journal.cpp',
+            dependencies: [
+                conf_h_dep,
+                gmock_dep,
+                gtest_dep,
+                pdi_dep,
+                phosphor_logging_dep,
+                sdbusplus_dep,
+            ],
+            include_directories: include_directories('..', '../gen'),
+        ),
+    )
+endif
+
 log_create_extensions_test = executable(
     'test-log-create-extensions',
     'log_create_extensions_test.cpp',

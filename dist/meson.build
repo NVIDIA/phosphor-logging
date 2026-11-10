@@ -2,17 +2,26 @@ systemd_system_unit_dir = dependency('systemd').get_variable(
     'systemd_system_unit_dir',
 )
 
+units = [
+    'xyz.openbmc_project.Logging.service',
+    'xyz.openbmc_project.Syslog.Config.service',
+]
+busconf = [
+    'busconfig/phosphor-logging.conf',
+    'busconfig/phosphor-rsyslog-config.conf',
+]
+if get_option('journal-config').allowed()
+    units += 'xyz.openbmc_project.Journal.Config.service'
+    busconf += 'busconfig/phosphor-journal-config.conf'
+endif
+
 install_data(
-    [
-        'xyz.openbmc_project.Logging.service',
-        'xyz.openbmc_project.Syslog.Config.service',
-    ],
+    units,
     install_dir: systemd_system_unit_dir,
 )
 
 install_data(
-    'busconfig/phosphor-logging.conf',
-    'busconfig/phosphor-rsyslog-config.conf',
+    busconf,
     install_dir: get_option('datadir') / 'dbus-1' / 'system.d',
 )
 

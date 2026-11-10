@@ -35,6 +35,13 @@ option(
     description: 'Maximum number of errors to store per error class in NVIDIA Platform Event extension',
 )
 
+option(
+    'journal-config',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Build phosphor-journal-conf (journald MaxLevelStore)',
+)
+
 option('yamldir', type: 'string', description: 'Path to YAML')
 option(
     'callout_yaml',

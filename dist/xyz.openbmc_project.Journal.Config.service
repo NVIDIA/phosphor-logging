@@ -1,0 +1,13 @@
+[Unit]
+Description=Journald MaxLevelStore config
+ConditionPathExists=/usr/lib/systemd/journald.conf.d/journald-maxlevel-policy.conf
+
+[Service]
+ExecStart=/usr/bin/phosphor-journal-conf
+Restart=always
+RestartSec=10
+Type=dbus
+BusName=xyz.openbmc_project.Journal.Config
+
+[Install]
+WantedBy=multi-user.target

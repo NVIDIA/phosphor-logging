@@ -7,6 +7,10 @@ inline constexpr auto BMC_VERSION_FILE = "/etc/os-release";
 inline constexpr auto BUSNAME_LOGGING = "xyz.openbmc_project.Logging";
 inline constexpr auto BUSNAME_SYSLOG_CONFIG =
     "xyz.openbmc_project.Syslog.Config";
+inline constexpr auto BUSNAME_JOURNAL_CONFIG =
+    "xyz.openbmc_project.Journal.Config";
+inline constexpr auto BUSPATH_JOURNAL_CONFIG =
+    "/xyz/openbmc_project/logging/journal";
 inline constexpr auto BUSPATH_REMOTE_LOGGING_CONFIG =
     "/xyz/openbmc_project/logging/config/remote";
 inline constexpr auto CALLOUT_FWD_ASSOCIATION = "callout";
